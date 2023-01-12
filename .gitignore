@@ -1,0 +1,7 @@
+*.o
+*.so
+_venv
+node_modules
+__pycache__
+dist
+out
