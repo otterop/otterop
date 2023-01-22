@@ -319,7 +319,7 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
         String className = identifiers.get(classNameIdx).getText();
         var rootPackage = identifiers.get(0).getText();
         var packageStr = String.join("/",
-                identifiers.subList(0,classNameIdx).stream().map(identifier -> identifier.getText())
+                identifiers.subList(1, classNameIdx).stream().map(identifier -> identifier.getText())
                         .collect(Collectors.toList())
         );
         if (importDomainMapping.containsKey(rootPackage)) {

@@ -34,7 +34,7 @@ public class GoTranspiler {
                 JavaParser parser = new JavaParser(tokenStream);
                 JavaParser.CompilationUnitContext cu = parser.compilationUnit();
                 var visitor = new GoParserVisitor(new HashMap<>(){{
-                    put("common", "emasab.com");
+                    put("otterop", "github.com/otterop/otterop/go");
                 }});
                 visitor.visit(cu);
                 visitor.printTo(System.out);
