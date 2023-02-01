@@ -214,8 +214,9 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
         var identifiers = qualifiedName.identifier();
         int classNameIdx = identifiers.size() - (isStatic ?  2 : 1);
         String className = identifiers.get(classNameIdx).getText();
-        var pythonPackage = String.join("_",
-                identifiers.subList(0,classNameIdx).stream().map(identifier -> identifier.getText())
+        var pythonPackage = String.join(".",
+                identifiers.subList(0, classNameIdx + 1).stream().map(identifier ->
+                                camelCaseToSnakeCase(identifier.getText()))
                         .collect(Collectors.toList())
         );
         var importStatement = "from " + pythonPackage + " import "+ className;

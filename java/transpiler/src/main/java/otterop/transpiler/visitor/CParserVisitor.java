@@ -8,6 +8,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
@@ -38,7 +39,6 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     private JavaParser.TypeTypeContext currentType = null;
     private boolean currentTypePointer = false;
     private String currentInstanceName;
-    private Set<String> imports = new LinkedHashSet<>();
     private Set<String> includes = new LinkedHashSet<>();
     private OutputStream outStream = new ByteArrayOutputStream();
     private Set<String> publicMethods = new LinkedHashSet<>();
@@ -51,6 +51,11 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     private Set<String> arrayArgs = new LinkedHashSet<>();
     private Map<String, JavaParser.TypeTypeContext> variableType = new LinkedHashMap<>();
     private PrintStream out = new PrintStream(outStream);
+    private boolean header = false;
+
+    public CParserVisitor(boolean header) {
+        this.header = header;
+    }
 
     private void detectMethods(JavaParser.ClassDeclarationContext ctx) {
         List<ParseTree> children = new ArrayList<>(ctx.children);
@@ -100,24 +105,36 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         fullClassName = packagePrefix + "_" + className;
         fullClassNames.put(className, fullClassName);
         fullClassNameType = fullClassName + "_t";
+
+        var includeStr = String.join("/",
+                Arrays.stream(fullClassName.split("_"))
+                        .map(identifier -> camelCaseToSnakeCase(identifier))
+                        .collect(Collectors.toList()));
+
         out.print(fullClassName);
-        out.print("_s {\n");
-        indents++;
-        for(var field: fields) {
-            out.print(INDENT.repeat(indents));
-            visitTypeType(field.typeType());
+        out.print("_s");
+        if (header) {
             out.print(" ");
-            visitVariableDeclaratorId(field.variableDeclarators()
-                    .variableDeclarator(0).variableDeclaratorId());
-            out.print(";\n");
+        } else {
+            out.print(" {\n");
+            indents++;
+            for (var field : fields) {
+                out.print(INDENT.repeat(indents));
+                visitTypeType(field.typeType());
+                out.print(" ");
+                visitVariableDeclaratorId(field.variableDeclarators()
+                        .variableDeclarator(0).variableDeclaratorId());
+                out.print(";\n");
+            }
+            indents--;
+            out.print("} ");
         }
-        indents--;
-        out.print("} ");
         out.print(fullClassNameType);
         out.println(";\n\n");
         if (constructor != null) {
             insideMethodDefinition = true;
-            visitConstructorDeclaration(constructor);
+            if (header)
+                visitConstructorDeclaration(constructor);
             insideMethodDefinition = false;
         }
         for(var method : methods) {
@@ -125,10 +142,15 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
             var methodName = method.identifier().getText();
             methodPublic = publicMethods.contains(methodName);
             methodStatic = staticMethods.contains(methodName);
-            visitMethodDeclaration(method);
+            if (header && methodPublic || !header && !methodPublic)
+                visitMethodDeclaration(method);
             insideMethodDefinition = false;
         }
-        super.visitClassBody(ctx.classBody());
+        if (!header) {
+            includes.add("#include <" + includeStr + ".h>");
+            super.visitClassBody(ctx.classBody());
+        }
+
         return null;
     }
 
@@ -416,8 +438,8 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
                         .collect(Collectors.joining("_"))
          + "_" + className;
 
-        var importStatement = "#include <" + includeStr + "/" + fileName + ".h>";
-        includes.add(importStatement);
+        var includeStatement = "#include <" + includeStr + "/" + fileName + ".h>";
+        if (header) includes.add(includeStatement);
         fullClassNames.put(className, prefix);
         if (isStatic) {
             var methodName = identifiers.get(classNameIdx + 1).getText();
@@ -550,8 +572,9 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     }
 
     public void printTo(PrintStream ps) {
-        for (String importStatement : imports) {
-            ps.println(INDENT.repeat(indents) + importStatement);
+        if (header) {
+            ps.println("#ifndef __" + fullClassName);
+            ps.println("#define __" + fullClassName);
         }
         for (String importStatement : includes) {
             ps.println(INDENT.repeat(indents) + importStatement);
@@ -559,11 +582,19 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         ps.println("");
         ps.print(outStream.toString());
         if (hasMain) {
-            ps.print("\n\nint main(int args_cnt, char *args_arr[]) {\n");
-            ps.print(INDENT + "args_cnt = args_cnt - 1;\n");
-            ps.print(INDENT + "char **args = args_arr + 1;\n");
-            ps.print(INDENT + fullClassName + "_main(args_cnt, args);\n");
-            ps.print("}");
+            ps.print("\n\nint main(int args_cnt, char *args_arr[])");
+            if (!header) {
+                ps.print(" {\n");
+                ps.print(INDENT + "args_cnt = args_cnt - 1;\n");
+                ps.print(INDENT + "char **args = args_arr + 1;\n");
+                ps.print(INDENT + fullClassName + "_main(args_cnt, args);\n");
+                ps.print("}");
+            } else {
+                ps.print(";\n");
+            }
+        }
+        if (header) {
+            ps.println("#endif");
         }
     }
 }

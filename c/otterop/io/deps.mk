@@ -1,8 +1,8 @@
-OTTEROP_IO_CONSOLE_OBJS:=otterop/io/console.o $(OTTEROP_LANG_STRING)
+OTTEROP_IO_CONSOLE_OBJS:=otterop/io/console.o $(OTTEROP_LANG_STRING_OBJS)
 
 OTTEROP_IO_LDFLAGS=
 OTTEROP_IO_LIBRARIES=
 OTTEROP_IO_INCLUDES=
 OTTEROP_IO_DEPENDENCIES=
 
-otterop/io/console.o: otterop/lang/string.o
+otterop/io/console.o: $(OTTEROP_LANG_STRING_OBJS)

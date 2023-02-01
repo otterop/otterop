@@ -1,4 +1,4 @@
-from otterop_lang.string import String
+from otterop.lang.string import String
 
 class Array:
     def __init__(self, list):

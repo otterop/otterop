@@ -6,4 +6,4 @@ OTTEROP_LANG_LIBRARIES=
 OTTEROP_LANG_INCLUDES=
 OTTEROP_LANG_DEPENDENCIES=
 
-otterop/lang/array.o: otterop/lang/string.o
+otterop/lang/array.o: $(OTTEROP_LANG_STRING_OBJS)
