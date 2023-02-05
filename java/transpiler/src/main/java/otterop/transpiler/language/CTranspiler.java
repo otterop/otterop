@@ -1,19 +1,11 @@
 package otterop.transpiler.language;
 
-import org.antlr.v4.runtime.CharStreams;
-import org.antlr.v4.runtime.CommonTokenStream;
-import org.antlr.v4.runtime.Lexer;
-import org.antlr.v4.runtime.TokenStream;
-import otterop.transpiler.antlr.JavaLexer;
 import otterop.transpiler.antlr.JavaParser;
 import otterop.transpiler.util.CaseUtil;
 import otterop.transpiler.visitor.CParserVisitor;
-import otterop.transpiler.visitor.TypeScriptParserVisitor;
 import otterop.transpiler.writer.FileWriter;
 
 import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
@@ -52,8 +44,7 @@ public class CTranspiler implements Transpiler {
                 throw new IllegalArgumentException();
         }
         clazzParts = Arrays.copyOf(clazzParts, clazzParts.length);
-        clazzParts[clazzParts.length - 1] = clazzParts[clazzParts.length - 1]
-                .toLowerCase()
+        clazzParts[clazzParts.length - 1] = CaseUtil.camelCaseToSnakeCase(clazzParts[clazzParts.length - 1])
                 .replaceAll("$", replacement);
         return String.join(File.separator, clazzParts);
     }

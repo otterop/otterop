@@ -1,14 +1,14 @@
 package otterop.transpiler.visitor;
 
+import otterop.transpiler.antlr.JavaParser;
+import otterop.transpiler.antlr.JavaParserBaseVisitor;
+
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
-
-import otterop.transpiler.antlr.JavaParser;
-import otterop.transpiler.antlr.JavaParserBaseVisitor;
 
 import static otterop.transpiler.util.CaseUtil.camelCaseToPascalCase;
 

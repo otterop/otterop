@@ -190,7 +190,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         if (methodPublic && !isMain) name = camelCaseToSnakeCase(name);
         out.print(fullClassName + "_" + name);
         visitFormalParameters(ctx.formalParameters());
-        if (insideMethodDefinition) out.print(";");
+        if (insideMethodDefinition) out.print(";\n");
         else visitMethodBody(ctx.methodBody());
         this.methodStatic = false;
         this.methodPublic = false;

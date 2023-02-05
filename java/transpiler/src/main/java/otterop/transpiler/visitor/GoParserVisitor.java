@@ -18,7 +18,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static otterop.transpiler.util.CaseUtil.camelCaseToPascalCase;
-import static otterop.transpiler.util.CaseUtil.camelCaseToSnakeCase;
 
 public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
     private boolean methodStatic = false;
@@ -27,13 +26,14 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
     private boolean hasMain = false;
     private boolean insideConstructor = false;
     private String className = null;
-    private String lastPackageName = null;
+    private String packageName = null;
     private int indents = 0;
     private int skipNewlines = 0;
     private static String INDENT = "    ";
     private static String THIS = "this";
     private Set<String> imports = new LinkedHashSet<>();
     private Map<String,String> modules = new LinkedHashMap<>();
+    private Map<String,String> fileNameToImport = new LinkedHashMap<>();
     private Set<String> fromImports = new LinkedHashSet<>();
     private Set<String> staticImports = new LinkedHashSet<>();
     private OutputStream outStream = new ByteArrayOutputStream();
@@ -89,6 +89,7 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
         detectMethods(ctx);
         out.print("type ");
         className = ctx.identifier().getText();
+        packageName = className.toLowerCase();
         this.visitIdentifier(ctx.identifier());
         out.print(" struct {\n");
         indents++;
@@ -257,6 +258,9 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
     public Void visitMethodCall(JavaParser.MethodCallContext ctx) {
         var calledOn = ctx.getParent().getChild(0).getText();
         var thisClass = calledOn.equals(className);
+        if (!thisClass) {
+            fileNameToImport.remove(calledOn.toLowerCase());
+        }
         var methodName = ctx.identifier().getText();
         var changeCase = !thisClass || publicMethods.contains(methodName);
         if (changeCase) methodName = camelCaseToPascalCase(methodName);
@@ -314,25 +318,40 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
     public Void visitImportDeclaration(JavaParser.ImportDeclarationContext ctx) {
         var qualifiedName = ctx.qualifiedName();
         boolean isStatic = ctx.STATIC() != null;
-        var identifiers = qualifiedName.identifier();
+        var identifiers = qualifiedName.identifier().stream().map(
+                identifier -> identifier.getText()
+        ).collect(Collectors.toList());
+
+        var packageName = String.join(".", identifiers);
+        var replacement = "";
+        for(var replacePackage : importDomainMapping.keySet()) {
+            if (packageName.startsWith(replacePackage)) {
+                replacement = importDomainMapping.get(replacePackage);
+                packageName = packageName.replace(replacePackage + ".", "");
+                break;
+            }
+        }
+        identifiers = List.of(packageName.split("\\."));
+
         int classNameIdx = identifiers.size() - (isStatic ?  2 : 1);
-        String className = identifiers.get(classNameIdx).getText();
-        var rootPackage = identifiers.get(0).getText();
+        String className = identifiers.get(classNameIdx);
         var packageStr = String.join("/",
-                identifiers.subList(1, classNameIdx).stream().map(identifier -> identifier.getText())
+                identifiers.subList(0, classNameIdx).stream()
                         .collect(Collectors.toList())
         );
-        if (importDomainMapping.containsKey(rootPackage)) {
-            packageStr = importDomainMapping.get(rootPackage) + "/" + packageStr;
+        if (!replacement.isEmpty()) {
+            packageStr = replacement + "/" + packageStr;
         }
         var fileName = className.toLowerCase();
         modules.put(className, fileName);
         var importStatement = "\"" + packageStr + "/"+ fileName + "\"";
         fromImports.add(importStatement);
         if (isStatic) {
-            var methodName = camelCaseToPascalCase(identifiers.get(classNameIdx + 1).getText());
+            var methodName = camelCaseToPascalCase(identifiers.get(classNameIdx + 1));
             var staticImportStatement = "var " + methodName + " = " + fileName + "." + methodName;
             staticImports.add(staticImportStatement);
+        } else {
+            fileNameToImport.put(fileName, importStatement);
         }
         return null;
     }
@@ -416,7 +435,9 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
         if ("Object".equals(identifier)) {
             out.print("any");
         } else {
-            out.print("*" + identifier.toLowerCase() + "." + identifier);
+            var fileName = identifier.toLowerCase();
+            fileNameToImport.remove(fileName);
+            out.print("*" + fileName + "." + identifier);
         }
         if (ctx.typeArguments().size() > 0) {
             out.print("[");
@@ -437,22 +458,21 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitPackageDeclaration(JavaParser.PackageDeclarationContext ctx) {
-        var identifiers = ctx.qualifiedName().identifier();
-        lastPackageName = camelCaseToSnakeCase(identifiers.get(identifiers.size() - 1).getText());
         return null;
     }
 
     public void printTo(PrintStream ps) {
         if (hasMain) {
             ps.print("package main\n\n");
-        } else if (lastPackageName != null) {
+        } else if (packageName != null) {
             ps.print("package ");
-            ps.print(lastPackageName);
+            ps.print(packageName);
             ps.print("\n\n");
         }
 
         ps.print("import (\n");
         indents++;
+        fromImports.removeAll(fileNameToImport.values());
         for (String importStatement : imports) {
             ps.println(INDENT.repeat(indents) + importStatement);
         }

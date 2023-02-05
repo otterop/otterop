@@ -10,15 +10,12 @@ import otterop.transpiler.parser.OtteropParser;
 import otterop.transpiler.reader.FileReader;
 import otterop.transpiler.writer.FileWriter;
 
-import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -39,7 +36,8 @@ public class Otterop {
         TypeScriptTranspiler tsTranspiler = new TypeScriptTranspiler(
                 "./ts",
                 fileWriter,
-                executor);
+                executor,
+                "example.quicksort");
         CSharpTranspiler csTranspiler = new CSharpTranspiler(
                 "./dotnet",
                 fileWriter,
@@ -56,7 +54,8 @@ public class Otterop {
                 "./go",
                 fileWriter,
                 executor,
-                Map.of("otterop", "github.com/otterop/otterop/go"));
+                Map.of("otterop", "github.com/otterop/otterop/go",
+                        "example.quicksort", "github.com/otterop/example-quicksort/go/example/quicksort"));
 
         this.transpilers = Map.of(
                 "typescript", tsTranspiler,
@@ -76,7 +75,7 @@ public class Otterop {
         AtomicBoolean complete = new AtomicBoolean(false);
         BlockingQueue<String> classes = fileReader.walkClasses(basePath, complete);
         List<Future<Void>> futures = new LinkedList<>();
-        while (!complete.get()) {
+        while (!complete.get() || !classes.isEmpty()) {
             String clazz = classes.poll(100, TimeUnit.MILLISECONDS);
             System.out.println(clazz);
             if (clazz != null) {

@@ -1,17 +1,10 @@
 package otterop.transpiler.language;
 
-import org.antlr.v4.runtime.CharStreams;
-import org.antlr.v4.runtime.CommonTokenStream;
-import org.antlr.v4.runtime.Lexer;
-import org.antlr.v4.runtime.TokenStream;
-import otterop.transpiler.antlr.JavaLexer;
 import otterop.transpiler.antlr.JavaParser;
 import otterop.transpiler.visitor.TypeScriptParserVisitor;
 import otterop.transpiler.writer.FileWriter;
 
 import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
@@ -21,11 +14,14 @@ public class TypeScriptTranspiler implements Transpiler {
 
     private ExecutorService executorService;
     private String outFolder;
+    private String basePackage;
     private FileWriter fileWriter;
 
-    public TypeScriptTranspiler(String outFolder, FileWriter fileWriter, ExecutorService executorService) {
+    public TypeScriptTranspiler(String outFolder, FileWriter fileWriter, ExecutorService executorService,
+                                String basePackage) {
         this.outFolder = outFolder;
         this.fileWriter = fileWriter;
+        this.basePackage = basePackage;
         this.executorService = executorService;
     }
 
@@ -44,7 +40,7 @@ public class TypeScriptTranspiler implements Transpiler {
                     getCodePath(clazzParts)
             ).toString();
 
-            TypeScriptParserVisitor visitor = new TypeScriptParserVisitor();
+            TypeScriptParserVisitor visitor = new TypeScriptParserVisitor(basePackage, basePackage);
             visitor.visit(compilationUnitContext.get());
             visitor.printTo(fileWriter.getPrintStream(outCodePath));
             return null;

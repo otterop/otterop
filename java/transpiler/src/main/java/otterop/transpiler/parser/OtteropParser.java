@@ -7,9 +7,7 @@ import org.antlr.v4.runtime.TokenStream;
 import otterop.transpiler.antlr.JavaLexer;
 import otterop.transpiler.antlr.JavaParser;
 
-import java.io.FileInputStream;
 import java.io.InputStream;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 

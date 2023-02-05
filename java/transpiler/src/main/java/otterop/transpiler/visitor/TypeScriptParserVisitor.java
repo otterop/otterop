@@ -11,8 +11,12 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
+    private final String basePackage;
+    private final String currentPackage;
+    private final String[] currentPackageIdentifiers;
     private boolean methodStatic = false;
     private boolean methodPublic = false;
+    private boolean classPublic = false;
     private String className = null;
     private boolean hasMain = false;
     private int indents = 0;
@@ -29,9 +33,17 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         add("double");
     }};
 
+    public TypeScriptParserVisitor(String basePackage, String currentPackage) {
+        this.basePackage = basePackage;
+        this.currentPackage = currentPackage;
+        this.currentPackageIdentifiers = currentPackage.split("\\.");
+    }
+
     @Override
     public Void visitClassDeclaration(JavaParser.ClassDeclarationContext ctx) {
         out.print(INDENT.repeat(indents));
+        if (classPublic)
+            out.print("export ");
         out.print("class ");
         className = ctx.identifier().getText();
         this.visitIdentifier(ctx.identifier());
@@ -75,12 +87,7 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
             hasMain = true;
         }
         out.print(name);
-//        if (typeParameterContext != null) {
-//            out.print("[");
-//            visitIdentifier(typeParameterContext.identifier());
-//            out.print(" any]");
-//            typeParameterContext = null;
-//        }
+
         visitFormalParameters(ctx.formalParameters());
         out.print(" : ");
         visitTypeTypeOrVoid(ctx.typeTypeOrVoid());
@@ -110,6 +117,12 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print(" : ");
         visitTypeType(ctx.typeType());
         if (!isLast) out.print(", ");
+        return null;
+    }
+
+    @Override
+    public Void visitClassOrInterfaceModifier(JavaParser.ClassOrInterfaceModifierContext ctx) {
+        if (ctx.PUBLIC() != null) classPublic = true;
         return null;
     }
 
@@ -234,25 +247,52 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         return null;
     }
 
+    private String relativePath(String[] currentPath, String[] destinationPath) {
+        int i;
+        for(i = 0; i < currentPath.length && i <destinationPath.length; i++) {
+            if (!currentPath[i].equals(destinationPath[i])) break;
+        }
+        StringBuffer sb = new StringBuffer();
+        for (int j = i; j < currentPath.length; j++) {
+            sb.append("..");
+            if(j <currentPath.length - 1) sb.append("/");
+        }
+        if (sb.length() == 0) sb.append(".");
+        sb.append("/");
+        for (int j = i; j < destinationPath.length; j++) {
+            sb.append(destinationPath[j]);
+            if(j <destinationPath.length - 1) sb.append("/");
+        }
+        return sb.toString();
+    }
+
     @Override
     public Void visitImportDeclaration(JavaParser.ImportDeclarationContext ctx) {
         var qualifiedName = ctx.qualifiedName();
         boolean isStatic = ctx.STATIC() != null;
-        var identifiers = qualifiedName.identifier();
+        var identifiers = qualifiedName.identifier().
+                stream().map(identifier -> identifier.getText()).collect(Collectors.toList());
         int classNameIdx = identifiers.size() - (isStatic ?  2 : 1);
-        String className = identifiers.get(classNameIdx).getText();
+        String className = identifiers.get(classNameIdx);
         String methodName = null;
         if (isStatic) {
-            methodName =  identifiers.get(classNameIdx + 1).getText();
+            methodName =  identifiers.get(classNameIdx + 1);
         }
-        var fileStr = String.join("/",
-                identifiers.subList(0,classNameIdx + 1).stream().map(
-                        identifier -> identifier.getText().toLowerCase())
-                        .collect(Collectors.toList())
-        );
+        var isCurrentPackage = String.join(".", identifiers).startsWith(basePackage);
+        var fileStr = "";
+        if (isCurrentPackage) {
+            fileStr = relativePath(currentPackageIdentifiers, identifiers
+                                                                .toArray(new String[0]));
+        } else {
+            fileStr = "@" + String.join("/",
+                    identifiers.subList(0, classNameIdx + 1).stream().map(
+                                    identifier -> identifier.toLowerCase())
+                            .collect(Collectors.toList())
+            );
+        }
 
         imports.add(
-                "import { " + className + " } from '@" + fileStr + "';"
+                "import { " + className + " } from '" + fileStr + "';"
         );
         if (isStatic) {
             staticImports.add(
