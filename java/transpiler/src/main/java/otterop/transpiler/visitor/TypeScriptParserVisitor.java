@@ -2,11 +2,13 @@ package otterop.transpiler.visitor;
 
 import otterop.transpiler.antlr.JavaParser;
 import otterop.transpiler.antlr.JavaParserBaseVisitor;
+import otterop.transpiler.util.CaseUtil;
 
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -24,9 +26,13 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
     private static String INDENT = "    ";
     private static String THIS = "this";
     private Set<String> imports = new LinkedHashSet<>();
+    private Set<String> importedClasses = new LinkedHashSet<>();
     private Set<String> staticImports = new LinkedHashSet<>();
     private OutputStream outStream = new ByteArrayOutputStream();
     private PrintStream out = new PrintStream(outStream);
+    private JavaParser.TypeParametersContext classTypeParametersContext;
+    private JavaParser.TypeParametersContext methodTypeParametersContext;
+
     private static final Set<String> NUMERIC_TYPES = new LinkedHashSet<String>() {{
         add("int");
         add("float");
@@ -47,6 +53,8 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print("class ");
         className = ctx.identifier().getText();
         this.visitIdentifier(ctx.identifier());
+        this.classTypeParametersContext = ctx.typeParameters();
+        printTypeParameters(this.classTypeParametersContext);
         out.print(" {\n");
         indents++;
         super.visitClassBody(ctx.classBody());
@@ -56,12 +64,46 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         return null;
     }
 
+    private void printTypeParameters(JavaParser.TypeParametersContext typeParametersContext) {
+        if (typeParametersContext != null) {
+            out.print("<");
+            boolean rest = false;
+            for (var t: typeParametersContext.typeParameter()) {
+                if(rest)
+                    out.print(", ");
+                else
+                    rest = true;
+                visitIdentifier(t.identifier());
+            }
+            out.print(">");
+        }
+    }
+
+    private void printTypeArguments(List<JavaParser.TypeArgumentsContext> ctx) {
+        if (ctx != null && !ctx.isEmpty()) {
+            out.print("<");
+            boolean rest = false;
+            for (var t: ctx) {
+                for (var t1: t.typeArgument()) {
+                    if (rest)
+                        out.print(", ");
+                    else
+                        rest = true;
+                    visitTypeType(t1.typeType());
+                }
+            }
+            out.print(">");
+        }
+    }
+
     @Override
     public Void visitConstructorDeclaration(JavaParser.ConstructorDeclarationContext ctx) {
         out.print("\n");
         out.print(INDENT.repeat(indents));
         if (methodPublic) {
             out.print("public ");
+        } else {
+            out.print("private ");
         }
         out.print("constructor");
         visitFormalParameters(ctx.formalParameters());
@@ -70,6 +112,12 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         this.methodPublic = false;
         out.print("\n");
         return null;
+    }
+
+    @Override
+    public Void visitGenericMethodDeclaration(JavaParser.GenericMethodDeclarationContext ctx) {
+        this.methodTypeParametersContext = ctx.typeParameters();
+        return super.visitGenericMethodDeclaration(ctx);
     }
 
     @Override
@@ -87,7 +135,9 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
             hasMain = true;
         }
         out.print(name);
-
+        if (methodTypeParametersContext != null) {
+            printTypeParameters(methodTypeParametersContext);
+        }
         visitFormalParameters(ctx.formalParameters());
         out.print(" : ");
         visitTypeTypeOrVoid(ctx.typeTypeOrVoid());
@@ -197,6 +247,7 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
     public Void visitFieldDeclaration(JavaParser.FieldDeclarationContext ctx) {
         out.print("\n");
         out.print(INDENT.repeat(indents));
+        out.print("private ");
         visitVariableDeclarators(ctx.variableDeclarators());
         out.print(" : ");
         visitTypeType(ctx.typeType());
@@ -229,6 +280,11 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
             out.print(prefixText);
         }
         if (ctx.bop != null) {
+            var name = ctx.expression(0).getText();
+            if (CaseUtil.isClassName(name) && !className.equals(name) &&
+                !importedClasses.contains(name)) {
+                imports.add("import { " + name + " } from './" + name + "';");
+            }
             if (ctx.expression(0) != null) visitExpression(ctx.expression(0));
             var bop = ctx.bop.getText();
             if (!bop.equals(".")) bop = " " + bop + " ";
@@ -274,6 +330,7 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
                 stream().map(identifier -> identifier.getText()).collect(Collectors.toList());
         int classNameIdx = identifiers.size() - (isStatic ?  2 : 1);
         String className = identifiers.get(classNameIdx);
+        importedClasses.add(className);
         String methodName = null;
         if (isStatic) {
             methodName =  identifiers.get(classNameIdx + 1);
@@ -315,7 +372,7 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitLiteral(JavaParser.LiteralContext ctx) {
-        if (ctx.NULL_LITERAL() != null) out.print("nil");
+        if (ctx.NULL_LITERAL() != null) out.print("null");
         else out.print(ctx.getText());
         super.visitLiteral(ctx);
         return null;
@@ -366,6 +423,11 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
     }
 
     @Override
+    public Void visitTypeParameters(JavaParser.TypeParametersContext ctx) {
+        return null;
+    }
+
+    @Override
     public Void visitTypeType(JavaParser.TypeTypeContext ctx) {
         super.visitTypeType(ctx);
         if (ctx.RBRACK().size() > 0) {
@@ -394,10 +456,8 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         } else {
             out.print(identifier);
         }
-        if (ctx.typeArguments().size() > 0) {
-            out.print("<");
-            visitTypeArguments(ctx.typeArguments(0));
-            out.print(">");
+        if (!ctx.typeArguments().isEmpty()) {
+            printTypeArguments(ctx.typeArguments());
         }
         return null;
     }

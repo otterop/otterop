@@ -1,15 +1,15 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "setuptools"]
 build-backend = "hatchling.build"
 
 [project]
 name = "otterop-io"
-version = "0.1.0.post2"
+version = "0.2.0"
 authors = [
   { name="Emanuele Sabellico", email="emasab@gmail.com" },
 ]
 dependencies = [
-  'otterop-lang >= 0.1.0'
+  'otterop-lang >= 0.2.0'
 ]
 description = "OtterOP io"
 requires-python = ">=3.7"

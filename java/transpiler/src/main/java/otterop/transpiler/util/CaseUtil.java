@@ -19,6 +19,11 @@ public class CaseUtil {
                 .collect(Collectors.joining("_"));
     }
 
+    public static boolean isClassName(String name) {
+        var first = name.substring(0,1);
+        return !first.toLowerCase().equals(first);
+    }
+
     public static String camelCaseToPascalCase(String in) {
         return toPascalCase(fromCamelCase(in));
     }

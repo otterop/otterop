@@ -6,7 +6,9 @@ import otterop.transpiler.antlr.JavaParserBaseVisitor;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -15,6 +17,10 @@ import static otterop.transpiler.util.CaseUtil.camelCaseToPascalCase;
 public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
     private boolean methodStatic = false;
     private boolean methodPublic = false;
+    private boolean classPublic = false;
+    private boolean isGenericClass = false;
+    private boolean hasStaticMethods = false;
+    private boolean insideStaticNonGeneric = false;
     private String className = null;
     private String namespace = null;
     private int indents = 0;
@@ -25,14 +31,23 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
     private Map<String,String> staticImports = new LinkedHashMap<>();
     private OutputStream outStream = new ByteArrayOutputStream();
     private PrintStream out = new PrintStream(outStream);
-    private JavaParser.TypeParameterContext typeParameterContext;
+    private JavaParser.TypeParametersContext classTypeParametersContext;
+    private JavaParser.TypeParametersContext methodTypeParametersContext;
 
     @Override
     public Void visitClassDeclaration(JavaParser.ClassDeclarationContext ctx) {
         out.print(INDENT.repeat(indents));
+        if (classPublic) {
+            out.print("public ");
+        }
         out.print("class ");
         className = ctx.identifier().getText();
         this.visitIdentifier(ctx.identifier());
+        this.classTypeParametersContext = ctx.typeParameters();
+        if (this.classTypeParametersContext != null) {
+            isGenericClass = true;
+        }
+        printTypeParameters(this.classTypeParametersContext);
         out.print("\n");
         out.print(INDENT.repeat(indents));
         out.print("{\n");
@@ -41,14 +56,68 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         indents--;
         out.print(INDENT.repeat(indents));
         out.println("}\n");
+
+        if (isGenericClass && hasStaticMethods) {
+            insideStaticNonGeneric = true;
+            out.print("\n");
+            out.print(INDENT.repeat(indents));
+            out.print("class ");
+            this.visitIdentifier(ctx.identifier());
+            out.print("\n");
+            out.print(INDENT.repeat(indents));
+            out.print("{\n");
+            indents++;
+            super.visitClassBody(ctx.classBody());
+            indents--;
+            out.print(INDENT.repeat(indents));
+            out.println("}\n");
+            insideStaticNonGeneric = false;
+        }
+
         return null;
+    }
+
+    private void printTypeParameters(JavaParser.TypeParametersContext typeParametersContext) {
+        if (typeParametersContext != null) {
+            out.print("<");
+            boolean rest = false;
+            for (var t: typeParametersContext.typeParameter()) {
+                if(rest)
+                    out.print(", ");
+                else
+                    rest = true;
+                visitIdentifier(t.identifier());
+            }
+            out.print(">");
+        }
+    }
+
+    private void printTypeArguments(List<JavaParser.TypeArgumentsContext> ctx) {
+        if (ctx != null && !ctx.isEmpty()) {
+            out.print("<");
+            boolean rest = false;
+            for (var t: ctx) {
+                for (var t1: t.typeArgument()) {
+                    if (rest)
+                        out.print(", ");
+                    else
+                        rest = true;
+                    visitTypeType(t1.typeType());
+                }
+            }
+            out.print(">");
+        }
     }
 
     @Override
     public Void visitConstructorDeclaration(JavaParser.ConstructorDeclarationContext ctx) {
+        if (insideStaticNonGeneric)
+            return null;
         out.print(INDENT.repeat(indents));
         if (methodPublic) {
             out.print("public ");
+        } else {
+            out.print("private ");
         }
         var name = ctx.identifier().getText();
         name = camelCaseToPascalCase(name);
@@ -62,7 +131,51 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
     }
 
     @Override
+    public Void visitGenericMethodDeclaration(JavaParser.GenericMethodDeclarationContext ctx) {
+        this.methodTypeParametersContext = ctx.typeParameters();
+        super.visitGenericMethodDeclaration(ctx);
+        this.methodTypeParametersContext = null;
+        return null;
+    }
+
+    private void visitMethodDeclarationInsideStaticNonGeneric(JavaParser.MethodDeclarationContext ctx, String name) {
+        out.print("\n");
+        out.print(INDENT.repeat(indents));
+        out.print("{\n");
+        indents++;
+        out.print(INDENT.repeat(indents));
+        if (ctx.typeTypeOrVoid().VOID() == null)
+            out.print("return ");
+        out.print(className);
+        boolean rest = false;
+        out.print("<");
+        for (var classTypeParameterContext : classTypeParametersContext.typeParameter()) {
+            if (rest) out.print(", ");
+            else rest = true;
+            out.print("object");
+        }
+        out.print(">");
+        out.print(".");
+        out.print(name);
+        printTypeParameters(methodTypeParametersContext);
+        out.print("(");
+        rest = false;
+        for (var formalParameter : ctx.formalParameters().formalParameterList().formalParameter()) {
+            if (rest) out.print(", ");
+            else rest = true;
+            visitVariableDeclaratorId(formalParameter.variableDeclaratorId());
+        }
+        out.print(");");
+        out.print("\n");
+        indents--;
+        out.print(INDENT.repeat(indents));
+        out.print("}\n");
+    }
+
+    @Override
     public Void visitMethodDeclaration(JavaParser.MethodDeclarationContext ctx) {
+        if (insideStaticNonGeneric && !methodStatic)
+            return null;
         out.print(INDENT.repeat(indents));
         if (methodPublic) {
             out.print("public ");
@@ -75,14 +188,14 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         var name = ctx.identifier().getText();
         name = camelCaseToPascalCase(name);
         out.print(name);
-//        if (typeParameterContext != null) {
-//            out.print("[");
-//            visitIdentifier(typeParameterContext.identifier());
-//            out.print(" any]");
-//            typeParameterContext = null;
-//        }
+        if (methodTypeParametersContext != null) {
+            printTypeParameters(methodTypeParametersContext);
+        }
         visitFormalParameters(ctx.formalParameters());
-        visitMethodBody(ctx.methodBody());
+        if (insideStaticNonGeneric) {
+            visitMethodDeclarationInsideStaticNonGeneric(ctx, name);
+        } else
+            visitMethodBody(ctx.methodBody());
         this.methodStatic = false;
         this.methodPublic = false;
         out.print("\n");
@@ -112,8 +225,17 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
     }
 
     @Override
+    public Void visitClassOrInterfaceModifier(JavaParser.ClassOrInterfaceModifierContext ctx) {
+        if (ctx.PUBLIC() != null) classPublic = true;
+        return null;
+    }
+
+    @Override
     public Void visitModifier(JavaParser.ModifierContext ctx) {
-        if (ctx.getText().equals("static")) methodStatic = true;
+        if (ctx.getText().equals("static")) {
+            methodStatic = true;
+            hasStaticMethods = true;
+        }
         if (ctx.getText().equals("public")) methodPublic = true;
         super.visitModifier(ctx);
         return null;
@@ -182,7 +304,10 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitFieldDeclaration(JavaParser.FieldDeclarationContext ctx) {
+        if (insideStaticNonGeneric)
+            return null;
         out.print(INDENT.repeat(indents));
+        out.print("private ");
         visitTypeType(ctx.typeType());
         out.print(" ");
         visitVariableDeclarators(ctx.variableDeclarators());
@@ -285,7 +410,7 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitLiteral(JavaParser.LiteralContext ctx) {
-        if (ctx.NULL_LITERAL() != null) out.print("nil");
+        if (ctx.NULL_LITERAL() != null) out.print("null");
         else out.print(ctx.getText());
         super.visitLiteral(ctx);
         return null;
@@ -329,16 +454,19 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitCreator(JavaParser.CreatorContext ctx) {
-        var name = ctx.createdName().getText();
+        var name = ctx.createdName().identifier(0).getText();
         out.print("new ");
         out.print(name);
+        var typeArguments = ctx.createdName().typeArgumentsOrDiamond();
+        if (!typeArguments.isEmpty()) {
+            printTypeArguments(List.of(typeArguments.get(0).typeArguments()));
+        }
         visitClassCreatorRest(ctx.classCreatorRest());
         return null;
     }
 
     @Override
-    public Void visitTypeParameter(JavaParser.TypeParameterContext ctx) {
-        this.typeParameterContext = ctx;
+    public Void visitTypeParameters(JavaParser.TypeParametersContext ctx) {
         return null;
     }
 
@@ -374,9 +502,7 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
             out.print(identifier);
         }
         if (ctx.typeArguments().size() > 0) {
-            out.print("<");
-            visitTypeArguments(ctx.typeArguments(0));
-            out.print(">");
+            printTypeArguments(ctx.typeArguments());
         }
         return null;
     }

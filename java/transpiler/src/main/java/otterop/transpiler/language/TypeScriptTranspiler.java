@@ -1,6 +1,7 @@
 package otterop.transpiler.language;
 
 import otterop.transpiler.antlr.JavaParser;
+import otterop.transpiler.reader.ClassReader;
 import otterop.transpiler.visitor.TypeScriptParserVisitor;
 import otterop.transpiler.writer.FileWriter;
 
@@ -16,13 +17,16 @@ public class TypeScriptTranspiler implements Transpiler {
     private String outFolder;
     private String basePackage;
     private FileWriter fileWriter;
+    private final ClassReader classReader;
 
-    public TypeScriptTranspiler(String outFolder, FileWriter fileWriter, ExecutorService executorService,
-                                String basePackage) {
+    public TypeScriptTranspiler(String outFolder, FileWriter fileWriter, String basePackage,
+                                ExecutorService executorService,
+                                ClassReader classReader) {
         this.outFolder = outFolder;
         this.fileWriter = fileWriter;
         this.basePackage = basePackage;
         this.executorService = executorService;
+        this.classReader = classReader;
     }
 
     private String getCodePath(String[] clazzParts) {

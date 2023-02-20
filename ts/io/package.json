@@ -1,6 +1,6 @@
 {
   "name": "@otterop/io",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Otterop Development Kit IO classes",
   "main": "index.js",
   "scripts": {
@@ -19,6 +19,6 @@
     "typescript": "^4.9.4"
   },
   "peerDependencies": {
-    "@otterop/io": ">= 0.1.0"
+    "@otterop/lang": ">= 0.2.0"
   }
 }

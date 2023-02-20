@@ -9,6 +9,7 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
@@ -18,6 +19,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static otterop.transpiler.util.CaseUtil.camelCaseToSnakeCase;
+import static otterop.transpiler.util.CaseUtil.isClassName;
 
 public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     private boolean methodStatic = false;
@@ -45,6 +47,8 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     private Set<String> staticMethods = new LinkedHashSet<>();
     private List<JavaParser.FieldDeclarationContext> fields = new LinkedList<>();
     private List<JavaParser.MethodDeclarationContext> methods = new LinkedList<>();
+    private List<JavaParser.GenericMethodDeclarationContext> genericMethods = new LinkedList<>();
+    private boolean constructorPublic;
     private JavaParser.ConstructorDeclarationContext constructor;
     private Map<String,String> fullClassNames = new LinkedHashMap<>();
     private Map<String,String> methodNameFull = new LinkedHashMap<>();
@@ -52,6 +56,9 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     private Map<String, JavaParser.TypeTypeContext> variableType = new LinkedHashMap<>();
     private PrintStream out = new PrintStream(outStream);
     private boolean header = false;
+    private Set<String> currentTypeParameters = new HashSet<>();
+    private Set<String> currentMethodTypeParameters = new HashSet<>();
+    private JavaParser.TypeParametersContext methodTypeParametersContext;
 
     public CParserVisitor(boolean header) {
         this.header = header;
@@ -62,6 +69,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         boolean methodPublic = false;
         boolean methodStatic = false;
         while (children.size() > 0) {
+            boolean skipChildren = false;
             ParseTree child = children.remove(0);
             if (child instanceof JavaParser.FieldDeclarationContext) {
                 fields.add((JavaParser.FieldDeclarationContext) child);
@@ -81,18 +89,37 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
                 methodStatic = false;
             }
             if (child instanceof JavaParser.ConstructorDeclarationContext) {
+                if (methodPublic) constructorPublic = true;
                 constructor = (JavaParser.ConstructorDeclarationContext) child;
             }
             if (child instanceof JavaParser.GenericMethodDeclarationContext) {
                 JavaParser.GenericMethodDeclarationContext declarationChild = (JavaParser.GenericMethodDeclarationContext) child;
                 var name = declarationChild.methodDeclaration().identifier().getText();
+                genericMethods.add(declarationChild);
                 if (methodPublic) publicMethods.add(name);
                 if (methodStatic) staticMethods.add(name);
                 methodPublic = false;
                 methodStatic = false;
+                skipChildren = true;
             }
-            for (int i = 0; i < child.getChildCount(); i++) {
-                children.add(child.getChild(i));
+            if (!skipChildren) {
+                for (int i = 0; i < child.getChildCount(); i++) {
+                    children.add(child.getChild(i));
+                }
+            }
+        }
+    }
+
+    private void visitTypeParameters(JavaParser.TypeParametersContext typeParametersContext, boolean classDeclaration, boolean methodDeclaration) {
+        if (typeParametersContext != null) {
+            if (methodDeclaration) {
+                currentMethodTypeParameters.clear();
+            }
+            for (var t: typeParametersContext.typeParameter()) {
+                if (classDeclaration) currentTypeParameters.add(t.identifier().getText());
+                else if (methodDeclaration) {
+                    currentMethodTypeParameters.add(t.identifier().getText());
+                }
             }
         }
     }
@@ -100,6 +127,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     @Override
     public Void visitClassDeclaration(JavaParser.ClassDeclarationContext ctx) {
         detectMethods(ctx);
+        visitTypeParameters(ctx.typeParameters(), true, false);
         out.print("typedef struct ");
         className = ctx.identifier().getText();
         fullClassName = packagePrefix + "_" + className;
@@ -146,6 +174,15 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
                 visitMethodDeclaration(method);
             insideMethodDefinition = false;
         }
+        for(var method : genericMethods) {
+            insideMethodDefinition = true;
+            var methodName = method.methodDeclaration().identifier().getText();
+            methodPublic = publicMethods.contains(methodName);
+            methodStatic = staticMethods.contains(methodName);
+            if (header && methodPublic || !header && !methodPublic)
+                visitGenericMethodDeclaration(method);
+            insideMethodDefinition = false;
+        }
         if (!header) {
             includes.add("#include <" + includeStr + ".h>");
             super.visitClassBody(ctx.classBody());
@@ -156,6 +193,8 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitConstructorDeclaration(JavaParser.ConstructorDeclarationContext ctx) {
+        if (header && !constructorPublic)
+            return null;
         insideConstructor = true;
         out.print("\n\n");
         out.print(fullClassNameType);
@@ -172,7 +211,14 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     }
 
     @Override
+    public Void visitGenericMethodDeclaration(JavaParser.GenericMethodDeclarationContext ctx) {
+        this.methodTypeParametersContext = ctx.typeParameters();
+        return visitMethodDeclaration(ctx.methodDeclaration());
+    }
+
+    @Override
     public Void visitMethodDeclaration(JavaParser.MethodDeclarationContext ctx) {
+        visitTypeParameters(methodTypeParametersContext, false, true);
         currentTypePointer = false;
         variableType.clear();
         arrayArgs.clear();
@@ -262,6 +308,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
             out.print(fullClassNameType);
             out.print(" *this = ");
             out.print(MALLOC);
+            includes.add("#include <gc.h>");
             out.print("(sizeof(");
             out.print(fullClassNameType);
             out.print("));\n");
@@ -366,6 +413,10 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         return null;
     }
 
+    private void addClassToFullClassNames(String className) {
+        fullClassNames.put(className, packagePrefix + "_" + className);
+    }
+
     @Override
     public Void visitExpression(JavaParser.ExpressionContext ctx) {
         if (ctx.LPAREN() != null) {
@@ -403,6 +454,9 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
                 } else if (fullClassNames.containsKey(name)) {
                     var fullClassName = fullClassNames.get(name);
                     out.print(fullClassName + "_");
+                } else if (isClassName(name)) {
+                    addClassToFullClassNames(name);
+                    out.print(fullClassNames.get(name) + "_");
                 }
                 visitMethodCall(ctx.methodCall());
             }
@@ -463,7 +517,10 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitLiteral(JavaParser.LiteralContext ctx) {
-        if (ctx.NULL_LITERAL() != null) out.print("NULL");
+        if (ctx.NULL_LITERAL() != null) {
+            includes.add("#include <stdlib.h>");
+            out.print("NULL");
+        }
         else out.print(ctx.getText());
         super.visitLiteral(ctx);
         return null;
@@ -523,7 +580,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitCreator(JavaParser.CreatorContext ctx) {
-        var name = ctx.createdName().getText();
+        var name = ctx.createdName().identifier(0).getText();
         var fullClassName = fullClassNames.get(name);
         out.print(fullClassName + "_new");
         visitClassCreatorRest(ctx.classCreatorRest());
@@ -534,7 +591,11 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     public Void visitClassOrInterfaceType(JavaParser.ClassOrInterfaceTypeContext ctx) {
         var className = ctx.identifier().stream().map(i -> i.getText())
                     .collect(Collectors.joining("."));
-        if (fullClassNames.containsKey(className)){
+        if (currentTypeParameters.contains(className) ||
+            currentMethodTypeParameters.contains(className)) {
+            currentTypePointer = true;
+            out.print("void");
+        } else if (fullClassNames.containsKey(className)){
             currentTypePointer = true;
             out.print(fullClassNames.get(className) + "_t");
         } else if ("Integer".equals(className)) {

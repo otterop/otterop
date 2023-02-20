@@ -7,3 +7,5 @@ dist
 out
 obj
 bin
+*.js
+*.egg-info

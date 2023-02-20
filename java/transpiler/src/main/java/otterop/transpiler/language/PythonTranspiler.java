@@ -1,6 +1,7 @@
 package otterop.transpiler.language;
 
 import otterop.transpiler.antlr.JavaParser;
+import otterop.transpiler.reader.ClassReader;
 import otterop.transpiler.util.CaseUtil;
 import otterop.transpiler.visitor.PythonParserVisitor;
 import otterop.transpiler.writer.FileWriter;
@@ -16,11 +17,14 @@ public class PythonTranspiler implements Transpiler {
     private ExecutorService executorService;
     private String outFolder;
     private FileWriter fileWriter;
+    private final ClassReader classReader;
 
-    public PythonTranspiler(String outFolder, FileWriter fileWriter, ExecutorService executorService) {
+    public PythonTranspiler(String outFolder, FileWriter fileWriter,
+                            ExecutorService executorService, ClassReader classReader) {
         this.outFolder = outFolder;
         this.fileWriter = fileWriter;
         this.executorService = executorService;
+        this.classReader = classReader;
     }
 
     private String getCodePath(String[] clazzParts) {

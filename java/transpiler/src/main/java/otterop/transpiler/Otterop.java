@@ -7,6 +7,7 @@ import otterop.transpiler.language.PythonTranspiler;
 import otterop.transpiler.language.Transpiler;
 import otterop.transpiler.language.TypeScriptTranspiler;
 import otterop.transpiler.parser.OtteropParser;
+import otterop.transpiler.reader.ClassReader;
 import otterop.transpiler.reader.FileReader;
 import otterop.transpiler.writer.FileWriter;
 
@@ -30,32 +31,38 @@ public class Otterop {
     private ExecutorService executor = Executors.newCachedThreadPool();
     private FileReader fileReader = new FileReader(executor);
     private FileWriter fileWriter = new FileWriter();
+    private ClassReader classReader = new ClassReader(executor);
     private OtteropParser parser = new OtteropParser(executor);
 
     public Otterop() {
         TypeScriptTranspiler tsTranspiler = new TypeScriptTranspiler(
                 "./ts",
                 fileWriter,
+                "example.quicksort",
                 executor,
-                "example.quicksort");
+                classReader);
         CSharpTranspiler csTranspiler = new CSharpTranspiler(
                 "./dotnet",
                 fileWriter,
-                executor);
+                executor,
+                classReader);
         CTranspiler cTranspiler = new CTranspiler(
                 "./c",
                 fileWriter,
-                executor);
+                executor,
+                classReader);
         PythonTranspiler pythonTranspiler = new PythonTranspiler(
                 "./python",
                 fileWriter,
-                executor);
+                executor,
+                classReader);
         GoTranspiler goTranspiler = new GoTranspiler(
                 "./go",
                 fileWriter,
-                executor,
                 Map.of("otterop", "github.com/otterop/otterop/go",
-                        "example.quicksort", "github.com/otterop/example-quicksort/go/example/quicksort"));
+                        "example.quicksort", "github.com/otterop/example-quicksort/go/example/quicksort"),
+                executor,
+                classReader);
 
         this.transpilers = Map.of(
                 "typescript", tsTranspiler,

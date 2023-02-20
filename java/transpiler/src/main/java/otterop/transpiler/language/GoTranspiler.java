@@ -1,6 +1,7 @@
 package otterop.transpiler.language;
 
 import otterop.transpiler.antlr.JavaParser;
+import otterop.transpiler.reader.ClassReader;
 import otterop.transpiler.visitor.GoParserVisitor;
 import otterop.transpiler.writer.FileWriter;
 
@@ -17,15 +18,18 @@ public class GoTranspiler implements Transpiler {
     private String outFolder;
     private FileWriter fileWriter;
     private Map<String,String> importDomainMapping;
+    private final ClassReader classReader;
 
     public GoTranspiler(String outFolder,
                         FileWriter fileWriter,
+                        Map<String,String> importDomainMapping,
                         ExecutorService executorService,
-                        Map<String,String> importDomainMapping) {
+                        ClassReader classReader) {
         this.outFolder = outFolder;
         this.fileWriter = fileWriter;
         this.executorService = executorService;
         this.importDomainMapping = importDomainMapping;
+        this.classReader = classReader;
     }
 
     private String getCodePath(String[] clazzParts) {

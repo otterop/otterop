@@ -1,10 +1,10 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "setuptools"]
 build-backend = "hatchling.build"
 
 [project]
 name = "otterop-lang"
-version = "0.1.0.post2"
+version = "0.2.0"
 authors = [
   { name="Emanuele Sabellico", email="emasab@gmail.com" },
 ]

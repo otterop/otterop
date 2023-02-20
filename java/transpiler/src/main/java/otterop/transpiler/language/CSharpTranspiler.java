@@ -1,6 +1,7 @@
 package otterop.transpiler.language;
 
 import otterop.transpiler.antlr.JavaParser;
+import otterop.transpiler.reader.ClassReader;
 import otterop.transpiler.util.CaseUtil;
 import otterop.transpiler.visitor.CSharpParserVisitor;
 import otterop.transpiler.writer.FileWriter;
@@ -16,11 +17,14 @@ public class CSharpTranspiler implements Transpiler {
     private ExecutorService executorService;
     private String outFolder;
     private FileWriter fileWriter;
+    private ClassReader classReader;
 
-    public CSharpTranspiler(String outFolder, FileWriter fileWriter, ExecutorService executorService) {
+    public CSharpTranspiler(String outFolder, FileWriter fileWriter,
+                            ExecutorService executorService, ClassReader classReader) {
         this.outFolder = outFolder;
         this.fileWriter = fileWriter;
         this.executorService = executorService;
+        this.classReader = classReader;
     }
 
     private String getCodePath(String[] clazzParts) {
