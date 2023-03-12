@@ -36,6 +36,11 @@ public class TypeScriptTranspiler implements Transpiler {
         return String.join(File.separator, clazzParts);
     }
 
+    private String getCurrentPackage(String[] clazzParts) {
+        clazzParts = Arrays.copyOf(clazzParts, clazzParts.length - 1);
+        return String.join(".", clazzParts);
+    }
+
     @Override
     public Future<Void> transpile(String[] clazzParts, Future<JavaParser.CompilationUnitContext> compilationUnitContext) {
         return this.executorService.submit(() -> {
@@ -43,8 +48,9 @@ public class TypeScriptTranspiler implements Transpiler {
                     this.outFolder,
                     getCodePath(clazzParts)
             ).toString();
+            String currentPackage = getCurrentPackage(clazzParts);
 
-            TypeScriptParserVisitor visitor = new TypeScriptParserVisitor(basePackage, basePackage);
+            TypeScriptParserVisitor visitor = new TypeScriptParserVisitor(basePackage, currentPackage);
             visitor.visit(compilationUnitContext.get());
             visitor.printTo(fileWriter.getPrintStream(outCodePath));
             return null;
