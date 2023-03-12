@@ -31,6 +31,19 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
     private PrintStream out = new PrintStream(outStream);
 
     @Override
+    public Void visitInterfaceDeclaration(JavaParser.InterfaceDeclarationContext ctx) {
+        out.print("class ");
+        className = ctx.identifier().getText();
+        out.print(className);
+        out.println(":");
+        indents++;
+        out.print(INDENT.repeat(indents));
+        out.println("pass");
+        indents++;
+        return null;
+    }
+
+    @Override
     public Void visitClassDeclaration(JavaParser.ClassDeclarationContext ctx) {
         out.print("class ");
         className = ctx.identifier().getText();
@@ -53,9 +66,7 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print("\n");
         out.print(INDENT.repeat(indents) + "def __init__");
         visitFormalParameters(ctx.formalParameters());
-        indents++;
         visitBlock(ctx.block());
-        indents--;
         return null;
     }
 
@@ -108,9 +119,12 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
     }
 
     @Override
-    public Void visitMethodBody(JavaParser.MethodBodyContext ctx) {
+    public Void visitBlock(JavaParser.BlockContext ctx) {
         indents++;
-        super.visitMethodBody(ctx);
+        if (ctx.children.size() <= 2) {
+            out.print(INDENT.repeat(indents));
+            out.print("pass");
+        } else super.visitBlock(ctx);
         indents--;
         return null;
     }
@@ -121,15 +135,11 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
                 out.print(INDENT.repeat(indents) + "elif ");
                 visitParExpression(ctx.statement(1).parExpression());
                 out.print(":\n");
-                indents++;
                 visitStatement(ctx.statement(1).statement(0));
-                indents--;
                 checkElseStatement(ctx.statement(1));
             } else {
                 out.print(INDENT.repeat(indents) + "else:\n");
-                indents++;
                 visitStatement(ctx.statement(1));
-                indents--;
             }
         }
     }
@@ -141,11 +151,27 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
             if(ctx.WHILE() != null) out.print("while ");
             super.visit(ctx.parExpression());
             out.print(":\n");
-            indents++;
             visitStatement(ctx.statement(0));
-            indents--;
             checkElseStatement(ctx);
             skipNewlines++;
+        } else if (ctx.FOR() != null) {
+            var forControl = ctx.forControl();
+            visitChildren(forControl.forInit());
+            out.print("\n");
+            out.print(INDENT.repeat(indents));
+            out.print("while ");
+            if (forControl.expression() != null)
+                visitExpression(forControl.expression());
+            else
+                out.print("True");
+            out.print(":\n");
+            visitStatement(ctx.statement(0));
+            if (forControl.forUpdate != null) {
+                indents++;
+                out.print(INDENT.repeat(indents));
+                visitChildren(forControl.forUpdate);
+                indents--;
+            }
         } else {
             if (ctx.RETURN() != null) {
                 out.print("return ");
@@ -215,6 +241,12 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
             visitExpression(ctx.expression(0));
         } else {
             super.visitExpression(ctx);
+        }
+        if (ctx.postfix != null) {
+            var postfixText = ctx.postfix.getText();
+            if (postfixText.equals("++")) postfixText = " += 1";
+            if (postfixText.equals("--")) postfixText = " -= 1";
+            out.print(postfixText);
         }
         return null;
     }

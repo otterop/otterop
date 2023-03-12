@@ -1,19 +1,27 @@
 package otterop.transpiler.reader;
 
-import java.util.concurrent.ConcurrentHashMap;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 
 public class ClassReader {
 
-    private final ExecutorService executorService;
-
-    public ClassReader(ExecutorService executorService) {
-        this.executorService = executorService;
+    public Optional<Class<?>> getClass(String binaryName) {
+        try {
+            return Optional.of(getClass().getClassLoader().loadClass(binaryName));
+        } catch (ClassNotFoundException e) {
+            return Optional.empty();
+        }
     }
 
-    public Future<Class<?>> getClass(String binaryName) {
-        return executorService.submit(
-                () -> getClass().getClassLoader().loadClass(binaryName));
+    public Collection<String> findMethods(Class<?> clazz) {
+        Method[] methods = clazz.getMethods();
+        var ret = new ArrayList<String>(methods.length);
+        for (Method m : methods) {
+            ret.add(m.getName());
+        }
+        return ret;
     }
 }

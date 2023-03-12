@@ -31,14 +31,14 @@ public class Otterop {
     private ExecutorService executor = Executors.newCachedThreadPool();
     private FileReader fileReader = new FileReader(executor);
     private FileWriter fileWriter = new FileWriter();
-    private ClassReader classReader = new ClassReader(executor);
+    private ClassReader classReader = new ClassReader();
     private OtteropParser parser = new OtteropParser(executor);
 
     public Otterop() {
         TypeScriptTranspiler tsTranspiler = new TypeScriptTranspiler(
                 "./ts",
                 fileWriter,
-                "example.quicksort",
+                "example.sort",
                 executor,
                 classReader);
         CSharpTranspiler csTranspiler = new CSharpTranspiler(
@@ -60,7 +60,7 @@ public class Otterop {
                 "./go",
                 fileWriter,
                 Map.of("otterop", "github.com/otterop/otterop/go",
-                        "example.quicksort", "github.com/otterop/example-quicksort/go/example/quicksort"),
+                        "example.sort", "github.com/otterop/example-quicksort/go/example/sort"),
                 executor,
                 classReader);
 

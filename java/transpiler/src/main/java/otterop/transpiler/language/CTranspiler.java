@@ -66,8 +66,8 @@ public class CTranspiler implements Transpiler {
                     getCodePath(clazzParts,FileType.HEADER)
             ).toString();
 
-            CParserVisitor sourceVisitor = new CParserVisitor(false);
-            CParserVisitor headerVisitor = new CParserVisitor(true);
+            CParserVisitor sourceVisitor = new CParserVisitor(classReader, false);
+            CParserVisitor headerVisitor = new CParserVisitor(classReader, true);
             sourceVisitor.visit(compilationUnitContext.get());
             sourceVisitor.printTo(fileWriter.getPrintStream(sourceCodePath));
             headerVisitor.visit(compilationUnitContext.get());

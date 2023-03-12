@@ -35,6 +35,37 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
     private JavaParser.TypeParametersContext methodTypeParametersContext;
 
     @Override
+    public Void visitInterfaceDeclaration(JavaParser.InterfaceDeclarationContext ctx) {
+        out.print(INDENT.repeat(indents));
+        if (classPublic) {
+            out.print("public ");
+        }
+        out.print("interface ");
+        className = ctx.identifier().getText();
+        this.visitIdentifier(ctx.identifier());
+        out.print("\n");
+        out.print(INDENT.repeat(indents));
+        out.print("{\n");
+        indents++;
+        visitInterfaceBody(ctx.interfaceBody());
+        indents--;
+        out.print(INDENT.repeat(indents));
+        out.println("}\n");
+        return null;
+    }
+
+    @Override
+    public Void visitTypeList(JavaParser.TypeListContext ctx) {
+        boolean rest = false;
+        for (JavaParser.TypeTypeContext typeType : ctx.typeType()) {
+            if (rest) out.print(", ");
+            else rest = true;
+            visitTypeType(typeType);
+        }
+        return null;
+    }
+
+    @Override
     public Void visitClassDeclaration(JavaParser.ClassDeclarationContext ctx) {
         out.print(INDENT.repeat(indents));
         if (classPublic) {
@@ -48,6 +79,10 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
             isGenericClass = true;
         }
         printTypeParameters(this.classTypeParametersContext);
+        if (ctx.IMPLEMENTS() != null) {
+            out.print(" : ");
+            visitTypeList(ctx.typeList(0));
+        }
         out.print("\n");
         out.print(INDENT.repeat(indents));
         out.print("{\n");
@@ -173,6 +208,19 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
     }
 
     @Override
+    public Void visitInterfaceCommonBodyDeclaration(JavaParser.InterfaceCommonBodyDeclarationContext ctx) {
+        out.print(INDENT.repeat(indents));
+        visitTypeTypeOrVoid(ctx.typeTypeOrVoid());
+        out.print(" ");
+        var name = ctx.identifier().getText();
+        name = camelCaseToPascalCase(name);
+        out.print(name);
+        visitFormalParameters(ctx.formalParameters());
+        out.print(";\n");
+        return null;
+    }
+
+    @Override
     public Void visitMethodDeclaration(JavaParser.MethodDeclarationContext ctx) {
         if (insideStaticNonGeneric && !methodStatic)
             return null;
@@ -280,12 +328,25 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
             out.print(")");
             super.visitStatement(ctx.statement(0));
             checkElseStatement(ctx);
+        } else if (ctx.FOR() != null) {
+            var forControl = ctx.forControl();
+            out.print("for (");
+            visitChildren(forControl.forInit());
+            out.print("; ");
+            if (forControl.expression() != null)
+                visitExpression(forControl.expression());
+            out.print("; ");
+            if (forControl.forUpdate != null) {
+                visitChildren(forControl.forUpdate);
+            }
+            out.print(")");
+            visitStatement(ctx.statement(0));
         } else {
             if (ctx.RETURN() != null) {
                 out.print("return ");
             }
             super.visitStatement(ctx);
-            if (ctx.expression() != null) {
+            if (ctx.SEMI() != null) {
                 out.print(";");
             }
         }
@@ -370,6 +431,10 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
             out.print(fullClassName.get(ctx.getText()));
         } else {
             super.visitExpression(ctx);
+        }
+        if (ctx.postfix != null) {
+            var postfixText = ctx.postfix.getText();
+            out.print(postfixText);
         }
         return null;
     }
@@ -456,7 +521,7 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
     public Void visitCreator(JavaParser.CreatorContext ctx) {
         var name = ctx.createdName().identifier(0).getText();
         out.print("new ");
-        out.print(name);
+        out.print(fullClassName.get(name));
         var typeArguments = ctx.createdName().typeArgumentsOrDiamond();
         if (!typeArguments.isEmpty()) {
             printTypeArguments(List.of(typeArguments.get(0).typeArguments()));

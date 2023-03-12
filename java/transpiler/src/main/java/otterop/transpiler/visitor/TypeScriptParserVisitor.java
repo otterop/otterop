@@ -46,6 +46,24 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
     }
 
     @Override
+    public Void visitInterfaceDeclaration(JavaParser.InterfaceDeclarationContext ctx) {
+        out.print(INDENT.repeat(indents));
+        if (classPublic) {
+            out.print("export ");
+        }
+        out.print("interface ");
+        className = ctx.identifier().getText();
+        this.visitIdentifier(ctx.identifier());
+        out.print("{\n");
+        indents++;
+        visitInterfaceBody(ctx.interfaceBody());
+        indents--;
+        out.print(INDENT.repeat(indents));
+        out.println("}\n");
+        return null;
+    }
+
+    @Override
     public Void visitClassDeclaration(JavaParser.ClassDeclarationContext ctx) {
         out.print(INDENT.repeat(indents));
         if (classPublic)
@@ -111,6 +129,18 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         this.methodStatic = false;
         this.methodPublic = false;
         out.print("\n");
+        return null;
+    }
+
+    @Override
+    public Void visitInterfaceCommonBodyDeclaration(JavaParser.InterfaceCommonBodyDeclarationContext ctx) {
+        out.print(INDENT.repeat(indents));
+        var name = ctx.identifier().getText();
+        out.print(name);
+        visitFormalParameters(ctx.formalParameters());
+        out.print(" : ");
+        visitTypeTypeOrVoid(ctx.typeTypeOrVoid());
+        out.print(";\n");
         return null;
     }
 
@@ -221,12 +251,25 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
             out.print(")");
             super.visitStatement(ctx.statement(0));
             checkElseStatement(ctx);
+        } else if (ctx.FOR() != null) {
+            var forControl = ctx.forControl();
+            out.print("for (");
+            visitChildren(forControl.forInit());
+            out.print("; ");
+            if (forControl.expression() != null)
+                visitExpression(forControl.expression());
+            out.print("; ");
+            if (forControl.forUpdate != null) {
+                visitChildren(forControl.forUpdate);
+            }
+            out.print(")");
+            visitStatement(ctx.statement(0));
         } else {
             if (ctx.RETURN() != null) {
                 out.print("return ");
             }
             super.visitStatement(ctx);
-            if (ctx.expression() != null) {
+            if (ctx.SEMI() != null) {
                 out.print(";");
             }
         }
@@ -299,6 +342,10 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
             out.print(")");
         } else {
             super.visitExpression(ctx);
+        }
+        if (ctx.postfix != null) {
+            var postfixText = ctx.postfix.getText();
+            out.print(postfixText);
         }
         return null;
     }
