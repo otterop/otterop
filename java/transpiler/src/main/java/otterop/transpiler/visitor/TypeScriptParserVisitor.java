@@ -7,8 +7,10 @@ import otterop.transpiler.util.CaseUtil;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -16,8 +18,8 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
     private final String basePackage;
     private final String currentPackage;
     private final String[] currentPackageIdentifiers;
-    private boolean methodStatic = false;
-    private boolean methodPublic = false;
+    private boolean memberStatic = false;
+    private boolean memberPublic = false;
     private boolean classPublic = false;
     private String className = null;
     private boolean hasMain = false;
@@ -32,6 +34,8 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
     private PrintStream out = new PrintStream(outStream);
     private JavaParser.TypeParametersContext classTypeParametersContext;
     private JavaParser.TypeParametersContext methodTypeParametersContext;
+    private Map<String, JavaParser.TypeTypeContext> variableType = new LinkedHashMap<>();
+    private JavaParser.TypeTypeContext currentType;
 
     private static final Set<String> NUMERIC_TYPES = new LinkedHashSet<String>() {{
         add("int");
@@ -118,7 +122,7 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
     public Void visitConstructorDeclaration(JavaParser.ConstructorDeclarationContext ctx) {
         out.print("\n");
         out.print(INDENT.repeat(indents));
-        if (methodPublic) {
+        if (memberPublic) {
             out.print("public ");
         } else {
             out.print("private ");
@@ -126,8 +130,8 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print("constructor");
         visitFormalParameters(ctx.formalParameters());
         visitBlock(ctx.block());
-        this.methodStatic = false;
-        this.methodPublic = false;
+        this.memberStatic = false;
+        this.memberPublic = false;
         out.print("\n");
         return null;
     }
@@ -152,12 +156,13 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitMethodDeclaration(JavaParser.MethodDeclarationContext ctx) {
+        variableType.clear();
         out.print("\n");
         out.print(INDENT.repeat(indents));
-        if (methodPublic) {
+        if (memberPublic) {
             out.print("public ");
         }
-        if (methodStatic) {
+        if (memberStatic) {
             out.print("static ");
         }
         var name = ctx.identifier().getText();
@@ -172,9 +177,10 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print(" : ");
         visitTypeTypeOrVoid(ctx.typeTypeOrVoid());
         visitMethodBody(ctx.methodBody());
-        this.methodStatic = false;
-        this.methodPublic = false;
+        this.memberStatic = false;
+        this.memberPublic = false;
         out.print("\n");
+        variableType.clear();
         return null;
     }
 
@@ -193,9 +199,11 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
     @Override
     public Void visitFormalParameter(JavaParser.FormalParameterContext ctx) {
         boolean isLast = ctx.getParent().children.get(ctx.getParent().getChildCount()-1) == ctx;
+        var parameterName = ctx.variableDeclaratorId().getText();
         visitVariableDeclaratorId(ctx.variableDeclaratorId());
         out.print(" : ");
         visitTypeType(ctx.typeType());
+        variableType.put(parameterName, ctx.typeType());
         if (!isLast) out.print(", ");
         return null;
     }
@@ -208,8 +216,8 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitModifier(JavaParser.ModifierContext ctx) {
-        if (ctx.getText().equals("static")) methodStatic = true;
-        if (ctx.getText().equals("public")) methodPublic = true;
+        memberStatic = ctx.getText().equals("static");
+        memberPublic = ctx.getText().equals("public");
         super.visitModifier(ctx);
         return null;
     }
@@ -278,7 +286,12 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitVariableDeclarator(JavaParser.VariableDeclaratorContext ctx) {
+        variableType.put(ctx.variableDeclaratorId().getText(), currentType);
         visitVariableDeclaratorId(ctx.variableDeclaratorId());
+        if (this.currentType != null) {
+            out.print(" : ");
+            visitTypeType(currentType);
+        }
         if (ctx.variableInitializer() != null) {
             out.print(" = ");
             super.visitVariableInitializer(ctx.variableInitializer());
@@ -290,10 +303,15 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
     public Void visitFieldDeclaration(JavaParser.FieldDeclarationContext ctx) {
         out.print("\n");
         out.print(INDENT.repeat(indents));
-        out.print("private ");
+        if (memberPublic)
+            out.print("public ");
+        else
+            out.print("private ");
+        if (memberStatic)
+            out.print("static ");
+        this.currentType = ctx.typeType();
         visitVariableDeclarators(ctx.variableDeclarators());
-        out.print(" : ");
-        visitTypeType(ctx.typeType());
+        this.currentType = null;
         out.print(";\n");
         return null;
     }
@@ -316,6 +334,22 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         return null;
     }
 
+    private boolean isIntPrimary(JavaParser.PrimaryContext primaryContext) {
+        if (primaryContext != null && primaryContext.identifier() != null) {
+            var identifierName = primaryContext.identifier().getText();
+            var typeContext = variableType.get(identifierName);
+            if (typeContext != null && typeContext.primitiveType() != null) {
+                return typeContext.primitiveType().INT() != null;
+            }
+            return false;
+        }
+        return (
+                primaryContext != null &&
+                        primaryContext.literal() != null &&
+                        primaryContext.literal().integerLiteral() != null
+        );
+    }
+
     @Override
     public Void visitExpression(JavaParser.ExpressionContext ctx) {
         if (ctx.prefix != null) {
@@ -324,17 +358,30 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         }
         if (ctx.bop != null) {
             var name = ctx.expression(0).getText();
+            var bop = ctx.bop.getText();
+            boolean isIntDivision = false;
+            if (bop.equals("/") &&
+                    isIntPrimary(ctx.expression(0).primary()) &&
+                    isIntPrimary(ctx.expression(1).primary())) {
+                isIntDivision = true;
+                out.print("Math.floor(");
+            }
+
             if (CaseUtil.isClassName(name) && !className.equals(name) &&
                 !importedClasses.contains(name)) {
                 imports.add("import { " + name + " } from './" + name + "';");
             }
             if (ctx.expression(0) != null) visitExpression(ctx.expression(0));
-            var bop = ctx.bop.getText();
+
             if (!bop.equals(".")) bop = " " + bop + " ";
             out.print(bop);
+
             if (ctx.expression(1) != null) visitExpression(ctx.expression(1));
             else if (ctx.methodCall() != null) visitMethodCall(ctx.methodCall());
             else if (ctx.identifier() != null) visitIdentifier(ctx.identifier());
+
+            if (isIntDivision)
+                out.print(")");
         } else if (ctx.RPAREN() != null) {
             visitExpression(ctx.expression(0));
             out.print(".(");
@@ -456,6 +503,7 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
     @Override
     public Void visitLocalVariableDeclaration(JavaParser.LocalVariableDeclarationContext ctx) {
         out.print("let ");
+        this.currentType = ctx.typeType();
         visitVariableDeclarators(ctx.variableDeclarators());
         return null;
     }

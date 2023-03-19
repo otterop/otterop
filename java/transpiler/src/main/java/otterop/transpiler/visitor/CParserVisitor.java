@@ -18,21 +18,20 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static otterop.transpiler.util.CaseUtil.camelCaseToSnakeCase;
 import static otterop.transpiler.util.CaseUtil.isClassName;
 
 public class CParserVisitor extends JavaParserBaseVisitor<Void> {
-    private boolean methodStatic = false;
-    private boolean methodPublic = false;
+    private boolean memberStatic = false;
+    private boolean memberPublic = false;
     private boolean isMain = false;
     private boolean hasMain = false;
     private boolean insideConstructor = false;
-    private boolean insideMethodDefinition = false;
+    private boolean insideMemberDeclaration = false;
     private boolean insideFormalParameters = false;
+    private boolean insideStaticField = false;
     private String className = null;
     private String fullClassName = null;
     private String fullClassNameType = null;
@@ -56,6 +55,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     private List<JavaParser.GenericMethodDeclarationContext> genericMethods = new LinkedList<>();
     private Map<String, JavaParser.MethodDeclarationContext> methodsMap = new LinkedHashMap<>();
     private Map<String, JavaParser.GenericMethodDeclarationContext> genericMethodsMap = new LinkedHashMap<>();
+    private Map<String, JavaParser.FieldDeclarationContext> headerStaticFields = new LinkedHashMap<>();
     private boolean interfaceImplementationThis = false;
     private boolean printParameterNames = true;
     private boolean constructorPublic;
@@ -125,6 +125,14 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
                 methodStatic = false;
                 skipChildren = true;
             }
+            if (child instanceof JavaParser.FieldDeclarationContext) {
+                JavaParser.FieldDeclarationContext declarationChild = (JavaParser.FieldDeclarationContext) child;
+                var name = declarationChild.variableDeclarators().variableDeclarator(0).variableDeclaratorId().getText();
+                if (methodPublic && methodStatic) headerStaticFields.put(name, declarationChild);
+                methodPublic = false;
+                methodStatic = false;
+                skipChildren = true;
+            }
             if (!skipChildren) {
                 for (int i = 0; i < child.getChildCount(); i++) {
                     children.add(child.getChild(i));
@@ -190,9 +198,9 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         // and in implementation
         // to avoid declaration order problems
         for(var method : interfaceMethods) {
-            insideMethodDefinition = true;
+            insideMemberDeclaration = true;
             visitInterfaceCommonBodyDeclaration(method);
-            insideMethodDefinition = false;
+            insideMemberDeclaration = false;
         }
         if (!header) {
             addToIncludes(fullClassName);
@@ -293,28 +301,37 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         // and all private methods in implementation
         // to avoid declaration order problems
         if (constructor != null) {
-            insideMethodDefinition = true;
+            insideMemberDeclaration = true;
             if (header)
                 visitConstructorDeclaration(constructor);
-            insideMethodDefinition = false;
+            insideMemberDeclaration = false;
+        }
+        for (var field : headerStaticFields.values()) {
+            memberPublic = true;
+            memberStatic = true;
+            insideMemberDeclaration = true;
+            visitFieldDeclaration(field);
+            insideMemberDeclaration = false;
+            memberPublic = false;
+            memberStatic = false;
         }
         for(var method : methods) {
-            insideMethodDefinition = true;
+            insideMemberDeclaration = true;
             var methodName = method.identifier().getText();
-            methodPublic = publicMethods.contains(methodName);
-            methodStatic = staticMethods.contains(methodName);
-            if (header && methodPublic || !header && !methodPublic)
+            memberPublic = publicMethods.contains(methodName);
+            memberStatic = staticMethods.contains(methodName);
+            if (header && memberPublic || !header && !memberPublic)
                 visitMethodDeclaration(method);
-            insideMethodDefinition = false;
+            insideMemberDeclaration = false;
         }
         for(var method : genericMethods) {
-            insideMethodDefinition = true;
+            insideMemberDeclaration = true;
             var methodName = method.methodDeclaration().identifier().getText();
-            methodPublic = publicMethods.contains(methodName);
-            methodStatic = staticMethods.contains(methodName);
-            if (header && methodPublic || !header && !methodPublic)
+            memberPublic = publicMethods.contains(methodName);
+            memberStatic = staticMethods.contains(methodName);
+            if (header && memberPublic || !header && !memberPublic)
                 visitGenericMethodDeclaration(method);
-            insideMethodDefinition = false;
+            insideMemberDeclaration = false;
         }
         if (!header) {
             addToIncludes(fullClassName);
@@ -340,11 +357,11 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print(fullClassName);
         out.print("_new");
         visitFormalParameters(ctx.formalParameters());
-        if (insideMethodDefinition) out.print(";");
+        if (insideMemberDeclaration) out.print(";");
         else visitBlock(ctx.block());
         insideConstructor = false;
-        this.methodStatic = false;
-        this.methodPublic = false;
+        this.memberStatic = false;
+        this.memberPublic = false;
         return null;
     }
 
@@ -451,10 +468,10 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         if (!isMain) name = camelCaseToSnakeCase(name);
         out.print(fullClassName + "_" + name);
         visitFormalParameters(ctx.formalParameters());
-        if (insideMethodDefinition) out.print(";\n");
+        if (insideMemberDeclaration) out.print(";\n");
         else interfaceMethodImplementation(ctx, name);
-        this.methodStatic = false;
-        this.methodPublic = false;
+        this.memberStatic = false;
+        this.memberPublic = false;
         arrayArgs.clear();
         variableType.clear();
         return null;
@@ -486,10 +503,10 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         if (!isMain) name = camelCaseToSnakeCase(name);
         out.print(fullClassName + "_" + name);
         visitFormalParameters(ctx.formalParameters());
-        if (insideMethodDefinition) out.print(";\n");
+        if (insideMemberDeclaration) out.print(";\n");
         else visitMethodBody(ctx.methodBody());
-        this.methodStatic = false;
-        this.methodPublic = false;
+        this.memberStatic = false;
+        this.memberPublic = false;
         this.isMain = false;
         arrayArgs.clear();
         variableType.clear();
@@ -500,7 +517,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     public Void visitFormalParameters(JavaParser.FormalParametersContext ctx) {
         insideFormalParameters = true;
         out.print("(");
-        var addThis = !methodStatic && !insideConstructor && !interfaceImplementationThis;
+        var addThis = !memberStatic && !insideConstructor && !interfaceImplementationThis;
         if (addThis) {
             out.print(fullClassNameType);
             out.print(" *");
@@ -552,8 +569,8 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitModifier(JavaParser.ModifierContext ctx) {
-        if (ctx.getText().equals("static")) methodStatic = true;
-        if (ctx.getText().equals("public")) methodPublic = true;
+        memberStatic = ctx.getText().equals("static");
+        memberPublic = ctx.getText().equals("public");
         super.visitModifier(ctx);
         return null;
     }
@@ -647,7 +664,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         var variableName = ctx.variableDeclaratorId().getText();
         variableType.put(variableName, currentType);
         visitVariableDeclaratorId(ctx.variableDeclaratorId());
-        if (ctx.variableInitializer() != null) {
+        if (!insideMemberDeclaration && ctx.variableInitializer() != null) {
             out.print(" = ");
             var variableInitializerText = ctx.variableInitializer().getText();
             String className = null;
@@ -664,11 +681,26 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     @Override
     public Void visitVariableDeclaratorId(JavaParser.VariableDeclaratorIdContext ctx) {
         if (currentTypePointer) out.print("*");
+        if (insideStaticField) {
+            out.print(fullClassName);
+            out.print("_");
+        }
         return super.visitVariableDeclaratorId(ctx);
     }
 
     @Override
     public Void visitFieldDeclaration(JavaParser.FieldDeclarationContext ctx) {
+        out.print(INDENT.repeat(indents));
+        if (memberStatic) {
+            insideStaticField = true;
+            if (ctx.typeType().classOrInterfaceType() != null)
+                throw new RuntimeException("only primitive static fields allowed");
+            visitTypeType(ctx.typeType());
+            out.print(" ");
+            visitVariableDeclarators(ctx.variableDeclarators());
+            insideStaticField = false;
+        }
+        out.print(";\n");
         return null;
     }
 
@@ -748,13 +780,19 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
                 visitMethodCall(ctx.methodCall());
             }
             if (!methodCall) {
-                if (ctx.expression(0) != null) visitExpression(ctx.expression(0));
+                var name = ctx.expression(0).getText();
+                var isClassName = isClassName(name);
                 var bop = ctx.bop.getText();
+                if ("=".equals(bop)) currentType = variableType.get(name);
+
+                if (ctx.expression(0) != null) visitExpression(ctx.expression(0));
                 if (!bop.equals(".")) bop = " " + bop + " ";
+                else if (isClassName) bop = "_";
                 else bop = "->";
                 out.print(bop);
                 if (ctx.expression(1) != null) visitExpression(ctx.expression(1));
                 else if (ctx.identifier() != null) visitIdentifier(ctx.identifier());
+                currentType = null;
             }
         } else {
             super.visitExpression(ctx);

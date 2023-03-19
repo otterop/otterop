@@ -48,7 +48,7 @@ public class GoTranspiler implements Transpiler {
                     getCodePath(clazzParts)
             ).toString();
 
-            GoParserVisitor visitor = new GoParserVisitor(importDomainMapping);
+            GoParserVisitor visitor = new GoParserVisitor(classReader, importDomainMapping);
             visitor.visit(compilationUnitContext.get());
             visitor.printTo(fileWriter.getPrintStream(outCodePath));
             return null;

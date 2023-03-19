@@ -15,5 +15,7 @@ void *otterop_lang_Array_get(otterop_lang_Array_t *this, int i);
 
 void otterop_lang_Array_set(otterop_lang_Array_t *this, int i, void* value);
 
+otterop_lang_Array_t *otterop_lang_Array_slice(otterop_lang_Array_t *this, int start, int end);
+
 int otterop_lang_Array_size(otterop_lang_Array_t *this);
 #endif

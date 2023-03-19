@@ -84,8 +84,8 @@ public class Otterop {
         List<Future<Void>> futures = new LinkedList<>();
         while (!complete.get() || !classes.isEmpty()) {
             String clazz = classes.poll(100, TimeUnit.MILLISECONDS);
-            System.out.println(clazz);
             if (clazz != null) {
+                System.out.println(clazz);
                 futures.add(executor.submit(() ->
                         this.transpile(basePath, clazz).get()
                 ));

@@ -4,6 +4,7 @@ import com.ibm.icu.impl.Pair;
 import org.antlr.v4.runtime.tree.ParseTree;
 import otterop.transpiler.antlr.JavaParser;
 import otterop.transpiler.antlr.JavaParserBaseVisitor;
+import otterop.transpiler.reader.ClassReader;
 
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
@@ -23,13 +24,14 @@ import static otterop.transpiler.util.CaseUtil.camelCaseToPascalCase;
 import static otterop.transpiler.util.CaseUtil.isClassName;
 
 public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
-    private boolean methodStatic = false;
-    private boolean methodPublic = false;
+    private boolean memberStatic = false;
+    private boolean memberPublic = false;
     private boolean constructorPublic = false;
     private boolean isMain = false;
     private boolean hasMain = false;
     private boolean insideConstructor = false;
     private boolean insideTypeArgument = false;
+    private boolean insideForControl = false;
     private JavaParser.TypeTypeContext currentType = null;
     private String className = null;
     private String packageName = null;
@@ -42,6 +44,7 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
     private Map<String,String> modules = new LinkedHashMap<>();
     private Map<String,String> unusedImports = new LinkedHashMap<>();
     private Map<String,String> fromImports = new LinkedHashMap<>();
+    private Map<String,String> javaFullClassNames = new LinkedHashMap<>();
     private Set<String> staticImports = new LinkedHashSet<>();
     private OutputStream outStream = new ByteArrayOutputStream();
     private Set<String> publicMethods = new LinkedHashSet<>();
@@ -54,8 +57,10 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
     private JavaParser.TypeParametersContext methodTypeParametersContext;
     private Set<String> currentTypeParameters = new HashSet<>();
     private Set<String> currentMethodTypeParameters = new HashSet<>();
+    private ClassReader classReader;
 
-    public GoParserVisitor(Map<String,String> importDomainMapping) {
+    public GoParserVisitor(ClassReader classReader, Map<String,String> importDomainMapping) {
+        this.classReader = classReader;
         this.importDomainMapping = new HashMap<>(importDomainMapping);
     }
 
@@ -198,8 +203,8 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
     public Void visitConstructorDeclaration(JavaParser.ConstructorDeclarationContext ctx) {
         out.print("\n\nfunc ");
         var name = ctx.identifier().getText();
-        if (methodPublic && !isMain) name = camelCaseToPascalCase(name);
-        if(methodPublic) {
+        if (memberPublic && !isMain) name = camelCaseToPascalCase(name);
+        if(memberPublic) {
             constructorPublic = true;
             out.print("New");
         } else
@@ -212,8 +217,8 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
         insideConstructor = true;
         visitBlock(ctx.block());
         insideConstructor = false;
-        this.methodStatic = false;
-        this.methodPublic = false;
+        this.memberStatic = false;
+        this.memberPublic = false;
         return null;
     }
 
@@ -240,7 +245,7 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
     public Void visitMethodDeclaration(JavaParser.MethodDeclarationContext ctx) {
         variableType.clear();
         out.print("\n\nfunc ");
-        if (!methodStatic) {
+        if (!memberStatic) {
             out.print("(" + THIS + " *" + className);
             printTypeArguments(classTypeParametersContext);
             out.print(") ");
@@ -248,15 +253,15 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
         var name = ctx.identifier().getText();
         isMain = name.equals("main");
         if (isMain) hasMain = true;
-        if (methodPublic && !isMain) name = camelCaseToPascalCase(name);
+        if (memberPublic && !isMain) name = camelCaseToPascalCase(name);
         out.print(name);
         printTypeParameters(this.methodTypeParametersContext, false, true);
         visitFormalParameters(ctx.formalParameters());
         out.print(" ");
         visitTypeTypeOrVoid(ctx.typeTypeOrVoid());
         visitMethodBody(ctx.methodBody());
-        this.methodStatic = false;
-        this.methodPublic = false;
+        this.memberStatic = false;
+        this.memberPublic = false;
         this.isMain = false;
         variableType.clear();
         return null;
@@ -289,8 +294,8 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitModifier(JavaParser.ModifierContext ctx) {
-        if (ctx.getText().equals("static")) methodStatic = true;
-        if (ctx.getText().equals("public")) methodPublic = true;
+        memberStatic = ctx.getText().equals("static");
+        memberPublic = ctx.getText().equals("public");
         super.visitModifier(ctx);
         return null;
     }
@@ -349,6 +354,7 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
         } else if (ctx.FOR() != null) {
             var forControl = ctx.forControl();
             out.print("for ");
+            this.insideForControl = true;
             visitChildren(forControl.forInit());
             out.print("; ");
             if (forControl.expression() != null)
@@ -357,6 +363,7 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
             if (forControl.forUpdate != null) {
                 visitChildren(forControl.forUpdate);
             }
+            this.insideForControl = false;
             visitStatement(ctx.statement(0));
         } else {
             if (ctx.RETURN() != null) {
@@ -372,15 +379,30 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
         var variableName = ctx.variableDeclaratorId().getText();
         variableType.put(variableName, currentType);
         if (ctx.variableInitializer() != null) {
-            visitVariableDeclaratorId(ctx.variableDeclaratorId());
-            out.print(" := ");
-            super.visitVariableInitializer(ctx.variableInitializer());
+            if (insideForControl) {
+                visitVariableDeclaratorId(ctx.variableDeclaratorId());
+                out.print(" := ");
+                super.visitVariableInitializer(ctx.variableInitializer());
+            } else {
+                out.print("var ");
+                visitVariableDeclaratorId(ctx.variableDeclaratorId());
+                out.print(" ");
+                visitTypeType(currentType);
+                out.print(" = ");
+                super.visitVariableInitializer(ctx.variableInitializer());
+            }
         }
         return null;
     }
 
     @Override
     public Void visitFieldDeclaration(JavaParser.FieldDeclarationContext ctx) {
+        if (memberStatic) {
+            currentType = ctx.typeType();
+            visitVariableDeclarators(ctx.variableDeclarators());
+            currentType = null;
+            out.print("\n");
+        }
         return null;
     }
 
@@ -437,10 +459,18 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
                 }
             }
             if (!localMethodCall) {
-                if (ctx.expression(0) != null) visitExpression(ctx.expression(0));
+                var name = ctx.expression(0).getText();
                 var bop = ctx.bop.getText();
-                if (!bop.equals(".")) bop = " " + bop + " ";
-                out.print(bop);
+                var isDot = bop.equals(".");
+                if (!isDot || !className.equals(name)) {
+                    if (ctx.identifier() != null) {
+                        out.print(name.toLowerCase());
+                    } else {
+                        visitExpression(ctx.expression(0));
+                    }
+                    if (!isDot) bop = " " + bop + " ";
+                    out.print(bop);
+                }
                 if (ctx.expression(1) != null) visitExpression(ctx.expression(1));
                 else if (ctx.methodCall() != null) visitMethodCall(ctx.methodCall());
                 else if (ctx.identifier() != null) visitIdentifier(ctx.identifier());
@@ -482,6 +512,7 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
         ).collect(Collectors.toList());
 
         var packageName = String.join(".", identifiers);
+        javaFullClassNames.put(identifiers.get(identifiers.size() - 1), packageName);
         var packageReplacement = replaceBasePackage(packageName);
         packageName = packageReplacement.first;
         var replacement = packageReplacement.second;
@@ -616,7 +647,9 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
         } else {
             var fileName = identifier.toLowerCase();
             usedImport(fileName);
-            out.print("*");
+            var isInterface = classReader.getClass(javaFullClassNames.get(identifier))
+                            .orElseThrow().isInterface();
+            if (!isInterface) out.print("*");
             if (!identifier.equals(className)) {
                 out.print(fileName);
                 out.print(".");

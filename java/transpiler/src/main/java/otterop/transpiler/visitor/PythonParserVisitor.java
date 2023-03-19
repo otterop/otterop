@@ -7,16 +7,18 @@ import otterop.transpiler.util.CaseUtil;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static otterop.transpiler.util.CaseUtil.camelCaseToPascalCase;
 import static otterop.transpiler.util.CaseUtil.camelCaseToSnakeCase;
 
 public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
-    private boolean methodStatic = false;
+    private boolean memberStatic = false;
+    private boolean memberPublic = false;
     private boolean hasMain = false;
     private int indents = 0;
     private int skipNewlines = 0;
@@ -28,6 +30,8 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
     private Set<String> staticImports = new LinkedHashSet<>();
     private final Set<String> importedClasses = new LinkedHashSet<>();
     private OutputStream outStream = new ByteArrayOutputStream();
+    private Map<String, JavaParser.TypeTypeContext> variableType = new LinkedHashMap<>();
+    private JavaParser.TypeTypeContext currentType;
     private PrintStream out = new PrintStream(outStream);
 
     @Override
@@ -72,8 +76,9 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitMethodDeclaration(JavaParser.MethodDeclarationContext ctx) {
+        variableType.clear();
         out.print("\n");
-        if (methodStatic) {
+        if (memberStatic) {
             out.print(INDENT.repeat(indents) + "@staticmethod\n    def ");
         } else {
             out.print(INDENT.repeat(indents) + "def ");
@@ -84,13 +89,14 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print(name);
         visitFormalParameters(ctx.formalParameters());
         visitMethodBody(ctx.methodBody());
-        this.methodStatic = false;
+        this.memberStatic = false;
+        variableType.clear();
         return null;
     }
 
     @Override
     public Void visitFormalParameters(JavaParser.FormalParametersContext ctx) {
-        if (!methodStatic) {
+        if (!memberStatic) {
             out.print("(self");
             if (ctx.formalParameterList() != null &&
                     !ctx.formalParameterList().isEmpty()) out.print(", ");
@@ -106,14 +112,17 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
     @Override
     public Void visitFormalParameter(JavaParser.FormalParameterContext ctx) {
         boolean isLast = ctx.getParent().children.get(ctx.getParent().getChildCount()-1) == ctx;
+        var parameterName = ctx.variableDeclaratorId().getText();
         visitVariableDeclaratorId(ctx.variableDeclaratorId());
+        variableType.put(parameterName, ctx.typeType());
         if (!isLast) out.print(", ");
         return null;
     }
 
     @Override
     public Void visitModifier(JavaParser.ModifierContext ctx) {
-        if (ctx.getText().equals("static")) this.methodStatic = true;
+        memberStatic = ctx.getText().equals("static");
+        memberPublic = ctx.getText().equals("public");
         super.visitModifier(ctx);
         return null;
     }
@@ -183,6 +192,7 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitVariableDeclarator(JavaParser.VariableDeclaratorContext ctx) {
+        variableType.put(ctx.variableDeclaratorId().getText(), currentType);
         if (ctx.variableInitializer() != null) {
             visitVariableDeclaratorId(ctx.variableDeclaratorId());
             out.print(" = ");
@@ -193,6 +203,11 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitFieldDeclaration(JavaParser.FieldDeclarationContext ctx) {
+        out.print(INDENT.repeat(indents));
+        if (memberStatic) {
+            visitVariableDeclarators(ctx.variableDeclarators());
+            out.print("\n");
+        }
         return null;
     }
 
@@ -211,6 +226,22 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
         visitExpressionList(ctx.expressionList());
         out.print(")");
         return null;
+    }
+
+    private boolean isIntPrimary(JavaParser.PrimaryContext primaryContext) {
+        if (primaryContext != null && primaryContext.identifier() != null) {
+            var identifierName = primaryContext.identifier().getText();
+            var typeContext = variableType.get(identifierName);
+            if (typeContext != null && typeContext.primitiveType() != null) {
+                return typeContext.primitiveType().INT() != null;
+            }
+            return false;
+        }
+        return (
+            primaryContext != null &&
+            primaryContext.literal() != null &&
+            primaryContext.literal().integerLiteral() != null
+        );
     }
 
     @Override
@@ -232,6 +263,13 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
             var bop = ctx.bop.getText();
             if (bop.equals("&&")) bop = "and";
             if (bop.equals("||")) bop = "or";
+
+            if (bop.equals("/") &&
+                    isIntPrimary(ctx.expression(0).primary()) &&
+                    isIntPrimary(ctx.expression(1).primary())) {
+                bop = "//";
+            }
+
             if (!bop.equals(".")) bop = " " + bop + " ";
             out.print(bop);
             if (ctx.expression(1) != null) visitExpression(ctx.expression(1));
@@ -331,6 +369,7 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitLocalVariableDeclaration(JavaParser.LocalVariableDeclarationContext ctx) {
+        currentType = ctx.typeType();
         visitVariableDeclarators(ctx.variableDeclarators());
         return null;
     }

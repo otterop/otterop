@@ -6,7 +6,6 @@ import otterop.transpiler.antlr.JavaParserBaseVisitor;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,8 +14,8 @@ import java.util.stream.Collectors;
 import static otterop.transpiler.util.CaseUtil.camelCaseToPascalCase;
 
 public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
-    private boolean methodStatic = false;
-    private boolean methodPublic = false;
+    private boolean memberStatic = false;
+    private boolean memberPublic = false;
     private boolean classPublic = false;
     private boolean isGenericClass = false;
     private boolean hasStaticMethods = false;
@@ -149,7 +148,7 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         if (insideStaticNonGeneric)
             return null;
         out.print(INDENT.repeat(indents));
-        if (methodPublic) {
+        if (memberPublic) {
             out.print("public ");
         } else {
             out.print("private ");
@@ -159,14 +158,17 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print(name);
         visitFormalParameters(ctx.formalParameters());
         visitBlock(ctx.block());
-        this.methodStatic = false;
-        this.methodPublic = false;
+        this.memberStatic = false;
+        this.memberPublic = false;
         out.print("\n");
         return null;
     }
 
     @Override
     public Void visitGenericMethodDeclaration(JavaParser.GenericMethodDeclarationContext ctx) {
+        if (memberStatic && !hasStaticMethods) {
+            hasStaticMethods = true;
+        }
         this.methodTypeParametersContext = ctx.typeParameters();
         super.visitGenericMethodDeclaration(ctx);
         this.methodTypeParametersContext = null;
@@ -222,13 +224,16 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitMethodDeclaration(JavaParser.MethodDeclarationContext ctx) {
-        if (insideStaticNonGeneric && !methodStatic)
+        if (memberStatic && !hasStaticMethods) {
+            hasStaticMethods = true;
+        }
+        if (insideStaticNonGeneric && !memberStatic)
             return null;
         out.print(INDENT.repeat(indents));
-        if (methodPublic) {
+        if (memberPublic) {
             out.print("public ");
         }
-        if (methodStatic) {
+        if (memberStatic) {
             out.print("static ");
         }
         visitTypeTypeOrVoid(ctx.typeTypeOrVoid());
@@ -244,8 +249,8 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
             visitMethodDeclarationInsideStaticNonGeneric(ctx, name);
         } else
             visitMethodBody(ctx.methodBody());
-        this.methodStatic = false;
-        this.methodPublic = false;
+        this.memberStatic = false;
+        this.memberPublic = false;
         out.print("\n");
         return null;
     }
@@ -280,11 +285,8 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitModifier(JavaParser.ModifierContext ctx) {
-        if (ctx.getText().equals("static")) {
-            methodStatic = true;
-            hasStaticMethods = true;
-        }
-        if (ctx.getText().equals("public")) methodPublic = true;
+        memberStatic = ctx.getText().equals("static");
+        memberPublic = ctx.getText().equals("public");
         super.visitModifier(ctx);
         return null;
     }
@@ -368,7 +370,13 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         if (insideStaticNonGeneric)
             return null;
         out.print(INDENT.repeat(indents));
-        out.print("private ");
+        if (memberPublic)
+            out.print("public ");
+        else
+            out.print("private ");
+        if (memberStatic)
+            out.print("static ");
+
         visitTypeType(ctx.typeType());
         out.print(" ");
         visitVariableDeclarators(ctx.variableDeclarators());
