@@ -4,12 +4,11 @@ class String:
         self._wrapped = _wrapped
 
     @staticmethod
-    def length():
-        return len(self._wrapped)
-
-    @staticmethod
     def wrap(_wrapped):
         return String(_wrapped)
+
+    def length(self):
+        return len(self._wrapped)
 
     def __str__(self):
         return self._wrapped
