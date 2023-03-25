@@ -92,7 +92,7 @@ public class Otterop {
                 "./go",
                 fileWriter,
                 Map.of("otterop", "github.com/otterop/otterop/go",
-                        "example.sort", "github.com/otterop/example-quicksort/go/example/sort"),
+                        "example.sort", "github.com/otterop/example-sort/go/example/sort"),
                 executor,
                 classReader);
 

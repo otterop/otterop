@@ -29,15 +29,15 @@
  * 
  */
 
-#ifndef __example_quicksort_Error
-#define __example_quicksort_Error
+#ifndef __otterop_lang_Error
+#define __otterop_lang_Error
 #include <otterop/lang/string.h>
 
-typedef struct example_quicksort_Error_s example_quicksort_Error_t;
+typedef struct otterop_lang_Error_s otterop_lang_Error_t;
 
-example_quicksort_Error_t *example_quicksort_Error_new(int code, otterop_lang_String_t *message);
+otterop_lang_Error_t *otterop_lang_Error_new(int code, otterop_lang_String_t *message);
 
-int example_quicksort_Error_code(example_quicksort_Error_t *this);
+int otterop_lang_Error_code(otterop_lang_Error_t *this);
 
-otterop_lang_String_t *example_quicksort_Error_message(example_quicksort_Error_t *this);
+otterop_lang_String_t *otterop_lang_Error_message(otterop_lang_Error_t *this);
 #endif
