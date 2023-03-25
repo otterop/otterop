@@ -39,8 +39,16 @@ import otterop.transpiler.visitor.CParserVisitor;
 import otterop.transpiler.writer.FileWriter;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
@@ -50,12 +58,13 @@ public class CTranspiler implements Transpiler {
     private String outFolder;
     private FileWriter fileWriter;
     private final ClassReader classReader;
-
+    private List<String[]> sources = Collections.synchronizedList(new LinkedList<>());
 
     private enum FileType {
         SOURCE,
         HEADER,
-        DEPS
+        CMAKELISTS,
+        NOTHING
     }
 
     public CTranspiler(String outFolder, FileWriter fileWriter,
@@ -75,8 +84,12 @@ public class CTranspiler implements Transpiler {
             case HEADER:
                 replacement = ".h";
                 break;
-            case DEPS:
-                replacement = ".mk";
+            case CMAKELISTS:
+                replacement = "/CMakeLists.txt";
+                break;
+            case NOTHING:
+                replacement = "";
+                break;
             default:
                 throw new IllegalArgumentException();
         }
@@ -86,17 +99,52 @@ public class CTranspiler implements Transpiler {
         return String.join(File.separator, clazzParts);
     }
 
+    private String getPath(String[] clazzParts, FileType type) {
+        return Paths.get(
+                this.outFolder,
+                getCodePath(clazzParts, type)
+        ).toString();
+    }
+
+    public void writeCMakeLists(String[] packageParts) {
+        var cmakeListsFile = getPath(packageParts, FileType.CMAKELISTS);
+        OutputStream out = null;
+        PrintStream ps = null;
+        try {
+            out = new FileOutputStream(cmakeListsFile);
+            ps = new PrintStream(out);
+            var execName = String.join("_", packageParts);
+
+            ps.print("add_executable(");
+            ps.print(execName);
+            ps.print("\n");
+            for (var s : sources) {
+                var sourceCodePath = getCodePath(s, FileType.SOURCE);
+                ps.println(sourceCodePath);
+            }
+            ps.println(")");
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        } finally {
+            if (out != null) {
+                try {
+                    out.close();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+            if (ps != null) {
+                ps.close();
+            }
+        }
+    }
+
     @Override
     public Future<Void> transpile(String[] clazzParts, Future<JavaParser.CompilationUnitContext> compilationUnitContext) {
+        sources.add(clazzParts);
         return this.executorService.submit(() -> {
-            String sourceCodePath = Paths.get(
-                    this.outFolder,
-                    getCodePath(clazzParts,FileType.SOURCE)
-            ).toString();
-            String headerCodePath = Paths.get(
-                    this.outFolder,
-                    getCodePath(clazzParts,FileType.HEADER)
-            ).toString();
+            String sourceCodePath = getPath(clazzParts, FileType.SOURCE);
+            String headerCodePath = getPath(clazzParts, FileType.HEADER);
 
             CParserVisitor sourceVisitor = new CParserVisitor(classReader, false);
             CParserVisitor headerVisitor = new CParserVisitor(classReader, true);

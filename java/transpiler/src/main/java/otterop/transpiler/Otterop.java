@@ -65,6 +65,7 @@ public class Otterop {
     private FileWriter fileWriter = new FileWriter();
     private ClassReader classReader = new ClassReader();
     private OtteropParser parser = new OtteropParser(executor);
+    private CTranspiler cTranspiler;
 
     public Otterop() {
         TypeScriptTranspiler tsTranspiler = new TypeScriptTranspiler(
@@ -78,7 +79,7 @@ public class Otterop {
                 fileWriter,
                 executor,
                 classReader);
-        CTranspiler cTranspiler = new CTranspiler(
+        cTranspiler = new CTranspiler(
                 "./c",
                 fileWriter,
                 executor,
@@ -124,6 +125,7 @@ public class Otterop {
             }
         }
         for (Future f: futures) f.get();
+        cTranspiler.writeCMakeLists(new String[]{"example", "sort"});
     }
 
     public Future<Void> transpile(String basePath, String classFile) {
