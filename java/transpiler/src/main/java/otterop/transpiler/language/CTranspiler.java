@@ -63,8 +63,7 @@ public class CTranspiler implements Transpiler {
     private enum FileType {
         SOURCE,
         HEADER,
-        CMAKELISTS,
-        NOTHING
+        CMAKELISTS
     }
 
     public CTranspiler(String outFolder, FileWriter fileWriter,
@@ -86,9 +85,6 @@ public class CTranspiler implements Transpiler {
                 break;
             case CMAKELISTS:
                 replacement = "/CMakeLists.txt";
-                break;
-            case NOTHING:
-                replacement = "";
                 break;
             default:
                 throw new IllegalArgumentException();
