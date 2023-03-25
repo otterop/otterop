@@ -161,7 +161,10 @@ public class Otterop {
 
     public static void main(String[] args) throws Exception {
         var otterop = new Otterop();
-        otterop.transpile(args[0]);
-        otterop.shutdown();
+        try {
+            otterop.transpile(args[0]);
+        } finally {
+            otterop.shutdown();
+        }
     }
 }

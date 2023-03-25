@@ -254,7 +254,9 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
                         .collect(Collectors.joining("_"));
                 if (header) addToIncludes(interfaceFullClassName);
 
-                Class<?> interfaceClass = classReader.getClass(javaFullClassName).orElseThrow();
+                final String finaljavaFullClassName = javaFullClassName;
+                Class<?> interfaceClass = classReader.getClass(javaFullClassName).orElseThrow(() ->
+                    new RuntimeException("cannot find class " + finaljavaFullClassName));
                 var methods = classReader.findMethods(interfaceClass);
                 out.print("\n");
                 out.print(interfaceFullClassName);
