@@ -47,6 +47,7 @@ import java.io.PrintStream;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -106,6 +107,7 @@ public class CTranspiler implements Transpiler {
         var cmakeListsFile = getPath(packageParts, FileType.CMAKELISTS);
         OutputStream out = null;
         PrintStream ps = null;
+        sources.sort(Comparator.comparing(a -> String.join(".", a)));
         try {
             out = new FileOutputStream(cmakeListsFile);
             ps = new PrintStream(out);
