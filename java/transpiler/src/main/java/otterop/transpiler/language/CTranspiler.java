@@ -33,6 +33,7 @@
 package otterop.transpiler.language;
 
 import otterop.transpiler.antlr.JavaParser;
+import otterop.transpiler.ignore.IgnoreFile;
 import otterop.transpiler.reader.ClassReader;
 import otterop.transpiler.util.CaseUtil;
 import otterop.transpiler.util.FileUtil;
@@ -54,6 +55,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.function.Function;
 
 public class CTranspiler implements Transpiler {
 
@@ -63,6 +65,7 @@ public class CTranspiler implements Transpiler {
     private final ClassReader classReader;
     private List<String[]> sources = Collections.synchronizedList(new LinkedList<>());
     private String firstClassPart;
+    private IgnoreFile ignoreFile;
 
     private enum FileType {
         SOURCE,
@@ -76,6 +79,7 @@ public class CTranspiler implements Transpiler {
         this.fileWriter = fileWriter;
         this.executorService = executorService;
         this.classReader = classReader;
+        this.ignoreFile = new IgnoreFile(outFolder);
     }
 
     private String getCodePath(String[] clazzParts, FileType fileType) {
@@ -100,15 +104,16 @@ public class CTranspiler implements Transpiler {
         return String.join(File.separator, clazzParts);
     }
 
-    private String getPath(String[] clazzParts, FileType type) {
+    private String getPath(String codePath) {
         return Paths.get(
                 this.outFolder,
-                getCodePath(clazzParts, type)
+                codePath
         ).toString();
     }
 
     public void writeCMakeLists(String[] packageParts) {
-        var cmakeListsFile = getPath(packageParts, FileType.CMAKELISTS);
+        var cmakeListsCodePath = getCodePath(packageParts, FileType.CMAKELISTS);
+        var cmakeListsFile = getPath(cmakeListsCodePath);
         OutputStream out = null;
         PrintStream ps = null;
         sources.sort(Comparator.comparing(a -> String.join(".", a)));
@@ -145,15 +150,22 @@ public class CTranspiler implements Transpiler {
     public Future<Void> transpile(String[] clazzParts, Future<JavaParser.CompilationUnitContext> compilationUnitContext) {
         sources.add(clazzParts);
         return this.executorService.submit(() -> {
-            String sourceCodePath = getPath(clazzParts, FileType.SOURCE);
-            String headerCodePath = getPath(clazzParts, FileType.HEADER);
+            var sourceCodePath = getCodePath(clazzParts, FileType.SOURCE);
+            var headerCodePath = getCodePath(clazzParts, FileType.HEADER);
+            String sourcePath = getPath(sourceCodePath);
+            String headerPath = getPath(headerCodePath);
+
+            if (ignoreFile.ignores(sourceCodePath)) {
+                System.out.println("C ignored: " + sourceCodePath);
+                return null;
+            }
 
             CParserVisitor sourceVisitor = new CParserVisitor(classReader, false);
             CParserVisitor headerVisitor = new CParserVisitor(classReader, true);
             sourceVisitor.visit(compilationUnitContext.get());
-            sourceVisitor.printTo(fileWriter.getPrintStream(sourceCodePath));
+            sourceVisitor.printTo(fileWriter.getPrintStream(sourcePath));
             headerVisitor.visit(compilationUnitContext.get());
-            headerVisitor.printTo(fileWriter.getPrintStream(headerCodePath));
+            headerVisitor.printTo(fileWriter.getPrintStream(headerPath));
             return null;
         });
     }
@@ -162,8 +174,12 @@ public class CTranspiler implements Transpiler {
     public Future<Void> clean(long before) {
         return this.executorService.submit(() -> {
             if (firstClassPart == null) return null;
-
-            FileUtil.clean(Path.of(outFolder, firstClassPart).toString(), before);
+            var outFolderPath = Path.of(outFolder);
+            var cleanPath = Path.of(outFolder, firstClassPart);
+            Function<File, Boolean> filter = (File file) ->
+                    !ignoreFile.ignores(outFolderPath.relativize(file.toPath()).toString()) &&
+                            file.lastModified() < before;
+            FileUtil.clean(cleanPath.toString(), filter);
             return null;
         });
     }

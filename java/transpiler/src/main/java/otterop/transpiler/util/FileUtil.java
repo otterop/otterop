@@ -21,7 +21,7 @@ public class FileUtil {
         }
     }
 
-    public static void clean(String folder, long before) {
-        rmdir(Path.of(folder).toFile(), (File file) -> file.lastModified() < before);
+    public static void clean(String folder, Function<File, Boolean> filter) {
+        rmdir(Path.of(folder).toFile(), filter);
     }
 }

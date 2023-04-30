@@ -33,6 +33,7 @@
 package otterop.transpiler.language;
 
 import otterop.transpiler.antlr.JavaParser;
+import otterop.transpiler.ignore.IgnoreFile;
 import otterop.transpiler.reader.ClassReader;
 import otterop.transpiler.util.FileUtil;
 import otterop.transpiler.visitor.GoParserVisitor;
@@ -45,6 +46,7 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.function.Function;
 
 public class GoTranspiler implements Transpiler {
 
@@ -54,6 +56,7 @@ public class GoTranspiler implements Transpiler {
     private Map<String,String> importDomainMapping;
     private final ClassReader classReader;
     private String firstClassPart;
+    private IgnoreFile ignoreFile;
 
     public GoTranspiler(String outFolder,
                         FileWriter fileWriter,
@@ -65,6 +68,7 @@ public class GoTranspiler implements Transpiler {
         this.executorService = executorService;
         this.importDomainMapping = importDomainMapping;
         this.classReader = classReader;
+        this.ignoreFile = new IgnoreFile(outFolder);
     }
 
     private String getCodePath(String[] clazzParts) {
@@ -79,10 +83,16 @@ public class GoTranspiler implements Transpiler {
     @Override
     public Future<Void> transpile(String[] clazzParts, Future<JavaParser.CompilationUnitContext> compilationUnitContext) {
         return this.executorService.submit(() -> {
+            var codePath = getCodePath(clazzParts);
             String outCodePath = Paths.get(
                     this.outFolder,
-                    getCodePath(clazzParts)
+                    codePath
             ).toString();
+
+            if (ignoreFile.ignores(codePath)) {
+                System.out.println("Go ignored: " + codePath);
+                return null;
+            }
 
             GoParserVisitor visitor = new GoParserVisitor(classReader, importDomainMapping);
             visitor.visit(compilationUnitContext.get());
@@ -95,8 +105,12 @@ public class GoTranspiler implements Transpiler {
     public Future<Void> clean(long before) {
         return this.executorService.submit(() -> {
             if (firstClassPart == null) return null;
-
-            FileUtil.clean(Path.of(outFolder, firstClassPart).toString(), before);
+            var outFolderPath = Path.of(outFolder);
+            var cleanPath = Path.of(outFolder, firstClassPart);
+            Function<File, Boolean> filter = (File file) ->
+                    !ignoreFile.ignores(outFolderPath.relativize(file.toPath()).toString()) &&
+                            file.lastModified() < before;
+            FileUtil.clean(cleanPath.toString(), filter);
             return null;
         });
     }
