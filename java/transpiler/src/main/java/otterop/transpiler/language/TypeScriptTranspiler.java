@@ -34,10 +34,12 @@ package otterop.transpiler.language;
 
 import otterop.transpiler.antlr.JavaParser;
 import otterop.transpiler.reader.ClassReader;
+import otterop.transpiler.util.FileUtil;
 import otterop.transpiler.visitor.TypeScriptParserVisitor;
 import otterop.transpiler.writer.FileWriter;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
@@ -50,6 +52,7 @@ public class TypeScriptTranspiler implements Transpiler {
     private String basePackage;
     private FileWriter fileWriter;
     private final ClassReader classReader;
+    private String firstClassPart;
 
     public TypeScriptTranspiler(String outFolder, FileWriter fileWriter, String basePackage,
                                 ExecutorService executorService,
@@ -65,6 +68,7 @@ public class TypeScriptTranspiler implements Transpiler {
         clazzParts = Arrays.copyOf(clazzParts, clazzParts.length);
         clazzParts[clazzParts.length - 1] = clazzParts[clazzParts.length - 1]
                 .replaceAll("$", ".ts");
+        if (firstClassPart == null) firstClassPart = clazzParts[0];
         return String.join(File.separator, clazzParts);
     }
 
@@ -85,6 +89,16 @@ public class TypeScriptTranspiler implements Transpiler {
             TypeScriptParserVisitor visitor = new TypeScriptParserVisitor(basePackage, currentPackage);
             visitor.visit(compilationUnitContext.get());
             visitor.printTo(fileWriter.getPrintStream(outCodePath));
+            return null;
+        });
+    }
+
+    @Override
+    public Future<Void> clean(long before) {
+        return this.executorService.submit(() -> {
+            if (firstClassPart == null) return null;
+
+            FileUtil.clean(Path.of(outFolder, firstClassPart).toString(), before);
             return null;
         });
     }

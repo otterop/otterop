@@ -35,6 +35,7 @@ package otterop.transpiler.language;
 import otterop.transpiler.antlr.JavaParser;
 import otterop.transpiler.reader.ClassReader;
 import otterop.transpiler.util.CaseUtil;
+import otterop.transpiler.util.FileUtil;
 import otterop.transpiler.visitor.CParserVisitor;
 import otterop.transpiler.writer.FileWriter;
 
@@ -44,6 +45,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
@@ -60,6 +62,7 @@ public class CTranspiler implements Transpiler {
     private FileWriter fileWriter;
     private final ClassReader classReader;
     private List<String[]> sources = Collections.synchronizedList(new LinkedList<>());
+    private String firstClassPart;
 
     private enum FileType {
         SOURCE,
@@ -93,6 +96,7 @@ public class CTranspiler implements Transpiler {
         clazzParts = Arrays.copyOf(clazzParts, clazzParts.length);
         clazzParts[clazzParts.length - 1] = CaseUtil.camelCaseToSnakeCase(clazzParts[clazzParts.length - 1])
                 .replaceAll("$", replacement);
+        if (firstClassPart == null) firstClassPart = clazzParts[0];
         return String.join(File.separator, clazzParts);
     }
 
@@ -150,6 +154,16 @@ public class CTranspiler implements Transpiler {
             sourceVisitor.printTo(fileWriter.getPrintStream(sourceCodePath));
             headerVisitor.visit(compilationUnitContext.get());
             headerVisitor.printTo(fileWriter.getPrintStream(headerCodePath));
+            return null;
+        });
+    }
+
+    @Override
+    public Future<Void> clean(long before) {
+        return this.executorService.submit(() -> {
+            if (firstClassPart == null) return null;
+
+            FileUtil.clean(Path.of(outFolder, firstClassPart).toString(), before);
             return null;
         });
     }

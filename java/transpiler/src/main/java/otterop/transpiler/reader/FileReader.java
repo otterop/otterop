@@ -34,12 +34,9 @@ package otterop.transpiler.reader;
 
 import java.io.FileInputStream;
 import java.io.InputStream;
-import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -58,14 +55,14 @@ public class FileReader {
         BlockingQueue<String> ret = new LinkedBlockingQueue<>();
         Path base = Path.of(basePath);
         executorService.submit(() -> {
-            Files.walkFileTree(base, new SimpleFileVisitor<>() {
-                @Override
-                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-                    if (file.toString().endsWith(".java")) {
-                        String clazz = base.relativize(file).toString();
+            Files.walk(base).forEach(path -> {
+                var file = path.toFile();
+                if (file.isFile()) {
+                    var fileName = path.getFileName().toString();
+                    if (fileName.endsWith(".java")) {
+                        String clazz = base.relativize(path).toString();
                         ret.add(clazz);
                     }
-                    return FileVisitResult.CONTINUE;
                 }
             });
             complete.set(true);

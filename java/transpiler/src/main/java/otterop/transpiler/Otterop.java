@@ -43,6 +43,7 @@ import otterop.transpiler.reader.ClassReader;
 import otterop.transpiler.reader.FileReader;
 import otterop.transpiler.writer.FileWriter;
 
+import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -66,6 +67,7 @@ public class Otterop {
     private ClassReader classReader = new ClassReader();
     private OtteropParser parser = new OtteropParser(executor);
     private CTranspiler cTranspiler;
+    private long start;
 
     public Otterop() {
         TypeScriptTranspiler tsTranspiler = new TypeScriptTranspiler(
@@ -111,7 +113,17 @@ public class Otterop {
         return parts;
     }
 
+    private void clean() throws ExecutionException, InterruptedException {
+        var cleanOps = transpilers.values().stream().map(transpiler ->
+                transpiler.clean(start)
+        ).collect(Collectors.toList());
+        for (var cleanOp : cleanOps) {
+            cleanOp.get();
+        }
+    }
+
     public void transpile(String basePath) throws InterruptedException, ExecutionException {
+        this.start = Instant.now().toEpochMilli();
         AtomicBoolean complete = new AtomicBoolean(false);
         BlockingQueue<String> classes = fileReader.walkClasses(basePath, complete);
         List<Future<Void>> futures = new LinkedList<>();
@@ -123,9 +135,13 @@ public class Otterop {
                         this.transpile(basePath, clazz).get()
                 ));
             }
+            while(!futures.isEmpty() && futures.get(0).isDone()) {
+                futures.remove(0).get();
+            }
         }
         for (Future f: futures) f.get();
         cTranspiler.writeCMakeLists(new String[]{"example", "sort"});
+        clean();
     }
 
     public Future<Void> transpile(String basePath, String classFile) {

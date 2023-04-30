@@ -35,10 +35,12 @@ package otterop.transpiler.language;
 import otterop.transpiler.antlr.JavaParser;
 import otterop.transpiler.reader.ClassReader;
 import otterop.transpiler.util.CaseUtil;
+import otterop.transpiler.util.FileUtil;
 import otterop.transpiler.visitor.CSharpParserVisitor;
 import otterop.transpiler.writer.FileWriter;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
@@ -50,6 +52,7 @@ public class CSharpTranspiler implements Transpiler {
     private String outFolder;
     private FileWriter fileWriter;
     private ClassReader classReader;
+    private String firstClassPart;
 
     public CSharpTranspiler(String outFolder, FileWriter fileWriter,
                             ExecutorService executorService, ClassReader classReader) {
@@ -64,6 +67,8 @@ public class CSharpTranspiler implements Transpiler {
         for(int i = 0; i < clazzParts.length - 1; i++) {
             clazzParts[i] = CaseUtil.camelCaseToPascalCase(clazzParts[i]);
         }
+        if (firstClassPart == null) firstClassPart = clazzParts[0];
+
         clazzParts[clazzParts.length - 1] = clazzParts[clazzParts.length - 1]
                 .replaceAll("$", ".cs");
         return String.join(File.separator, clazzParts);
@@ -80,6 +85,16 @@ public class CSharpTranspiler implements Transpiler {
             CSharpParserVisitor visitor = new CSharpParserVisitor();
             visitor.visit(compilationUnitContext.get());
             visitor.printTo(fileWriter.getPrintStream(outCodePath));
+            return null;
+        });
+    }
+
+    @Override
+    public Future<Void> clean(long before) {
+        return this.executorService.submit(() -> {
+            if (firstClassPart == null) return null;
+
+            FileUtil.clean(Path.of(outFolder, firstClassPart).toString(), before);
             return null;
         });
     }

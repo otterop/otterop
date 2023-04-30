@@ -34,10 +34,12 @@ package otterop.transpiler.language;
 
 import otterop.transpiler.antlr.JavaParser;
 import otterop.transpiler.reader.ClassReader;
+import otterop.transpiler.util.FileUtil;
 import otterop.transpiler.visitor.GoParserVisitor;
 import otterop.transpiler.writer.FileWriter;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Map;
@@ -51,6 +53,7 @@ public class GoTranspiler implements Transpiler {
     private FileWriter fileWriter;
     private Map<String,String> importDomainMapping;
     private final ClassReader classReader;
+    private String firstClassPart;
 
     public GoTranspiler(String outFolder,
                         FileWriter fileWriter,
@@ -69,6 +72,7 @@ public class GoTranspiler implements Transpiler {
         clazzParts = Arrays.copyOf(clazzParts, clazzParts.length + 1);
         clazzParts[clazzParts.length - 2] = clazzName;
         clazzParts[clazzParts.length - 1] = clazzName.replaceAll("$", ".go");
+        if (firstClassPart == null) firstClassPart = clazzParts[0];
         return String.join(File.separator, clazzParts);
     }
 
@@ -83,6 +87,16 @@ public class GoTranspiler implements Transpiler {
             GoParserVisitor visitor = new GoParserVisitor(classReader, importDomainMapping);
             visitor.visit(compilationUnitContext.get());
             visitor.printTo(fileWriter.getPrintStream(outCodePath));
+            return null;
+        });
+    }
+
+    @Override
+    public Future<Void> clean(long before) {
+        return this.executorService.submit(() -> {
+            if (firstClassPart == null) return null;
+
+            FileUtil.clean(Path.of(outFolder, firstClassPart).toString(), before);
             return null;
         });
     }
