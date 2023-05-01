@@ -33,37 +33,21 @@
 package otterop.transpiler.language;
 
 import otterop.transpiler.antlr.JavaParser;
-import otterop.transpiler.ignore.IgnoreFile;
 import otterop.transpiler.reader.ClassReader;
 import otterop.transpiler.util.CaseUtil;
-import otterop.transpiler.util.FileUtil;
 import otterop.transpiler.visitor.CSharpParserVisitor;
 import otterop.transpiler.writer.FileWriter;
 
 import java.io.File;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.function.Function;
 
-public class CSharpTranspiler implements Transpiler {
-
-    private ExecutorService executorService;
-    private String outFolder;
-    private FileWriter fileWriter;
-    private ClassReader classReader;
-    private String firstClassPart;
-    private IgnoreFile ignoreFile;
+public class CSharpTranspiler extends AbstractTranspiler {
 
     public CSharpTranspiler(String outFolder, FileWriter fileWriter,
                             ExecutorService executorService, ClassReader classReader) {
-        this.outFolder = outFolder;
-        this.fileWriter = fileWriter;
-        this.executorService = executorService;
-        this.classReader = classReader;
-        this.ignoreFile = new IgnoreFile(outFolder);
+        super(outFolder, fileWriter, executorService, classReader);
     }
 
     private String getCodePath(String[] clazzParts) {
@@ -71,7 +55,7 @@ public class CSharpTranspiler implements Transpiler {
         for(int i = 0; i < clazzParts.length - 1; i++) {
             clazzParts[i] = CaseUtil.camelCaseToPascalCase(clazzParts[i]);
         }
-        if (firstClassPart == null) firstClassPart = clazzParts[0];
+        if (firstClassPart() == null) setFirstClassPart(clazzParts[0]);
 
         clazzParts[clazzParts.length - 1] = clazzParts[clazzParts.length - 1]
                 .replaceAll("$", ".cs");
@@ -80,35 +64,18 @@ public class CSharpTranspiler implements Transpiler {
 
     @Override
     public Future<Void> transpile(String[] clazzParts, Future<JavaParser.CompilationUnitContext> compilationUnitContext) {
-        return this.executorService.submit(() -> {
+        return this.executorService().submit(() -> {
             var codePath = getCodePath(clazzParts);
-            String outCodePath = Paths.get(
-                    this.outFolder,
-                    codePath
-            ).toString();
+            var outCodePath = getPath(codePath);
 
-            if (ignoreFile.ignores(codePath)) {
+            if (ignoreFile().ignores(codePath)) {
                 System.out.println("C# ignored: " + codePath);
                 return null;
             }
 
             CSharpParserVisitor visitor = new CSharpParserVisitor();
             visitor.visit(compilationUnitContext.get());
-            visitor.printTo(fileWriter.getPrintStream(outCodePath));
-            return null;
-        });
-    }
-
-    @Override
-    public Future<Void> clean(long before) {
-        return this.executorService.submit(() -> {
-            if (firstClassPart == null) return null;
-            var outFolderPath = Path.of(outFolder);
-            var cleanPath = Path.of(outFolder, firstClassPart);
-            Function<File, Boolean> filter = (File file) ->
-                    !ignoreFile.ignores(outFolderPath.relativize(file.toPath()).toString()) &&
-                            file.lastModified() < before;
-            FileUtil.clean(cleanPath.toString(), filter);
+            visitor.printTo(fileWriter().getPrintStream(outCodePath));
             return null;
         });
     }

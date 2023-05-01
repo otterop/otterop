@@ -33,10 +33,8 @@
 package otterop.transpiler.language;
 
 import otterop.transpiler.antlr.JavaParser;
-import otterop.transpiler.ignore.IgnoreFile;
 import otterop.transpiler.reader.ClassReader;
 import otterop.transpiler.util.CaseUtil;
-import otterop.transpiler.util.FileUtil;
 import otterop.transpiler.visitor.CParserVisitor;
 import otterop.transpiler.writer.FileWriter;
 
@@ -46,26 +44,17 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.function.Function;
 
-public class CTranspiler implements Transpiler {
+public class CTranspiler extends AbstractTranspiler {
 
-    private ExecutorService executorService;
-    private String outFolder;
-    private FileWriter fileWriter;
-    private final ClassReader classReader;
-    private List<String[]> sources = Collections.synchronizedList(new LinkedList<>());
-    private String firstClassPart;
-    private IgnoreFile ignoreFile;
+    private List<String> sources = Collections.synchronizedList(new LinkedList<>());
+    private String[] packageParts;
 
     private enum FileType {
         SOURCE,
@@ -74,12 +63,10 @@ public class CTranspiler implements Transpiler {
     }
 
     public CTranspiler(String outFolder, FileWriter fileWriter,
-                       ExecutorService executorService, ClassReader classReader) {
-        this.outFolder = outFolder;
-        this.fileWriter = fileWriter;
-        this.executorService = executorService;
-        this.classReader = classReader;
-        this.ignoreFile = new IgnoreFile(outFolder);
+                       ExecutorService executorService, ClassReader classReader,
+                       String packageName) {
+        super(outFolder, fileWriter, executorService, classReader);
+        packageParts = packageName.split("\\.");
     }
 
     private String getCodePath(String[] clazzParts, FileType fileType) {
@@ -100,23 +87,16 @@ public class CTranspiler implements Transpiler {
         clazzParts = Arrays.copyOf(clazzParts, clazzParts.length);
         clazzParts[clazzParts.length - 1] = CaseUtil.camelCaseToSnakeCase(clazzParts[clazzParts.length - 1])
                 .replaceAll("$", replacement);
-        if (firstClassPart == null) firstClassPart = clazzParts[0];
+        if (firstClassPart() == null) setFirstClassPart(clazzParts[0]);
         return String.join(File.separator, clazzParts);
     }
 
-    private String getPath(String codePath) {
-        return Paths.get(
-                this.outFolder,
-                codePath
-        ).toString();
-    }
-
-    public void writeCMakeLists(String[] packageParts) {
+    public void writeCMakeLists() {
         var cmakeListsCodePath = getCodePath(packageParts, FileType.CMAKELISTS);
         var cmakeListsFile = getPath(cmakeListsCodePath);
         OutputStream out = null;
         PrintStream ps = null;
-        sources.sort(Comparator.comparing(a -> String.join(".", a)));
+        Collections.sort(sources);
         try {
             out = new FileOutputStream(cmakeListsFile);
             ps = new PrintStream(out);
@@ -125,8 +105,7 @@ public class CTranspiler implements Transpiler {
             ps.print("add_executable(");
             ps.print(execName);
             ps.print("\n");
-            for (var s : sources) {
-                var sourceCodePath = getCodePath(s, FileType.SOURCE);
+            for (var sourceCodePath : sources) {
                 ps.println(sourceCodePath);
             }
             ps.println(")");
@@ -148,38 +127,40 @@ public class CTranspiler implements Transpiler {
 
     @Override
     public Future<Void> transpile(String[] clazzParts, Future<JavaParser.CompilationUnitContext> compilationUnitContext) {
-        sources.add(clazzParts);
-        return this.executorService.submit(() -> {
+        var codePath = getCodePath(clazzParts, FileType.SOURCE);
+        sources.add(codePath);
+        return this.executorService().submit(() -> {
             var sourceCodePath = getCodePath(clazzParts, FileType.SOURCE);
             var headerCodePath = getCodePath(clazzParts, FileType.HEADER);
             String sourcePath = getPath(sourceCodePath);
             String headerPath = getPath(headerCodePath);
 
-            if (ignoreFile.ignores(sourceCodePath)) {
+            if (ignoreFile().ignores(sourceCodePath)) {
                 System.out.println("C ignored: " + sourceCodePath);
                 return null;
             }
 
-            CParserVisitor sourceVisitor = new CParserVisitor(classReader, false);
-            CParserVisitor headerVisitor = new CParserVisitor(classReader, true);
+            CParserVisitor sourceVisitor = new CParserVisitor(classReader(), false);
+            CParserVisitor headerVisitor = new CParserVisitor(classReader(), true);
             sourceVisitor.visit(compilationUnitContext.get());
-            sourceVisitor.printTo(fileWriter.getPrintStream(sourcePath));
+            sourceVisitor.printTo(fileWriter().getPrintStream(sourcePath));
             headerVisitor.visit(compilationUnitContext.get());
-            headerVisitor.printTo(fileWriter.getPrintStream(headerPath));
+            headerVisitor.printTo(fileWriter().getPrintStream(headerPath));
             return null;
         });
     }
 
     @Override
-    public Future<Void> clean(long before) {
-        return this.executorService.submit(() -> {
-            if (firstClassPart == null) return null;
-            var outFolderPath = Path.of(outFolder);
-            var cleanPath = Path.of(outFolder, firstClassPart);
-            Function<File, Boolean> filter = (File file) ->
-                    !ignoreFile.ignores(outFolderPath.relativize(file.toPath()).toString()) &&
-                            file.lastModified() < before;
-            FileUtil.clean(cleanPath.toString(), filter);
+    protected boolean ignored(String relativePath) {
+        var ret = super.ignored(relativePath);
+        if (ret && relativePath.endsWith(".c")) sources.add(relativePath);
+        return ret;
+    }
+
+    @Override
+    public Future<Void> finish() {
+        return this.executorService().submit(() -> {
+            writeCMakeLists();
             return null;
         });
     }

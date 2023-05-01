@@ -39,4 +39,5 @@ import java.util.concurrent.Future;
 public interface Transpiler {
     Future<Void> transpile(String[] clazzParts, Future<JavaParser.CompilationUnitContext> compilationUnitContext);
     Future<Void> clean(long from);
+    Future<Void> finish();
 }

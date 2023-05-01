@@ -73,9 +73,9 @@ public class Otterop {
         TypeScriptTranspiler tsTranspiler = new TypeScriptTranspiler(
                 "./ts",
                 fileWriter,
-                "example.sort",
                 executor,
-                classReader);
+                classReader,
+                "example.sort");
         CSharpTranspiler csTranspiler = new CSharpTranspiler(
                 "./dotnet",
                 fileWriter,
@@ -85,7 +85,8 @@ public class Otterop {
                 "./c",
                 fileWriter,
                 executor,
-                classReader);
+                classReader,
+                "example.sort");
         PythonTranspiler pythonTranspiler = new PythonTranspiler(
                 "./python",
                 fileWriter,
@@ -94,10 +95,10 @@ public class Otterop {
         GoTranspiler goTranspiler = new GoTranspiler(
                 "./go",
                 fileWriter,
-                Map.of("otterop", "github.com/otterop/otterop/go",
-                        "example.sort", "github.com/otterop/example-sort/go/example/sort"),
                 executor,
-                classReader);
+                classReader,
+                Map.of("otterop", "github.com/otterop/otterop/go",
+                        "example.sort", "github.com/otterop/example-sort/go/example/sort"));
 
         this.transpilers = Map.of(
                 "typescript", tsTranspiler,
@@ -121,6 +122,14 @@ public class Otterop {
             cleanOp.get();
         }
     }
+    private void finish() throws ExecutionException, InterruptedException {
+        var finishOps = transpilers.values().stream().map(transpiler ->
+                transpiler.finish()
+        ).collect(Collectors.toList());
+        for (var finishOp : finishOps) {
+            finishOp.get();
+        }
+    }
 
     public void transpile(String basePath) throws InterruptedException, ExecutionException {
         this.start = Instant.now().toEpochMilli();
@@ -140,8 +149,8 @@ public class Otterop {
             }
         }
         for (Future f: futures) f.get();
-        cTranspiler.writeCMakeLists(new String[]{"example", "sort"});
         clean();
+        finish();
     }
 
     public Future<Void> transpile(String basePath, String classFile) {
