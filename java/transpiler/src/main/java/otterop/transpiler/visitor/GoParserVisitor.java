@@ -67,6 +67,7 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
     private JavaParser.TypeTypeContext currentType = null;
     private String className = null;
     private String packageName = null;
+    private String javaFullPackageName = null;
     private String fullPackageName = null;
     private int indents = 0;
     private int skipNewlines = 0;
@@ -150,10 +151,16 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
     }
 
     @Override
+    public Void visitAnnotation(JavaParser.AnnotationContext ctx) {
+        return null;
+    }
+
+    @Override
     public Void visitClassDeclaration(JavaParser.ClassDeclarationContext ctx) {
         detectMethods(ctx);
         out.print("type ");
         className = ctx.identifier().getText();
+        javaFullClassNames.put(className, javaFullPackageName + "." + className);
         packageName = className.toLowerCase();
         this.visitIdentifier(ctx.identifier());
         this.classTypeParametersContext = ctx.typeParameters();
@@ -707,10 +714,10 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
     @Override
     public Void visitPackageDeclaration(JavaParser.PackageDeclarationContext ctx) {
         var identifiers = ctx.qualifiedName().identifier();
-        this.fullPackageName = identifiers.stream().map(
+        this.javaFullPackageName = identifiers.stream().map(
                 identifier -> identifier.getText()
         ).collect(Collectors.joining("."));
-        var packageReplacement = this.replaceBasePackage(this.fullPackageName);
+        var packageReplacement = this.replaceBasePackage(this.javaFullPackageName);
         this.fullPackageName = packageReplacement.second;
         if (!packageReplacement.first.isEmpty())
             this.fullPackageName += "/" +

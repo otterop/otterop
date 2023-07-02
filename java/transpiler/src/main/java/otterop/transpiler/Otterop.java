@@ -32,6 +32,7 @@
 
 package otterop.transpiler;
 
+import otterop.transpiler.ignore.IgnoreFile;
 import otterop.transpiler.language.CSharpTranspiler;
 import otterop.transpiler.language.CTranspiler;
 import otterop.transpiler.language.GoTranspiler;
@@ -67,7 +68,10 @@ public class Otterop {
     private ClassReader classReader = new ClassReader();
     private OtteropParser parser = new OtteropParser(executor);
     private CTranspiler cTranspiler;
+    private IgnoreFile ignoreFile;
     private long start;
+
+    public static final String WRAPPED_CLASS = "otterop.lang.MakePure";
 
     public Otterop() {
         TypeScriptTranspiler tsTranspiler = new TypeScriptTranspiler(
@@ -106,6 +110,7 @@ public class Otterop {
                 "c", cTranspiler,
                 "python", pythonTranspiler,
                 "go", goTranspiler);
+        this.ignoreFile = new IgnoreFile(".");
     }
 
     private String[] pathToClassParts(String path) {
@@ -138,7 +143,7 @@ public class Otterop {
         List<Future<Void>> futures = new LinkedList<>();
         while (!complete.get() || !classes.isEmpty()) {
             String clazz = classes.poll(100, TimeUnit.MILLISECONDS);
-            if (clazz != null) {
+            if (clazz != null && !this.ignoreFile.ignores(clazz)) {
                 System.out.println(clazz);
                 futures.add(executor.submit(() ->
                         this.transpile(basePath, clazz).get()

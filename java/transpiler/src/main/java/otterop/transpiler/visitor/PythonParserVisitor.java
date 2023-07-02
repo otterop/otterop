@@ -32,6 +32,7 @@
 
 package otterop.transpiler.visitor;
 
+import otterop.transpiler.Otterop;
 import otterop.transpiler.antlr.JavaParser;
 import otterop.transpiler.antlr.JavaParserBaseVisitor;
 import otterop.transpiler.util.CaseUtil;
@@ -76,6 +77,11 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print(INDENT.repeat(indents));
         out.println("pass");
         indents++;
+        return null;
+    }
+
+    @Override
+    public Void visitAnnotation(JavaParser.AnnotationContext ctx) {
         return null;
     }
 
@@ -329,6 +335,10 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
         );
     }
 
+    private boolean excludeImports(String javaFullClassName) {
+        return Otterop.WRAPPED_CLASS.equals(javaFullClassName);
+    }
+
     @Override
     public Void visitImportDeclaration(JavaParser.ImportDeclarationContext ctx) {
         var qualifiedName = ctx.qualifiedName();
@@ -340,14 +350,20 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
                 identifiers.subList(0, classNameIdx + 1).stream()
                         .map(id -> id.getText()).collect(Collectors.toList())
         );
-        var importStatement = "from " + pythonPackage + " import "+ className;
-        importedClasses.add(className);
-        fromImports.add(importStatement);
-        if (isStatic) {
-            var methodName = identifiers.get(classNameIdx + 1).getText();
-            var methodNameSnake = camelCaseToSnakeCase(methodName);
-            var staticImportStatement = methodNameSnake + " = " + className + "." + methodNameSnake;
-            staticImports.add(staticImportStatement);
+        var javaFullClassName = identifiers.subList(0, classNameIdx + 1).stream()
+                .map(identifier -> identifier.getText())
+                .collect(Collectors.joining("."));
+
+        if (!excludeImports(javaFullClassName)) {
+            var importStatement = "from " + pythonPackage + " import " + className;
+            importedClasses.add(className);
+            fromImports.add(importStatement);
+            if (isStatic) {
+                var methodName = identifiers.get(classNameIdx + 1).getText();
+                var methodNameSnake = camelCaseToSnakeCase(methodName);
+                var staticImportStatement = methodNameSnake + " = " + className + "." + methodNameSnake;
+                staticImports.add(staticImportStatement);
+            }
         }
         return null;
     }

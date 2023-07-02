@@ -34,6 +34,7 @@ package otterop.transpiler.visitor;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ParseTree;
+import otterop.transpiler.Otterop;
 import otterop.transpiler.antlr.JavaParser;
 import otterop.transpiler.antlr.JavaParserBaseVisitor;
 import otterop.transpiler.reader.ClassReader;
@@ -299,6 +300,11 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
                 out.print("}\n\n");
             }
         }
+    }
+
+    @Override
+    public Void visitAnnotation(JavaParser.AnnotationContext ctx) {
+        return null;
     }
 
     @Override
@@ -838,6 +844,10 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         return null;
     }
 
+    private boolean excludeImports(String javaFullClassName) {
+        return Otterop.WRAPPED_CLASS.equals(javaFullClassName);
+    }
+
     @Override
     public Void visitImportDeclaration(JavaParser.ImportDeclarationContext ctx) {
         var qualifiedName = ctx.qualifiedName();
@@ -858,7 +868,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
                 .collect(Collectors.joining("."));
 
         var includeStatement = "#include <" + includeStr + "/" + fileName + ".h>";
-        if (header) includes.add(includeStatement);
+        if (header && !excludeImports(javaFullClassName)) includes.add(includeStatement);
         fullClassNames.put(className, prefix);
         javaFullClassNames.put(className, javaFullClassName);
         if (isStatic) {

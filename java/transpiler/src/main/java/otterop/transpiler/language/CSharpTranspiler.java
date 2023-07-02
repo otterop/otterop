@@ -36,9 +36,11 @@ import otterop.transpiler.antlr.JavaParser;
 import otterop.transpiler.reader.ClassReader;
 import otterop.transpiler.util.CaseUtil;
 import otterop.transpiler.visitor.CSharpParserVisitor;
+import otterop.transpiler.visitor.pure.PureCSharpParserVisitor;
 import otterop.transpiler.writer.FileWriter;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -50,22 +52,38 @@ public class CSharpTranspiler extends AbstractTranspiler {
         super(outFolder, fileWriter, executorService, classReader);
     }
 
-    private String getCodePath(String[] clazzParts) {
-        clazzParts = Arrays.copyOf(clazzParts, clazzParts.length);
+    private String getCodePath(String[] clazzParts, boolean pure) {
+        int len = !pure ? clazzParts.length : clazzParts.length + 1;
+        String[] newClassParts = Arrays.copyOf(clazzParts, len);
         for(int i = 0; i < clazzParts.length - 1; i++) {
-            clazzParts[i] = CaseUtil.camelCaseToPascalCase(clazzParts[i]);
+            newClassParts[i] = CaseUtil.camelCaseToPascalCase(clazzParts[i]);
         }
         if (firstClassPart() == null) setFirstClassPart(clazzParts[0]);
 
-        clazzParts[clazzParts.length - 1] = clazzParts[clazzParts.length - 1]
+        newClassParts[newClassParts.length - 1] = clazzParts[clazzParts.length - 1]
                 .replaceAll("$", ".cs");
-        return String.join(File.separator, clazzParts);
+        if (pure) {
+            newClassParts[newClassParts.length - 2] = "Pure";
+        }
+        return String.join(File.separator, newClassParts);
+    }
+
+    private void checkMakePure(CSharpParserVisitor visitor,
+                               String[] clazzParts,
+                               JavaParser.CompilationUnitContext compilationUnitContext) throws IOException {
+        if (visitor.makePure()) {
+            var codePath = getCodePath(clazzParts, true);
+            var outCodePath = getPath(codePath);
+            PureCSharpParserVisitor pureVisitor = new PureCSharpParserVisitor();
+            pureVisitor.visit(compilationUnitContext);
+            pureVisitor.printTo(fileWriter().getPrintStream(outCodePath));
+        }
     }
 
     @Override
     public Future<Void> transpile(String[] clazzParts, Future<JavaParser.CompilationUnitContext> compilationUnitContext) {
         return this.executorService().submit(() -> {
-            var codePath = getCodePath(clazzParts);
+            var codePath = getCodePath(clazzParts, false);
             var outCodePath = getPath(codePath);
 
             if (ignoreFile().ignores(codePath)) {
@@ -75,6 +93,7 @@ public class CSharpTranspiler extends AbstractTranspiler {
 
             CSharpParserVisitor visitor = new CSharpParserVisitor();
             visitor.visit(compilationUnitContext.get());
+            checkMakePure(visitor, clazzParts, compilationUnitContext.get());
             visitor.printTo(fileWriter().getPrintStream(outCodePath));
             return null;
         });

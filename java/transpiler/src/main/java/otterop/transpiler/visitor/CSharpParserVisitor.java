@@ -32,6 +32,7 @@
 
 package otterop.transpiler.visitor;
 
+import otterop.transpiler.Otterop;
 import otterop.transpiler.antlr.JavaParser;
 import otterop.transpiler.antlr.JavaParserBaseVisitor;
 
@@ -59,11 +60,13 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
     private static String INDENT = "    ";
     private static String THIS = "this";
     private Map<String,String> fullClassName = new LinkedHashMap<>();
+    private Map<String,String> javaFullClassName = new LinkedHashMap<>();
     private Map<String,String> staticImports = new LinkedHashMap<>();
     private OutputStream outStream = new ByteArrayOutputStream();
     private PrintStream out = new PrintStream(outStream);
     private JavaParser.TypeParametersContext classTypeParametersContext;
     private JavaParser.TypeParametersContext methodTypeParametersContext;
+    private boolean makePure = false;
 
     @Override
     public Void visitInterfaceDeclaration(JavaParser.InterfaceDeclarationContext ctx) {
@@ -93,6 +96,14 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
             else rest = true;
             visitTypeType(typeType);
         }
+        return null;
+    }
+
+    @Override
+    public Void visitAnnotation(JavaParser.AnnotationContext ctx) {
+        var annotationName = ctx.qualifiedName().identifier().get(0).getText();
+        var fullAnnotationName = javaFullClassName.get(annotationName);
+        makePure |= Otterop.WRAPPED_CLASS.equals(fullAnnotationName);
         return null;
     }
 
@@ -311,6 +322,7 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitClassOrInterfaceModifier(JavaParser.ClassOrInterfaceModifierContext ctx) {
+        if (ctx.annotation() != null) visitAnnotation(ctx.annotation());
         if (ctx.PUBLIC() != null) classPublic = true;
         return null;
     }
@@ -495,7 +507,13 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
                         identifier -> camelCaseToPascalCase(identifier.getText()))
                         .collect(Collectors.toList())
         );
+        var javaClassStr = String.join(".",
+                identifiers.subList(0,classNameIdx + 1).stream().map(
+                                identifier -> identifier.getText())
+                        .collect(Collectors.toList())
+        );
         fullClassName.put(className, classStr);
+        javaFullClassName.put(className, javaClassStr);
         if (isStatic) {
             staticImports.put(methodName, classStr + "." + camelCaseToPascalCase(methodName));
         }
@@ -631,6 +649,10 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         ).collect(Collectors.joining("."));
         indents++;
         return null;
+    }
+
+    public boolean makePure() {
+        return this.makePure;
     }
 
     public void printTo(PrintStream ps) {
