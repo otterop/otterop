@@ -36,9 +36,11 @@ import otterop.transpiler.antlr.JavaParser;
 import otterop.transpiler.reader.ClassReader;
 import otterop.transpiler.util.CaseUtil;
 import otterop.transpiler.visitor.PythonParserVisitor;
+import otterop.transpiler.visitor.pure.PurePythonParserVisitor;
 import otterop.transpiler.writer.FileWriter;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -50,18 +52,34 @@ public class PythonTranspiler extends AbstractTranspiler {
         super(outFolder, fileWriter, executorService, classReader);
     }
 
-    private String getCodePath(String[] clazzParts) {
-        clazzParts = Arrays.copyOf(clazzParts, clazzParts.length);
-        clazzParts[clazzParts.length - 1] = CaseUtil.camelCaseToSnakeCase(clazzParts[clazzParts.length - 1])
+    private String getCodePath(String[] clazzParts, boolean pure) {
+        int len = !pure ? clazzParts.length : clazzParts.length + 1;
+        String[] newClassParts = Arrays.copyOf(clazzParts, len);
+        newClassParts[newClassParts.length - 1] = CaseUtil.camelCaseToSnakeCase(clazzParts[clazzParts.length - 1])
                 .replaceAll("$", ".py");
         if (firstClassPart() == null) setFirstClassPart(clazzParts[0]);
-        return String.join(File.separator, clazzParts);
+        if (pure) {
+            newClassParts[newClassParts.length - 2] = "pure";
+        }
+        return String.join(File.separator, newClassParts);
+    }
+
+    private void checkMakePure(PythonParserVisitor visitor,
+                               String[] clazzParts,
+                               JavaParser.CompilationUnitContext compilationUnitContext) throws IOException {
+        if (visitor.makePure()) {
+            var codePath = getCodePath(clazzParts, true);
+            var outCodePath = getPath(codePath);
+            var pureVisitor = new PurePythonParserVisitor();
+            pureVisitor.visit(compilationUnitContext);
+            pureVisitor.printTo(fileWriter().getPrintStream(outCodePath));
+        }
     }
 
     @Override
     public Future<Void> transpile(String[] clazzParts, Future<JavaParser.CompilationUnitContext> compilationUnitContext) {
         return this.executorService().submit(() -> {
-            var codePath = getCodePath(clazzParts);
+            var codePath = getCodePath(clazzParts, false);
             String outCodePath = getPath(codePath);
 
             if (ignoreFile().ignores(codePath)) {
@@ -72,6 +90,8 @@ public class PythonTranspiler extends AbstractTranspiler {
             PythonParserVisitor visitor = new PythonParserVisitor();
             visitor.visit(compilationUnitContext.get());
             visitor.printTo(fileWriter().getPrintStream(outCodePath));
+
+            checkMakePure(visitor, clazzParts, compilationUnitContext.get());
             return null;
         });
     }

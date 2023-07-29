@@ -264,12 +264,14 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
     @Override
     public Void visitInterfaceCommonBodyDeclaration(JavaParser.InterfaceCommonBodyDeclarationContext ctx) {
         out.print(INDENT.repeat(indents));
-        visitTypeTypeOrVoid(ctx.typeTypeOrVoid());
-        out.print(" ");
         var name = ctx.identifier().getText();
         name = camelCaseToPascalCase(name);
         out.print(name);
         visitFormalParameters(ctx.formalParameters());
+        if (ctx.typeTypeOrVoid().VOID() == null) {
+            out.print(" ");
+            visitTypeTypeOrVoid(ctx.typeTypeOrVoid());
+        }
         out.print(";\n");
         return null;
     }

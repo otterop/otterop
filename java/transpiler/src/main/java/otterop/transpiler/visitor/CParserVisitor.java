@@ -448,6 +448,9 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print(" {\n");
         indents++;
         out.print(INDENT.repeat(indents));
+        if (ctx.typeTypeOrVoid().VOID() == null) {
+            out.print("return ");
+        }
         out.print("this->");
         out.print(methodName);
         out.print("(this->implementation");
@@ -461,9 +464,14 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     }
 
     private void visitInterfaceMethodType(JavaParser.InterfaceCommonBodyDeclarationContext ctx) {
+        currentTypePointer = false;
         if (ctx.typeTypeOrVoid().VOID() != null) out.print("void");
         else visitTypeTypeOrVoid(ctx.typeTypeOrVoid());
         out.print(" ");
+        if (currentTypePointer) {
+            out.print("*");
+            currentTypePointer = false;
+        }
         var name = ctx.identifier().getText();
         name = camelCaseToSnakeCase(name);
         out.print("(*");
@@ -477,8 +485,13 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     }
 
     private void visitImplementationMethodType(JavaParser.MethodDeclarationContext ctx) {
+        currentTypePointer = false;
         if (ctx.typeTypeOrVoid().VOID() != null) out.print("void");
         else visitTypeTypeOrVoid(ctx.typeTypeOrVoid());
+        if (currentTypePointer) {
+            out.print(" *");
+            currentTypePointer = false;
+        }
         out.print(" ");
         var name = ctx.identifier().getText();
         name = camelCaseToSnakeCase(name);

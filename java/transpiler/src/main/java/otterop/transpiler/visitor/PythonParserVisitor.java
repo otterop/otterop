@@ -63,9 +63,11 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
     private Set<String> staticImports = new LinkedHashSet<>();
     private final Set<String> importedClasses = new LinkedHashSet<>();
     private OutputStream outStream = new ByteArrayOutputStream();
+    private Map<String,String> javaFullClassName = new LinkedHashMap<>();
     private Map<String, JavaParser.TypeTypeContext> variableType = new LinkedHashMap<>();
     private JavaParser.TypeTypeContext currentType;
     private PrintStream out = new PrintStream(outStream);
+    private boolean makePure = false;
 
     @Override
     public Void visitInterfaceDeclaration(JavaParser.InterfaceDeclarationContext ctx) {
@@ -82,6 +84,9 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitAnnotation(JavaParser.AnnotationContext ctx) {
+        var annotationName = ctx.qualifiedName().identifier().get(0).getText();
+        var fullAnnotationName = javaFullClassName.get(annotationName);
+        makePure |= Otterop.WRAPPED_CLASS.equals(fullAnnotationName);
         return null;
     }
 
@@ -354,6 +359,7 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
                 .map(identifier -> identifier.getText())
                 .collect(Collectors.joining("."));
 
+        this.javaFullClassName.put(className, javaFullClassName);
         if (!excludeImports(javaFullClassName)) {
             var importStatement = "from " + pythonPackage + " import " + className;
             importedClasses.add(className);
@@ -445,6 +451,10 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
                 identifier -> identifier.getText()
         ).collect(Collectors.toList()));
         return null;
+    }
+
+    public boolean makePure() {
+        return this.makePure;
     }
 
     public void printTo(PrintStream ps) {

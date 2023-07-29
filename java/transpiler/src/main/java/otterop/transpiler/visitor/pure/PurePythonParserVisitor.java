@@ -1,22 +1,27 @@
 package otterop.transpiler.visitor.pure;
 
+import otterop.transpiler.Otterop;
 import otterop.transpiler.antlr.JavaParser;
 import otterop.transpiler.antlr.JavaParserBaseVisitor;
 
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
-import static otterop.transpiler.util.CaseUtil.camelCaseToPascalCase;
+import static otterop.transpiler.util.CaseUtil.camelCaseToSnakeCase;
 
-public class PureCSharpParserVisitor extends JavaParserBaseVisitor<Void> {
+public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
 
     private int indents = 0;
-    private String namespace = null;
-    private String pureNamespace = null;
+    private String module = null;
+    private String pureModule = null;
     private static String INDENT = "    ";
     private OutputStream outStream = new ByteArrayOutputStream();
     private PrintStream out = new PrintStream(outStream);
@@ -33,20 +38,23 @@ public class PureCSharpParserVisitor extends JavaParserBaseVisitor<Void> {
     private Map<String,String> fullClassName = new LinkedHashMap<>();
     private Map<String,String> pureClassName = new LinkedHashMap<>();
     private Map<String,String> unwrappedClassName = new LinkedHashMap<>();
+    private Set<String> imports = new LinkedHashSet<>();
 
-    public PureCSharpParserVisitor() {
-        this.unwrappedClassName.put("Otterop.Lang.String", "string");
+    public PurePythonParserVisitor() {
+        this.unwrappedClassName.put("otterop.lang.string.String", "str");
+        this.unwrappedClassName.put("otterop.lang.array.Array", "list");
     }
 
     @Override
     public Void visitPackageDeclaration(JavaParser.PackageDeclarationContext ctx) {
         var identifiers = ctx.qualifiedName().identifier();
-        namespace = identifiers.stream().map(
-                identifier -> camelCaseToPascalCase(identifier.getText())
-        ).collect(Collectors.joining("."));
-
-        pureNamespace = namespace + ".Pure";
-        indents++;
+        var identifiersString = identifiers.stream().map(
+                identifier -> camelCaseToSnakeCase(identifier.getText())
+        ).collect(Collectors.toList());
+        var pureIdentifiersString = new LinkedList<>(identifiersString);
+        pureIdentifiersString.add("pure");
+        module = identifiersString.stream().collect(Collectors.joining("."));
+        pureModule = pureIdentifiersString.stream().collect(Collectors.joining("."));
         return null;
     }
 
@@ -71,8 +79,8 @@ public class PureCSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         }
     }
 
-    private String unmapArgument(String argName, String originalClass, String mappedClass) {
-        if (unwrappedClassName.containsKey(originalClass)) {
+    private String unmapArgument(String argName, String mappedClass) {
+        if (unwrappedClassName.containsKey(mappedClass)) {
             return argName + ".unwrap()";
         } else {
             return mappedClass + ".wrap(" + argName + ")";
@@ -87,42 +95,32 @@ public class PureCSharpParserVisitor extends JavaParserBaseVisitor<Void> {
                 var mapperParamName = entry.getValue();
                 var mappedClass = mappedArgumentClass.get(paramName);
                 if (mappedArgumentArray.getOrDefault(paramName, false)) {
-                    var mappedArrayName = mapperParamName + "Array";
-                    out.print("var ");
+                    var mappedArrayName = mapperParamName + "_array";
                     out.print(mappedArrayName);
-                    out.print(" = ");
-                    out.print("new ");
-                    out.print(mappedClass);
-                    out.print("[");
+                    out.print(" = [None] * len(");
                     out.print(paramName);
-                    out.print(".Count()];\n");
+                    out.print(")\n");
                     out.print(INDENT.repeat(indents));
-                    out.print("for (var i = 0; i < ");
+                    out.print("for i in range(len(");
                     out.print(paramName);
-                    out.print(".Count(); i++)\n");
-                    out.print(INDENT.repeat(indents));
-                    out.print("{\n");
+                    out.print(")):\n");
                     indents++;
                     out.print(INDENT.repeat(indents));
                     out.print(mappedArrayName);
                     out.print("[i] = ");
                     out.print(mapArgument(paramName + "[i]", mappedClass));
-                    out.print(";\n");
+                    out.print("\n");
                     indents--;
                     out.print(INDENT.repeat(indents));
-                    out.print("}\n");
-                    out.print(INDENT.repeat(indents));
-                    out.print("var ");
                     out.print(entry.getValue());
-                    out.print(" = Otterop.Lang.Array.Wrap(");
+                    out.print(" = otterop.lang.array.Array.wrap(");
                     out.print(mappedArrayName);
-                    out.print(");\n");
+                    out.print(")\n");
                 } else {
-                    out.print("var ");
                     out.print(paramName);
                     out.print(" = ");
                     out.print(mapArgument(entry.getKey(), mappedClass));
-                    out.print(";\n");
+                    out.print("\n");
                 }
             }
         }
@@ -135,107 +133,92 @@ public class PureCSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         var hasReturn = ctx.typeTypeOrVoid().VOID() == null;
         var returnTypeArray = false;
         String returnTypePure = null;
-        String returnTypeString = null;
         if (hasReturn) {
             var returnType = ctx.typeTypeOrVoid().typeType().classOrInterfaceType();
             if (returnType != null) {
-                returnTypeString = returnType.identifier().stream().map(i -> i.getText())
+                var identifier = returnType.identifier().stream().map(i -> i.getText())
                         .collect(Collectors.joining("."));
                 returnTypeArray = returnType.identifier(0).getText().equals("Array");
                 if (!returnTypeArray) {
-                    returnTypePure = pureClassName.get(returnTypeString);
+                    returnTypePure = pureClassName.get(identifier);
                 } else {
-                    returnTypeString = returnType.typeArguments().get(0).typeArgument(0).typeType().getText();
-                    returnTypePure = pureClassName.get(returnTypeString);
+                    var typeArgumentName = returnType.typeArguments().get(0).typeArgument(0).typeType().getText();
+                    returnTypePure = pureClassName.get(typeArgumentName);
                 }
             }
-        }
-        if (returnTypeString != null) {
-            returnTypeString = fullClassName.get(returnTypeString);
         }
 
         mappedArguments.clear();
         mappedArgumentArray.clear();
         mappedArgumentClass.clear();
-        out.print(INDENT.repeat(indents));
-        out.print("public ");
-        visitTypeTypeOrVoid(ctx.typeTypeOrVoid());
-        out.print(" ");
-        var name = ctx.identifier().getText();
-        name = camelCaseToPascalCase(name);
-        out.print(name);
-        visitFormalParameters(ctx.formalParameters());
         out.print("\n");
         out.print(INDENT.repeat(indents));
-        out.print("{\n");
+        out.print("def ");
+        var name = ctx.identifier().getText();
+        name = camelCaseToSnakeCase(name);
+        out.print(name);
+        visitFormalParameters(ctx.formalParameters());
+        out.print(":\n");
         indents++;
         mapArguments();
         out.print(INDENT.repeat(indents));
         if (hasReturn)
-            out.print("var retOtterop = ");
-        out.print("otterop.");
+            out.print("ret_otterop = ");
+        out.print("self.otterop.");
         out.print(name);
         printArguments = true;
         visitFormalParameters(ctx.formalParameters());
         printArguments = false;
-        out.print(";\n");
+        out.print("\n");
         if (hasReturn) {
             if (!returnTypeArray) {
                 if (returnTypePure == null) {
                     out.print(INDENT.repeat(indents));
-                    out.print("var ret = retOtterop;\n");
+                    out.print("ret = ret_otterop\n");
                 } else {
                     if (returnTypePure.equals(pureClassName.get(className))) {
                         out.print(INDENT.repeat(indents));
-                        out.print("if (retOtterop == this.otterop) return this;\n");
+                        out.print("if ret_otterop is self.otterop:\n");
+                        indents++;
+                        out.print(INDENT.repeat(indents));
+                        out.print("return self\n");
+                        indents--;
                     }
                     out.print(INDENT.repeat(indents));
-                    out.print("var ret = ");
+                    out.print("ret = ");
                     out.print(
-                            this.unmapArgument("retOtterop", returnTypeString, returnTypePure)
+                            this.unmapArgument("ret_otterop", returnTypePure)
                     );
-                    out.print(";\n");
+                    out.print("\n");
                 }
             } else {
                 out.print(INDENT.repeat(indents));
-                out.print("var ret = new ");
-                out.print(returnTypePure);
-                out.print("[retOtterop.Size()];\n");
+                out.print("ret = [None] * ret_otterop.size()\n");
                 out.print(INDENT.repeat(indents));
-                out.print("for (var i = 0; i < retOtterop.Size(); i++)\n");
-                out.print(INDENT.repeat(indents));
-                out.print("{\n");
+                out.print("for i in range(len(ret)):\n");
                 indents++;
                 out.print(INDENT.repeat(indents));
-                out.print("var retI = retOtterop.Get(i);\n");
+                out.print("ret_i = ret_otterop.get(i)\n");
                 if (returnTypePure.equals(pureClassName.get(className))) {
                     out.print(INDENT.repeat(indents));
-                    out.print("if (retI == this.otterop)\n");
-                    out.print(INDENT.repeat(indents));
-                    out.print("{\n");
+                    out.print("if ret_i is self.otterop:\n");
                     indents++;
                     out.print(INDENT.repeat(indents));
-                    out.print("ret[i] = this;\n");
+                    out.print("ret[i] = self\n");
                     out.print(INDENT.repeat(indents));
-                    out.print("continue;\n");
+                    out.print("continue\n");
                     indents--;
-                    out.print(INDENT.repeat(indents));
-                    out.print("}\n");
                 }
                 out.print(INDENT.repeat(indents));
                 out.print("ret[i] = ");
-                out.print(this.unmapArgument("retI", returnTypeString, returnTypePure));
-                out.print(";\n");
+                out.print(this.unmapArgument("ret_i", returnTypePure));
+                out.print("\n");
                 indents--;
-                out.print(INDENT.repeat(indents));
-                out.print("}\n");
             }
             out.print(INDENT.repeat(indents));
-            out.print("return ret;\n");
+            out.print("return ret\n");
         }
         indents--;
-        out.print(INDENT.repeat(indents));
-        out.print("}\n");
         this.memberStatic = false;
         this.memberPublic = false;
         out.print("\n");
@@ -254,7 +237,6 @@ public class PureCSharpParserVisitor extends JavaParserBaseVisitor<Void> {
     @Override
     public Void visitTypeTypeOrVoid(JavaParser.TypeTypeOrVoidContext ctx) {
         if (ctx.VOID() != null) {
-            out.print("void");
             return null;
         }
         return super.visitTypeTypeOrVoid(ctx);
@@ -266,28 +248,21 @@ public class PureCSharpParserVisitor extends JavaParserBaseVisitor<Void> {
             return null;
         }
         out.print(INDENT.repeat(indents));
-        out.print("public ");
-        var name = ctx.identifier().getText();
-        name = camelCaseToPascalCase(name);
-        out.print(name);
+        out.print("def __init__");
         visitFormalParameters(ctx.formalParameters());
         this.memberStatic = false;
         this.memberPublic = false;
-        out.print("\n");
-        out.print(INDENT.repeat(indents));
-        out.print("{\n");
         indents++;
+        out.print(":\n");
         mapArguments();
         out.print(INDENT.repeat(indents));
-        out.print("this.otterop = new ");
+        out.print("self.otterop = ");
         out.print(fullClassName.get(className));
         printArguments = true;
         visitFormalParameters(ctx.formalParameters());
         printArguments = false;
-        out.print(";\n");
+        out.print("\n");
         indents--;
-        out.print(INDENT.repeat(indents));
-        out.print("}\n\n");
         return null;
     }
 
@@ -296,43 +271,49 @@ public class PureCSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         return null;
     }
 
-    @Override
-    public Void visitImportDeclaration(JavaParser.ImportDeclarationContext ctx) {
-        var qualifiedName = ctx.qualifiedName();
-        boolean isStatic = ctx.STATIC() != null;
-        var identifiers = qualifiedName.identifier();
-        int classNameIdx = identifiers.size() - (isStatic ?  2 : 1);
-        String className = identifiers.get(classNameIdx).getText();
-        if (isStatic) {
-            return null;
-        }
-        var csharpIdentifiers = identifiers.subList(0,classNameIdx + 1).stream().map(
-                        identifier -> camelCaseToPascalCase(identifier.getText()))
-                        .collect(Collectors.toList());
-        var classStr = String.join(".",csharpIdentifiers);
-        csharpIdentifiers.add(csharpIdentifiers.size() - 1, "Pure");
-
-        var pureClassStr = String.join(".", csharpIdentifiers);
-
-        fullClassName.put(className, classStr);
-        if (unwrappedClassName.containsKey(classStr)) {
-            pureClassName.put(className, unwrappedClassName.get(classStr));
-        } else {
-            pureClassName.put(className, pureClassStr);
-        }
-        return null;
+    private boolean excludeImports(String javaFullClassName) {
+        return Otterop.WRAPPED_CLASS.equals(javaFullClassName);
     }
 
     @Override
-    public Void visitInterfaceCommonBodyDeclaration(JavaParser.InterfaceCommonBodyDeclarationContext ctx) {
-        out.print(INDENT.repeat(indents));
-        visitTypeTypeOrVoid(ctx.typeTypeOrVoid());
-        out.print(" ");
-        var name = ctx.identifier().getText();
-        name = camelCaseToPascalCase(name);
-        out.print(name);
-        visitFormalParameters(ctx.formalParameters());
-        out.print(";\n");
+    public Void visitImportDeclaration(JavaParser.ImportDeclarationContext ctx) {
+        boolean isStatic = ctx.STATIC() != null;
+        if (isStatic)
+            return null;
+
+        var qualifiedName = ctx.qualifiedName();
+        var identifiers = qualifiedName.identifier();
+        int classNameIdx = identifiers.size() - 1;
+        String className = identifiers.get(classNameIdx).getText();
+
+        var languageIdentifiers = identifiers.subList(0,classNameIdx + 1).stream().map(
+                        identifier -> camelCaseToSnakeCase(identifier.getText()))
+                .collect(Collectors.toList());
+        var javaClassStr = identifiers.subList(0,classNameIdx + 1).stream().map(
+                        identifier -> identifier.getText())
+                .collect(Collectors.joining("."));
+        var packageString = String.join(".",languageIdentifiers);
+        var classStr = packageString + "." + className;
+
+        if (this.excludeImports(javaClassStr))
+            return null;
+
+        var pureLanguageIdentifies = new LinkedList<>(languageIdentifiers);
+        pureLanguageIdentifies.add(pureLanguageIdentifies.size() - 1, "pure");
+
+        var purePackageStr = String.join(".", pureLanguageIdentifies);
+        var pureClassStr = purePackageStr + "." + className;
+
+        fullClassName.put(className, classStr);
+        imports.add("import " + packageString);
+
+        if (unwrappedClassName.containsKey(classStr)) {
+            pureClassName.put(className, classStr);
+        } else {
+            pureClassName.put(className, pureClassStr);
+            imports.add("import " + purePackageStr);
+        }
+
         return null;
     }
 
@@ -347,108 +328,66 @@ public class PureCSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         var currentPure = pureClassName.get(className);
         var currentOtterop = fullClassName.get(className);
         out.print(INDENT.repeat(indents));
-        out.print("public static ");
-        out.print(currentPure);
-        out.print(" wrap(");
-        out.print(currentOtterop);
-        out.print(" wrapped)\n");
+        out.print("@staticmethod\n");
         out.print(INDENT.repeat(indents));
-        out.print("{\n");
+        out.print("def wrap(wrapped):\n");
         indents++;
         out.print(INDENT.repeat(indents));
-        out.print("return new ");
+        out.print("ret = ");
         out.print(currentPure);
-        out.print("(wrapped);\n");
-        indents--;
+        out.print(".__new__(");
+        out.print(currentPure);
+        out.print(")\n");
         out.print(INDENT.repeat(indents));
-        out.print("}\n");
+        out.print("ret.otterop = wrapped\n");
+        out.print(INDENT.repeat(indents));
+        out.print("return ret\n");
+        indents--;
     }
 
     private void unwrapMethod() {
-        var currentOtterop = fullClassName.get(className);
         out.print(INDENT.repeat(indents));
-        out.print("public ");
-        out.print(currentOtterop);
-        out.print(" unwrap()\n");
-        out.print(INDENT.repeat(indents));
-        out.print("{\n");
+        out.print("def unwrap(self):\n");
         indents++;
         out.print(INDENT.repeat(indents));
-        out.print("return this.otterop;\n");
+        out.print("return self.otterop\n");
         indents--;
-        out.print(INDENT.repeat(indents));
-        out.print("}\n");
-    }
-
-    private void wrapperConstructor() {
-        var currentOtterop = fullClassName.get(className);
-        var currentPure = className;
-        out.print(INDENT.repeat(indents));
-        out.print("private ");
-        out.print(currentPure);
-        out.print("(");
-        out.print(currentOtterop);
-        out.print(" wrapped)\n");
-        out.print(INDENT.repeat(indents));
-        out.print("{\n");
-        indents++;
-        out.print(INDENT.repeat(indents));
-        out.print("this.otterop = wrapped;\n");
-        indents--;
-        out.print(INDENT.repeat(indents));
-        out.print("}\n");
     }
 
     @Override
     public Void visitClassDeclaration(JavaParser.ClassDeclarationContext ctx) {
         out.print(INDENT.repeat(indents));
-        out.print("public ");
         out.print("class ");
         className = ctx.identifier().getText();
-        var currentFullClassName = namespace + "." + className;
-        var currentPureClassName = pureNamespace + "." + className;
+        var currentFullPackageName = module + "." + camelCaseToSnakeCase(className);
+        var currentPurePackageName = pureModule + "."+ camelCaseToSnakeCase(className);
+        var currentFullClassName = currentFullPackageName + "." + className;
+        var currentPureClassName = currentPurePackageName + "." + className;
         fullClassName.put(className, currentFullClassName);
         pureClassName.put(className, currentPureClassName);
+        imports.add("import " + currentFullPackageName);
         this.visitIdentifier(ctx.identifier());
-        if (ctx.IMPLEMENTS() != null) {
-            out.print(" : ");
-            visitTypeList(ctx.typeList(0));
-        }
-        out.print("\n");
-        out.print(INDENT.repeat(indents));
-        out.print("{\n");
+        out.print(":\n");
         indents++;
-        out.print(INDENT.repeat(indents));
-        out.print("private ");
-        out.print(currentFullClassName);
-        out.print(" otterop;\n\n");
-        wrapperConstructor();
         super.visitClassBody(ctx.classBody());
         this.unwrapMethod();
         out.println();
         this.wrapMethod();
         indents--;
-        out.print(INDENT.repeat(indents));
-        out.println("}\n");
-
         return null;
     }
 
     @Override
     public Void visitInterfaceDeclaration(JavaParser.InterfaceDeclarationContext ctx) {
         out.print(INDENT.repeat(indents));
-        out.print("public ");
-        out.print("interface ");
+        out.print("class ");
         className = ctx.identifier().getText();
         this.visitIdentifier(ctx.identifier());
-        out.print("\n");
-        out.print(INDENT.repeat(indents));
-        out.print("{\n");
+        out.print(":\n");
         indents++;
-        visitInterfaceBody(ctx.interfaceBody());
-        indents--;
         out.print(INDENT.repeat(indents));
-        out.println("}\n");
+        out.print("pass\n");
+        indents--;
         return null;
     }
 
@@ -457,22 +396,18 @@ public class PureCSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         var identifier = ctx.identifier().stream().map(i -> i.getText())
                 .collect(Collectors.joining("."));
         if ("Object".equals(identifier)) {
-            out.print("object");
         } else if ("Array".equals(identifier)) {
             visitTypeType(ctx.typeArguments().get(0).typeArgument().get(0).typeType());
-            out.print("[]");
             if (insideFormalParameters) {
                 lastParameterArray = true;
             }
         } else if ("String".equals(identifier)) {
-            out.print("string");
             if (insideFormalParameters) {
-                lastParameterWrapped = "Otterop.Lang.String";
+                lastParameterWrapped = "otterop.lang.string.String";
             }
         } else {
             var pureClass = pureClassName.get(identifier);
-            if (pureClass == null) pureClass = pureNamespace + "." + identifier;
-            out.print(pureClass);
+            if (pureClass == null) pureClass = pureModule + "." + identifier;
             if (insideFormalParameters) {
                 lastParameterWrapped = fullClassName.get(identifier);
             }
@@ -483,9 +418,11 @@ public class PureCSharpParserVisitor extends JavaParserBaseVisitor<Void> {
     @Override
     public Void visitFormalParameters(JavaParser.FormalParametersContext ctx) {
         if (ctx.formalParameterList() == null) {
-            out.print("()");
+            if (printArguments) out.print("()");
+            else out.print("(self)");
         } else {
-            out.print("(");
+            if (printArguments) out.print("(");
+            else out.print("(self, ");
             insideFormalParameters = true;
             visitFormalParameterList(ctx.formalParameterList());
             insideFormalParameters = false;
@@ -501,9 +438,9 @@ public class PureCSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         lastParameterArray = false;
         if (!printArguments) {
             visitTypeType(ctx.typeType());
-            out.print(" ");
         }
         var parameterName = ctx.variableDeclaratorId().identifier().getText();
+        parameterName = camelCaseToSnakeCase(parameterName);
         if (lastParameterWrapped != null) {
             mappedArguments.put(parameterName, "_" + parameterName);
             mappedArgumentArray.put(parameterName, lastParameterArray);
@@ -520,21 +457,15 @@ public class PureCSharpParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitPrimitiveType(JavaParser.PrimitiveTypeContext ctx) {
-        String primitiveType = ctx.getText();
-        if("boolean".equals(primitiveType)) {
-            out.print("bool");
-        } else {
-            out.print(primitiveType);
-        }
         return null;
     }
 
 
     public void printTo(PrintStream ps) {
-        ps.print("namespace ");
-        ps.print(pureNamespace);
-        ps.print("\n{\n");
+        for (String importStatement : imports) {
+            ps.println(importStatement);
+        }
+        ps.println("");
         ps.print(outStream.toString());
-        ps.print("}\n");
     }
 }

@@ -93,8 +93,9 @@ public class CSharpTranspiler extends AbstractTranspiler {
 
             CSharpParserVisitor visitor = new CSharpParserVisitor();
             visitor.visit(compilationUnitContext.get());
-            checkMakePure(visitor, clazzParts, compilationUnitContext.get());
             visitor.printTo(fileWriter().getPrintStream(outCodePath));
+
+            checkMakePure(visitor, clazzParts, compilationUnitContext.get());
             return null;
         });
     }
