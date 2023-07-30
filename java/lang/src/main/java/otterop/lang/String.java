@@ -57,4 +57,8 @@ public class String implements Comparable {
         if (!(o instanceof String)) return 1;
         return this.wrapped.compareTo(((String)o).wrapped);
     }
+
+    public java.lang.String unwrap() {
+        return this.wrapped;
+    }
 }

@@ -36,6 +36,7 @@ import otterop.transpiler.ignore.IgnoreFile;
 import otterop.transpiler.language.CSharpTranspiler;
 import otterop.transpiler.language.CTranspiler;
 import otterop.transpiler.language.GoTranspiler;
+import otterop.transpiler.language.JavaTranspiler;
 import otterop.transpiler.language.PythonTranspiler;
 import otterop.transpiler.language.Transpiler;
 import otterop.transpiler.language.TypeScriptTranspiler;
@@ -57,6 +58,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class Otterop {
@@ -68,10 +70,12 @@ public class Otterop {
     private ClassReader classReader = new ClassReader();
     private OtteropParser parser = new OtteropParser(executor);
     private CTranspiler cTranspiler;
+    private JavaTranspiler javaTranspiler;
     private IgnoreFile ignoreFile;
     private long start;
 
     public static final String WRAPPED_CLASS = "otterop.lang.MakePure";
+    public static final Pattern PURE_CLASSES = Pattern.compile("^.*\\/pure\\/[^\\/\\.]*\\.java$");
 
     public Otterop() {
         TypeScriptTranspiler tsTranspiler = new TypeScriptTranspiler(
@@ -103,13 +107,20 @@ public class Otterop {
                 classReader,
                 Map.of("otterop", "github.com/otterop/otterop/go",
                         "example.sort", "github.com/otterop/example-sort/go/example/sort"));
+        JavaTranspiler javaTranspiler = new JavaTranspiler(
+                "./src/main/java",
+                fileWriter,
+                executor,
+                classReader
+        );
 
         this.transpilers = Map.of(
                 "typescript", tsTranspiler,
                 "csharp", csTranspiler,
                 "c", cTranspiler,
                 "python", pythonTranspiler,
-                "go", goTranspiler);
+                "go", goTranspiler,
+                "java", javaTranspiler);
         this.ignoreFile = new IgnoreFile(".");
     }
 
@@ -136,6 +147,12 @@ public class Otterop {
         }
     }
 
+    private boolean ignored(String clazz) {
+        if (PURE_CLASSES.matcher(clazz).matches())
+            return true;
+        return this.ignoreFile.ignores(clazz);
+    }
+
     public void transpile(String basePath) throws InterruptedException, ExecutionException {
         this.start = Instant.now().toEpochMilli();
         AtomicBoolean complete = new AtomicBoolean(false);
@@ -143,11 +160,16 @@ public class Otterop {
         List<Future<Void>> futures = new LinkedList<>();
         while (!complete.get() || !classes.isEmpty()) {
             String clazz = classes.poll(100, TimeUnit.MILLISECONDS);
-            if (clazz != null && !this.ignoreFile.ignores(clazz)) {
+            if (clazz != null) {
+                if (!this.ignored(clazz)) {
+                    System.out.print("Transpiled: ");
+                    futures.add(executor.submit(() ->
+                            this.transpile(basePath, clazz).get()
+                    ));
+                } else {
+                    System.out.print("Transpiler ignored: ");
+                }
                 System.out.println(clazz);
-                futures.add(executor.submit(() ->
-                        this.transpile(basePath, clazz).get()
-                ));
             }
             while(!futures.isEmpty() && futures.get(0).isDone()) {
                 futures.remove(0).get();
