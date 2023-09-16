@@ -36,6 +36,7 @@ import otterop.transpiler.antlr.JavaParser;
 import otterop.transpiler.reader.ClassReader;
 import otterop.transpiler.util.CaseUtil;
 import otterop.transpiler.visitor.CParserVisitor;
+import otterop.transpiler.visitor.pure.PureCParserVisitor;
 import otterop.transpiler.writer.FileWriter;
 
 import java.io.File;
@@ -69,7 +70,7 @@ public class CTranspiler extends AbstractTranspiler {
         packageParts = packageName.split("\\.");
     }
 
-    private String getCodePath(String[] clazzParts, FileType fileType) {
+    private String getCodePath(String[] clazzParts, FileType fileType, boolean pure) {
         String replacement;
         switch (fileType) {
             case SOURCE:
@@ -88,11 +89,18 @@ public class CTranspiler extends AbstractTranspiler {
         clazzParts[clazzParts.length - 1] = CaseUtil.camelCaseToSnakeCase(clazzParts[clazzParts.length - 1])
                 .replaceAll("$", replacement);
         if (firstClassPart() == null) setFirstClassPart(clazzParts[0]);
-        return String.join(File.separator, clazzParts);
+        if (!pure)
+            return String.join(File.separator, clazzParts);
+        else {
+            String[] clazzPartsPure = Arrays.copyOf(clazzParts, clazzParts.length + 1);
+            clazzPartsPure[clazzPartsPure.length - 1] = clazzPartsPure[clazzPartsPure.length - 2];
+            clazzPartsPure[clazzPartsPure.length - 2] = "pure";
+            return String.join(File.separator, clazzPartsPure);
+        }
     }
 
     public void writeCMakeLists() {
-        var cmakeListsCodePath = getCodePath(packageParts, FileType.CMAKELISTS);
+        var cmakeListsCodePath = getCodePath(packageParts, FileType.CMAKELISTS, false);
         var cmakeListsFile = getPath(cmakeListsCodePath);
         OutputStream out = null;
         PrintStream ps = null;
@@ -125,13 +133,29 @@ public class CTranspiler extends AbstractTranspiler {
         }
     }
 
+    private void checkMakePure(CParserVisitor visitor,
+                               String[] clazzParts,
+                               JavaParser.CompilationUnitContext compilationUnitContext) throws IOException {
+        if (visitor.makePure()) {
+            var sourceCodePath = getCodePath(clazzParts,  FileType.SOURCE, true);
+            var headerCodePath = getCodePath(clazzParts,  FileType.HEADER, true);
+            String sourcePath = getPath(sourceCodePath);
+            String headerPath = getPath(headerCodePath);
+            PureCParserVisitor sourceVisitor = new PureCParserVisitor(classReader(), false);
+            PureCParserVisitor headerVisitor = new PureCParserVisitor(classReader(), true);
+            sourceVisitor.visit(compilationUnitContext);
+            sourceVisitor.printTo(fileWriter().getPrintStream(sourcePath));
+            headerVisitor.visit(compilationUnitContext);
+            headerVisitor.printTo(fileWriter().getPrintStream(headerPath));
+            sources.add(sourceCodePath);
+        }
+    }
+
     @Override
     public Future<Void> transpile(String[] clazzParts, Future<JavaParser.CompilationUnitContext> compilationUnitContext) {
-        var codePath = getCodePath(clazzParts, FileType.SOURCE);
-        sources.add(codePath);
         return this.executorService().submit(() -> {
-            var sourceCodePath = getCodePath(clazzParts, FileType.SOURCE);
-            var headerCodePath = getCodePath(clazzParts, FileType.HEADER);
+            var sourceCodePath = getCodePath(clazzParts, FileType.SOURCE, false);
+            var headerCodePath = getCodePath(clazzParts, FileType.HEADER, false);
             String sourcePath = getPath(sourceCodePath);
             String headerPath = getPath(headerCodePath);
 
@@ -139,6 +163,7 @@ public class CTranspiler extends AbstractTranspiler {
                 System.out.println("C ignored: " + sourceCodePath);
                 return null;
             }
+            sources.add(sourceCodePath);
 
             CParserVisitor sourceVisitor = new CParserVisitor(classReader(), false);
             CParserVisitor headerVisitor = new CParserVisitor(classReader(), true);
@@ -146,6 +171,7 @@ public class CTranspiler extends AbstractTranspiler {
             sourceVisitor.printTo(fileWriter().getPrintStream(sourcePath));
             headerVisitor.visit(compilationUnitContext.get());
             headerVisitor.printTo(fileWriter().getPrintStream(headerPath));
+            checkMakePure(sourceVisitor, clazzParts, compilationUnitContext.get());
             return null;
         });
     }

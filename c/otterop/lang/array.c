@@ -1,10 +1,10 @@
 /**
  * Copyright (c) 2023 The OtterOP Authors. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
  * met:
- * 
+ *
  *    * Redistributions of source code must retain the above copyright
  * notice, this list of conditions and the following disclaimer.
  *    * Redistributions in binary form must reproduce the above
@@ -14,7 +14,7 @@
  *    * Neither the name of Confluent Inc. nor the names of its
  * contributors may be used to endorse or promote products derived from
  * this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -26,7 +26,7 @@
  * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
+ *
  */
 
 #include "array.h"
@@ -45,17 +45,17 @@ otterop_lang_Array_t *otterop_lang_Array_new(void **wrapped, int start, int end)
     return ret;
 }
 
-otterop_lang_Array_t *otterop_lang_Array_wrap(int wrapped_count, void **wrapped) {
-    return otterop_lang_Array_new(wrapped, 0, wrapped_count);
+otterop_lang_Array_t *otterop_lang_Array_wrap(void *wrapped, int wrapped_cnt) {
+    return otterop_lang_Array_new((void **) wrapped, 0, wrapped_cnt);
 }
 
-otterop_lang_Array_t *otterop_lang_Array_wrap_string(int wrapped_count, char **wrapped) {
+otterop_lang_Array_t *otterop_lang_Array_wrap_string(char **wrapped, int wrapped_cnt) {
     int i;
-    void **ret = GC_malloc(wrapped_count * sizeof(void *));
-    for (i = 0; i < wrapped_count; i++) {
+    void **ret = GC_malloc(wrapped_cnt * sizeof(void *));
+    for (i = 0; i < wrapped_cnt; i++) {
         ret[i] = otterop_lang_String_wrap(wrapped[i]);
     }
-    return otterop_lang_Array_new(ret, 0, wrapped_count);
+    return otterop_lang_Array_new(ret, 0, wrapped_cnt);
 }
 
 void *otterop_lang_Array_get(otterop_lang_Array_t *this, int i) {

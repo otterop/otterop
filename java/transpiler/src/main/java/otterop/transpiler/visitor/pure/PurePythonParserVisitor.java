@@ -7,7 +7,6 @@ import otterop.transpiler.antlr.JavaParserBaseVisitor;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
@@ -30,8 +29,8 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
     private boolean memberPublic = false;
     private boolean printArguments = false;
     private boolean insideFormalParameters = false;
-    private String lastParameterWrapped = null;
-    private boolean lastParameterArray = false;
+    private String lastTypeWrapped = null;
+    private boolean lastTypeArray = false;
     private Map<String,String> mappedArguments = new LinkedHashMap<>();
     private Map<String,Boolean> mappedArgumentArray = new LinkedHashMap<>();
     private Map<String,String> mappedArgumentClass = new LinkedHashMap<>();
@@ -399,17 +398,17 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
         } else if ("Array".equals(identifier)) {
             visitTypeType(ctx.typeArguments().get(0).typeArgument().get(0).typeType());
             if (insideFormalParameters) {
-                lastParameterArray = true;
+                lastTypeArray = true;
             }
         } else if ("String".equals(identifier)) {
             if (insideFormalParameters) {
-                lastParameterWrapped = "otterop.lang.string.String";
+                lastTypeWrapped = "otterop.lang.string.String";
             }
         } else {
             var pureClass = pureClassName.get(identifier);
             if (pureClass == null) pureClass = pureModule + "." + identifier;
             if (insideFormalParameters) {
-                lastParameterWrapped = fullClassName.get(identifier);
+                lastTypeWrapped = fullClassName.get(identifier);
             }
         }
         return null;
@@ -434,17 +433,17 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
     @Override
     public Void visitFormalParameter(JavaParser.FormalParameterContext ctx) {
         boolean isLast = ctx.getParent().children.get(ctx.getParent().getChildCount()-1) == ctx;
-        lastParameterWrapped = null;
-        lastParameterArray = false;
+        lastTypeWrapped = null;
+        lastTypeArray = false;
         if (!printArguments) {
             visitTypeType(ctx.typeType());
         }
         var parameterName = ctx.variableDeclaratorId().identifier().getText();
         parameterName = camelCaseToSnakeCase(parameterName);
-        if (lastParameterWrapped != null) {
+        if (lastTypeWrapped != null) {
             mappedArguments.put(parameterName, "_" + parameterName);
-            mappedArgumentArray.put(parameterName, lastParameterArray);
-            mappedArgumentClass.put(parameterName, lastParameterWrapped);
+            mappedArgumentArray.put(parameterName, lastTypeArray);
+            mappedArgumentClass.put(parameterName, lastTypeWrapped);
         }
         if (printArguments && mappedArguments.containsKey(parameterName)) {
             out.print(mappedArguments.get(parameterName));

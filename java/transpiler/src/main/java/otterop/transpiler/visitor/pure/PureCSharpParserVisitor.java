@@ -25,8 +25,8 @@ public class PureCSharpParserVisitor extends JavaParserBaseVisitor<Void> {
     private boolean memberPublic = false;
     private boolean printArguments = false;
     private boolean insideFormalParameters = false;
-    private String lastParameterWrapped = null;
-    private boolean lastParameterArray = false;
+    private String lastTypeWrapped = null;
+    private boolean lastTypeArray = false;
     private Map<String,String> mappedArguments = new LinkedHashMap<>();
     private Map<String,Boolean> mappedArgumentArray = new LinkedHashMap<>();
     private Map<String,String> mappedArgumentClass = new LinkedHashMap<>();
@@ -462,19 +462,19 @@ public class PureCSharpParserVisitor extends JavaParserBaseVisitor<Void> {
             visitTypeType(ctx.typeArguments().get(0).typeArgument().get(0).typeType());
             out.print("[]");
             if (insideFormalParameters) {
-                lastParameterArray = true;
+                lastTypeArray = true;
             }
         } else if ("String".equals(identifier)) {
             out.print("string");
             if (insideFormalParameters) {
-                lastParameterWrapped = "Otterop.Lang.String";
+                lastTypeWrapped = "Otterop.Lang.String";
             }
         } else {
             var pureClass = pureClassName.get(identifier);
             if (pureClass == null) pureClass = pureNamespace + "." + identifier;
             out.print(pureClass);
             if (insideFormalParameters) {
-                lastParameterWrapped = fullClassName.get(identifier);
+                lastTypeWrapped = fullClassName.get(identifier);
             }
         }
         return null;
@@ -497,17 +497,17 @@ public class PureCSharpParserVisitor extends JavaParserBaseVisitor<Void> {
     @Override
     public Void visitFormalParameter(JavaParser.FormalParameterContext ctx) {
         boolean isLast = ctx.getParent().children.get(ctx.getParent().getChildCount()-1) == ctx;
-        lastParameterWrapped = null;
-        lastParameterArray = false;
+        lastTypeWrapped = null;
+        lastTypeArray = false;
         if (!printArguments) {
             visitTypeType(ctx.typeType());
             out.print(" ");
         }
         var parameterName = ctx.variableDeclaratorId().identifier().getText();
-        if (lastParameterWrapped != null) {
+        if (lastTypeWrapped != null) {
             mappedArguments.put(parameterName, "_" + parameterName);
-            mappedArgumentArray.put(parameterName, lastParameterArray);
-            mappedArgumentClass.put(parameterName, lastParameterWrapped);
+            mappedArgumentArray.put(parameterName, lastTypeArray);
+            mappedArgumentClass.put(parameterName, lastTypeWrapped);
         }
         if (printArguments && mappedArguments.containsKey(parameterName)) {
             out.print(mappedArguments.get(parameterName));
