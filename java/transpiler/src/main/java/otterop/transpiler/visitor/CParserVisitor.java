@@ -752,17 +752,6 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitFieldDeclaration(JavaParser.FieldDeclarationContext ctx) {
-        out.print(INDENT.repeat(indents));
-        if (memberStatic) {
-            insideStaticField = true;
-            if (ctx.typeType().classOrInterfaceType() != null)
-                throw new RuntimeException("only primitive static fields allowed");
-            visitTypeType(ctx.typeType());
-            out.print(" ");
-            visitVariableDeclarators(ctx.variableDeclarators());
-            insideStaticField = false;
-        }
-        out.print(";\n");
         return null;
     }
 
