@@ -1,10 +1,10 @@
 /**
  * Copyright (c) 2023 The OtterOP Authors. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
  * met:
- * 
+ *
  *    * Redistributions of source code must retain the above copyright
  * notice, this list of conditions and the following disclaimer.
  *    * Redistributions in binary form must reproduce the above
@@ -14,7 +14,7 @@
  *    * Neither the name of the copyright holder nor the names of its
  * contributors may be used to endorse or promote products derived from
  * this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -26,35 +26,36 @@
  * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
+ *
  */
 
 
-export class Result<RES, ERR> {
+package otterop.transpiler.util;
 
-    private _res : RES;
+import java.io.ByteArrayOutputStream;
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.util.Stack;
 
-    private _err : ERR;
+public class PrintStreamStack extends PrintStream {
+    private Stack<OutputStream> stack = new Stack<>();
 
-    private constructor(_res : RES, _err : ERR) {
-        this._res = _res;
-        this._err = _err;
+    public PrintStreamStack(OutputStream out) {
+        super(out);
+        stack.push(out);
     }
 
-    public isOK() : boolean {
-        return this._err != null;
+    public void startCapture() {
+        OutputStream out = new ByteArrayOutputStream();
+        stack.push(out);
+        this.out = out;
     }
 
-    public err() : ERR {
-        return this._err;
-    }
-
-    public unwrap() : RES {
-        return this._res;
-    }
-
-    public static of<RES0, ERR0>(res : RES0, err : ERR0) : Result<RES0, ERR0> {
-        return new Result<RES0,ERR0>(res, err);
+    public String endCapture() {
+        this.flush();
+        String ret = this.out.toString();
+        stack.pop();
+        this.out = stack.peek();
+        return ret;
     }
 }
-

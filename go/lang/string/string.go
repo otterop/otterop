@@ -11,7 +11,7 @@
  * copyright notice, this list of conditions and the following disclaimer
  * in the documentation and/or other materials provided with the
  * distribution.
- *    * Neither the name of Confluent Inc. nor the names of its
+ *    * Neither the name of the copyright holder nor the names of its
  * contributors may be used to endorse or promote products derived from
  * this software without specific prior written permission.
  * 
@@ -35,17 +35,17 @@ package string
 import "strings"
 
 type String struct {
-    wrapped string
+    wrapped *string
 }
 
-func newString(wrapped string) *String {
+func newString(wrapped *string) *String {
     ret := new(String)
     ret.wrapped = wrapped
     return ret
 }
 
 func (this *String) Length() int {
-    return len(this.wrapped)
+    return len(*this.wrapped)
 }
 
 func (this *String) CompareTo(other interface{}) int {
@@ -53,13 +53,17 @@ func (this *String) CompareTo(other interface{}) int {
     if !ok {
         return 1
     }
-    return strings.Compare(this.wrapped, otherString.wrapped)
+    return strings.Compare(*this.wrapped, *otherString.wrapped)
 }
 
 func (this *String) String() string {
-    return this.wrapped
+    return *this.wrapped
 }
 
-func Wrap(wrapped string) *String {
+func Wrap(wrapped *string) *String {
     return newString(wrapped)
+}
+
+func (this *String) Unwrap() *string {
+    return this.wrapped
 }

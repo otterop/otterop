@@ -11,7 +11,7 @@
  * copyright notice, this list of conditions and the following disclaimer
  * in the documentation and/or other materials provided with the
  * distribution.
- *    * Neither the name of Confluent Inc. nor the names of its
+ *    * Neither the name of the copyright holder nor the names of its
  * contributors may be used to endorse or promote products derived from
  * this software without specific prior written permission.
  *
@@ -35,9 +35,12 @@ package otterop.transpiler.language;
 import otterop.transpiler.antlr.JavaParser;
 import otterop.transpiler.reader.ClassReader;
 import otterop.transpiler.visitor.GoParserVisitor;
+import otterop.transpiler.visitor.pure.PureCSharpParserVisitor;
+import otterop.transpiler.visitor.pure.PureGoParserVisitor;
 import otterop.transpiler.writer.FileWriter;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -56,19 +59,37 @@ public class GoTranspiler extends AbstractTranspiler{
         this.importDomainMapping = importDomainMapping;
     }
 
-    private String getCodePath(String[] clazzParts) {
+    private String getCodePath(String[] clazzParts, boolean pure) {
         String clazzName = clazzParts[clazzParts.length - 1].toLowerCase();
-        clazzParts = Arrays.copyOf(clazzParts, clazzParts.length + 1);
-        clazzParts[clazzParts.length - 2] = clazzName;
-        clazzParts[clazzParts.length - 1] = clazzName.replaceAll("$", ".go");
+        int classPartsLen = !pure ? clazzParts.length + 1 : clazzParts.length + 2;
+        int startClazzName = !pure ? classPartsLen - 2 : classPartsLen - 3;
+        int endClassName = classPartsLen - 1;
+        clazzParts = Arrays.copyOf(clazzParts, classPartsLen);
+        clazzParts[startClazzName] = clazzName;
+        if (pure)
+            clazzParts[startClazzName + 1] = "pure";
+        clazzParts[endClassName] = clazzName.replaceAll("$", ".go");
         if (firstClassPart() == null) setFirstClassPart(clazzParts[0]);
         return String.join(File.separator, clazzParts);
+    }
+
+    private void checkMakePure(GoParserVisitor visitor,
+                               String[] clazzParts,
+                               JavaParser.CompilationUnitContext compilationUnitContext) throws IOException {
+        if (visitor.makePure()) {
+            var codePath = getCodePath(clazzParts, true);
+            var outCodePath = getPath(codePath);
+            PureGoParserVisitor pureVisitor = new PureGoParserVisitor(
+                    this.classReader(), this.importDomainMapping);
+            pureVisitor.visit(compilationUnitContext);
+            pureVisitor.printTo(fileWriter().getPrintStream(outCodePath));
+        }
     }
 
     @Override
     public Future<Void> transpile(String[] clazzParts, Future<JavaParser.CompilationUnitContext> compilationUnitContext) {
         return this.executorService().submit(() -> {
-            var codePath = getCodePath(clazzParts);
+            var codePath = getCodePath(clazzParts, false);
             var outCodePath = getPath(codePath);
 
             if (ignoreFile().ignores(codePath)) {
@@ -79,6 +100,7 @@ public class GoTranspiler extends AbstractTranspiler{
             GoParserVisitor visitor = new GoParserVisitor(classReader(), importDomainMapping);
             visitor.visit(compilationUnitContext.get());
             visitor.printTo(fileWriter().getPrintStream(outCodePath));
+            checkMakePure(visitor, clazzParts, compilationUnitContext.get());
             return null;
         });
     }

@@ -11,7 +11,7 @@
  * copyright notice, this list of conditions and the following disclaimer
  * in the documentation and/or other materials provided with the
  * distribution.
- *    * Neither the name of Confluent Inc. nor the names of its
+ *    * Neither the name of the copyright holder nor the names of its
  * contributors may be used to endorse or promote products derived from
  * this software without specific prior written permission.
  * 
@@ -74,7 +74,7 @@ func Wrap[T any](array []T) *Array[T] {
     return newArray(array, 0, len(array))
 }
 
-func WrapString(arg []string) *Array[*String.String] {
+func WrapString(arg []*string) *Array[*String.String] {
     ret := make([]*String.String, len(arg))
     for i, v := range arg {
         ret[i] = String.Wrap(v)
