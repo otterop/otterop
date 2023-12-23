@@ -48,6 +48,10 @@ export class String {
         else return 0;
     }
 
+    public unwrap() : string {
+        return this.wrapped;
+    }
+
     toString() : string {
         return this.wrapped;
     }

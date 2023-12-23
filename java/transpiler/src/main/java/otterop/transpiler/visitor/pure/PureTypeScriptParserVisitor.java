@@ -30,7 +30,7 @@
  */
 
 
-package otterop.transpiler.visitor;
+package otterop.transpiler.visitor.pure;
 
 import otterop.transpiler.Otterop;
 import otterop.transpiler.antlr.JavaParser;
@@ -40,6 +40,7 @@ import otterop.transpiler.util.CaseUtil;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -47,7 +48,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
+public class PureTypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
     private final String basePackage;
     private final String currentPackage;
     private final String[] currentPackageIdentifiers;
@@ -55,24 +56,28 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
     private boolean memberPublic = false;
     private boolean classPublic = false;
     private String className = null;
+    private String pureClassName = null;
     private boolean hasMain = false;
     private boolean insideFieldDeclaration = false;
+    private boolean insideMethodCall = false;
     private int indents = 0;
     private int skipNewlines = 0;
     private static String INDENT = "    ";
     private static String THIS = "this";
     private Set<String> imports = new LinkedHashSet<>();
     private Set<String> importedClasses = new LinkedHashSet<>();
-    private Set<String> staticImports = new LinkedHashSet<>();
-    private Map<String,String> javaFullClassNames = new LinkedHashMap<>();
     private OutputStream outStream = new ByteArrayOutputStream();
     private PrintStream out = new PrintStream(outStream);
-    private JavaParser.TypeParametersContext classTypeParametersContext;
-    private JavaParser.TypeParametersContext methodTypeParametersContext;
     private Map<String, JavaParser.TypeTypeContext> variableType = new LinkedHashMap<>();
     private Set<String> attributePrivate = new LinkedHashSet<>();
     private JavaParser.TypeTypeContext currentType;
-    private boolean makePure = false;
+    private String lastTypeWrapped = null;
+    private boolean lastTypeArray = false;
+    private Map<String,String> unwrappedClassName = new LinkedHashMap<>();
+    private Map<String,String> mappedArguments = new LinkedHashMap<>();
+    private Map<String,Boolean> mappedArgumentArray = new LinkedHashMap<>();
+    private Map<String,String> mappedArgumentClass = new LinkedHashMap<>();
+    private Map<String,String> pureClassNames = new LinkedHashMap<>();
 
     private static final Set<String> NUMERIC_TYPES = new LinkedHashSet<String>() {{
         add("int");
@@ -80,10 +85,16 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         add("double");
     }};
 
-    public TypeScriptParserVisitor(String basePackage, String currentPackage) {
+    public PureTypeScriptParserVisitor(String basePackage, String currentPackage) {
         this.basePackage = basePackage;
         this.currentPackage = currentPackage;
         this.currentPackageIdentifiers = currentPackage.split("\\.");
+        this.unwrappedClassName.put("String", "String");
+        this.unwrappedClassName.put("Array", "Array");
+        this.unwrappedClassName.put("StringOtterOP", "String");
+        this.unwrappedClassName.put("ArrayOtterOP", "Array");
+        addImport(Arrays.asList("otterop", "lang", "String"), false);
+        addImport(Arrays.asList("otterop", "lang", "Array"), false);
     }
 
     @Override
@@ -93,7 +104,9 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
             out.print("export ");
         }
         out.print("interface ");
-        className = ctx.identifier().getText();
+        pureClassName = ctx.identifier().getText();
+        className = ctx.identifier().getText() + "OtterOP";
+
         this.visitIdentifier(ctx.identifier());
         out.print("{\n");
         indents++;
@@ -106,10 +119,37 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitAnnotation(JavaParser.AnnotationContext ctx) {
-        var annotationName = ctx.qualifiedName().identifier().get(0).getText();
-        var fullAnnotationName = javaFullClassNames.get(annotationName);
-        makePure |= Otterop.WRAPPED_CLASS.equals(fullAnnotationName);
         return null;
+    }
+
+    private void wrapMethod() {
+        out.print(INDENT.repeat(indents));
+        out.print("public static wrap(otterop :");
+        out.print(className);
+        out.print(") : ");
+        out.print(pureClassName);
+        out.print(" {\n");
+        indents++;
+        out.print(INDENT.repeat(indents));
+        out.print("return new ");
+        out.print(pureClassName);
+        out.print("(otterop);\n");
+        indents--;
+        out.print(INDENT.repeat(indents));
+        out.print("}\n");
+    }
+
+    private void unwrapMethod() {
+        out.print(INDENT.repeat(indents));
+        out.print("public unwrap() : ");
+        out.print(className);
+        out.print(" {\n");
+        indents++;
+        out.print(INDENT.repeat(indents));
+        out.print("return this.otterop;\n");
+        indents--;
+        out.print(INDENT.repeat(indents));
+        out.print("}\n");
     }
 
     @Override
@@ -118,10 +158,12 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         if (classPublic)
             out.print("export ");
         out.print("class ");
-        className = ctx.identifier().getText();
+        pureClassName = ctx.identifier().getText();
+        pureClassNames.put(pureClassName, pureClassName);
+        className = ctx.identifier().getText() + "OtterOP";
+        imports.add("import { " + pureClassName + " as " + className + " } from '../" + pureClassName + "';");
+
         this.visitIdentifier(ctx.identifier());
-        this.classTypeParametersContext = ctx.typeParameters();
-        printTypeParameters(this.classTypeParametersContext);
         if (ctx.IMPLEMENTS() != null) {
             out.print(" implements ");
             boolean first = true;
@@ -134,57 +176,80 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         }
         out.print(" {\n");
         indents++;
+        out.println();
+        out.print(INDENT.repeat(indents));
+        out.print("private otterop : ");
+        out.print(className);
+        out.println(";\n");
+        wrapMethod();
         super.visitClassBody(ctx.classBody());
+        unwrapMethod();
         indents--;
         out.print(INDENT.repeat(indents));
         out.println("}\n");
         return null;
     }
 
-    private void printTypeParameters(JavaParser.TypeParametersContext typeParametersContext) {
-        if (typeParametersContext != null) {
-            out.print("<");
-            boolean rest = false;
-            for (var t: typeParametersContext.typeParameter()) {
-                if(rest)
-                    out.print(", ");
-                else
-                    rest = true;
-                visitIdentifier(t.identifier());
-            }
-            out.print(">");
-        }
-    }
-
-    private void printTypeArguments(List<JavaParser.TypeArgumentsContext> ctx) {
-        if (ctx != null && !ctx.isEmpty()) {
-            out.print("<");
-            boolean rest = false;
-            for (var t: ctx) {
-                for (var t1: t.typeArgument()) {
-                    if (rest)
-                        out.print(", ");
-                    else
-                        rest = true;
-                    visitTypeType(t1.typeType());
-                }
-            }
-            out.print(">");
-        }
-    }
-
     @Override
     public Void visitConstructorDeclaration(JavaParser.ConstructorDeclarationContext ctx) {
         out.print("\n");
-        out.print(INDENT.repeat(indents));
+        mappedArguments.clear();
+        mappedArgumentArray.clear();
+        mappedArgumentClass.clear();
+
         if (memberPublic) {
-            out.print("public ");
+            out.print(INDENT.repeat(indents));
+            out.print("public constructor");
+            visitFormalParameters(ctx.formalParameters());
+            out.println(";");
+
+            out.print(INDENT.repeat(indents));
+            out.print("public constructor(wrapped : ");
+            out.print(className);
+            out.println(");");
+            out.print(INDENT.repeat(indents));
+            out.println("public constructor(...__args: any[]) {");
+            indents++;
+            out.print(INDENT.repeat(indents));
+            out.print("if (__args.length === 1 && __args[0] instanceof ");
+            out.print(className);
+            out.println(") {");
+            indents++;
+            out.print(INDENT.repeat(indents));
+            out.println("this.otterop = __args[0];");
+            out.print(INDENT.repeat(indents));
+            out.println("return;");
+            indents--;
+            out.print(INDENT.repeat(indents));
+            out.println("}");
+            if (ctx.formalParameters().formalParameterList() != null) {
+                out.print(INDENT.repeat(indents));
+                out.print("const [");
+                out.print(ctx.formalParameters().formalParameterList().formalParameter().stream().map(
+                        fp -> fp.variableDeclaratorId().identifier().getText()
+                ).collect(Collectors.joining(", ")));
+                out.println("] = __args;");
+            }
+            mapArguments();
+            out.print(INDENT.repeat(indents));
+            out.print("this.otterop = new ");
+            out.print(className);
+            insideMethodCall = true;
+            visitFormalParameters(ctx.formalParameters());
+            insideMethodCall = false;
+            out.print(";\n");
         } else {
-            out.print("private ");
+            out.print(INDENT.repeat(indents));
+            out.print("public constructor(wrapped : ");
+            out.print(className);
+            out.println(") {");
+            indents++;
+            out.print(INDENT.repeat(indents));
+            out.println("this.otterop = wrapped;");
         }
-        out.print("constructor");
-        visitFormalParameters(ctx.formalParameters());
-        visitBlock(ctx.block());
+        indents--;
+        out.print(INDENT.repeat(indents));
+        out.print("}");
         this.memberStatic = false;
         this.memberPublic = false;
         out.print("\n");
@@ -203,15 +268,94 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         return null;
     }
 
-    @Override
-    public Void visitGenericMethodDeclaration(JavaParser.GenericMethodDeclarationContext ctx) {
-        this.methodTypeParametersContext = ctx.typeParameters();
-        return super.visitGenericMethodDeclaration(ctx);
+    private String mapArgument(String argName, String mappedClass) {
+        if (unwrappedClassName.containsKey(mappedClass)) {
+            return mappedClass + ".wrap(" + argName + ")";
+        } else {
+            return argName + ".unwrap()";
+        }
+    }
+
+    private String unmapArgument(String argName, String mappedClass) {
+        if (unwrappedClassName.containsKey(mappedClass)) {
+            return argName + ".unwrap()";
+        } else {
+            return mappedClass + ".wrap(" + argName + ")";
+        }
+    }
+
+    private void mapArguments() {
+        if (!mappedArguments.isEmpty()) {
+            for (var entry: mappedArguments.entrySet()) {
+                out.print(INDENT.repeat(indents));
+                var paramName = entry.getKey();
+                var mapperParamName = entry.getValue();
+                var mappedClass = mappedArgumentClass.get(paramName);
+                if (mappedArgumentArray.getOrDefault(paramName, false)) {
+                    var mappedArrayName = mapperParamName + "Array";
+                    out.print("const ");
+                    out.print(mappedArrayName);
+                    out.print(" = new Array(");
+                    out.print(paramName);
+                    out.print(".length);\n");
+                    out.print(INDENT.repeat(indents));
+                    out.print("for (let i = 0; i < ");
+                    out.print(paramName);
+                    out.print(".length; i++) {\n");
+                    indents++;
+                    out.print(INDENT.repeat(indents));
+                    out.print(mappedArrayName);
+                    out.print("[i] = ");
+                    out.print(mapArgument(paramName + "[i]", mappedClass));
+                    out.print("\n");
+                    indents--;
+                    out.print(INDENT.repeat(indents));
+                    out.print("}\n");
+                    out.print(INDENT.repeat(indents));
+                    out.print("const ");
+                    out.print(entry.getValue());
+                    out.print(" = ArrayOtterOP.wrap(");
+                    out.print(mappedArrayName);
+                    out.print(");\n");
+                } else {
+                    out.print("const ");
+                    out.print(paramName);
+                    out.print(" = ");
+                    out.print(mapArgument(entry.getKey(), mappedClass));
+                    out.print(";\n");
+                }
+            }
+        }
     }
 
     @Override
     public Void visitMethodDeclaration(JavaParser.MethodDeclarationContext ctx) {
+        if (!memberPublic)
+            return null;
+
+        var hasReturn = ctx.typeTypeOrVoid().VOID() == null;
+        var returnTypeArray = false;
+        String returnTypePure = null;
+        if (hasReturn) {
+            var returnType = ctx.typeTypeOrVoid().typeType().classOrInterfaceType();
+            if (returnType != null) {
+                var identifier = returnType.identifier().stream().map(i -> i.getText())
+                        .collect(Collectors.joining("."));
+                returnTypeArray = returnType.identifier(0).getText().equals("Array");
+                if (!returnTypeArray) {
+                    returnTypePure = pureClassNames.get(identifier);
+                } else {
+                    var typeArgumentName = returnType.typeArguments().get(0).typeArgument(0).typeType().getText();
+                    returnTypePure = pureClassNames.get(typeArgumentName);
+                }
+            }
+        }
+
         variableType.clear();
+        mappedArguments.clear();
+        mappedArgumentArray.clear();
+        mappedArgumentClass.clear();
+
         out.print("\n");
         out.print(INDENT.repeat(indents));
         if (memberPublic) {
@@ -225,13 +369,78 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
             hasMain = true;
         }
         out.print(name);
-        if (methodTypeParametersContext != null) {
-            printTypeParameters(methodTypeParametersContext);
-        }
         visitFormalParameters(ctx.formalParameters());
         out.print(" : ");
         visitTypeTypeOrVoid(ctx.typeTypeOrVoid());
-        visitMethodBody(ctx.methodBody());
+        out.println(" {");
+        indents++;
+        mapArguments();
+        out.print(INDENT.repeat(indents));
+        if (hasReturn)
+            out.print("const retOtterop = ");
+        out.print("this.otterop.");
+        out.print(name);
+        insideMethodCall = true;
+        visitFormalParameters(ctx.formalParameters());
+        insideMethodCall = false;
+        out.print(";\n");
+        if (hasReturn) {
+            if (!returnTypeArray) {
+                if (returnTypePure == null) {
+                    out.print(INDENT.repeat(indents));
+                    out.print("const ret = retOtterop;\n");
+                } else {
+                    if (returnTypePure.equals(pureClassName)) {
+                        out.print(INDENT.repeat(indents));
+                        out.print("if (Object.is(retOtterop, this.otterop)) {\n");
+                        indents++;
+                        out.print(INDENT.repeat(indents));
+                        out.print("return this;\n");
+                        indents--;
+                        out.print(INDENT.repeat(indents));
+                        out.print("}\n");
+                    }
+                    out.print(INDENT.repeat(indents));
+                    out.print("const ret = ");
+                    out.print(
+                            this.unmapArgument("retOtterop", returnTypePure)
+                    );
+                    out.print(";\n");
+                }
+            } else {
+                out.print(INDENT.repeat(indents));
+                out.print("const ret = new Array(retOtterop.size());\n");
+                out.print(INDENT.repeat(indents));
+                out.print("for (let i = 0; i < ret.length; i++) {\n");
+                indents++;
+                out.print(INDENT.repeat(indents));
+                out.print("const retI = retOtterop.get(i);\n");
+                if (returnTypePure.equals(pureClassName)) {
+                    out.print(INDENT.repeat(indents));
+                    out.print("if (Object.is(retI, this.otterop)) {\n");
+                    indents++;
+                    out.print(INDENT.repeat(indents));
+                    out.print("ret[i] = this;\n");
+                    out.print(INDENT.repeat(indents));
+                    out.print("continue;\n");
+                    indents--;
+                    out.print(INDENT.repeat(indents));
+                    out.print("}\n");
+                }
+                out.print(INDENT.repeat(indents));
+                out.print("ret[i] = ");
+                out.print(this.unmapArgument("retI", returnTypePure));
+                out.print(";\n");
+                indents--;
+                out.print(INDENT.repeat(indents));
+                out.print("}\n");
+            }
+            out.print(INDENT.repeat(indents));
+            out.print("return ret;\n");
+        }
+        indents--;
+        out.print(INDENT.repeat(indents));
+        out.println("}");
         this.memberStatic = false;
         this.memberPublic = false;
         out.print("\n");
@@ -253,12 +462,27 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitFormalParameter(JavaParser.FormalParameterContext ctx) {
+        lastTypeArray = false;
+        lastTypeWrapped = null;
+
         boolean isLast = ctx.getParent().children.get(ctx.getParent().getChildCount()-1) == ctx;
         var parameterName = ctx.variableDeclaratorId().getText();
-        visitVariableDeclaratorId(ctx.variableDeclaratorId());
-        out.print(" : ");
-        visitTypeType(ctx.typeType());
+        if (insideMethodCall && mappedArguments.containsKey(parameterName)) {
+            out.print(mappedArguments.get(parameterName));
+        } else {
+            out.print(parameterName);
+        }
+
+        if (!insideMethodCall) {
+            out.print(" : ");
+            visitTypeType(ctx.typeType());
+        }
         variableType.put(parameterName, ctx.typeType());
+        if (lastTypeWrapped != null) {
+            mappedArguments.put(parameterName, "_" + parameterName);
+            mappedArgumentArray.put(parameterName, lastTypeArray);
+            mappedArgumentClass.put(parameterName, lastTypeWrapped);
+        }
         if (!isLast) out.print(", ");
         return null;
     }
@@ -266,7 +490,7 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
     @Override
     public Void visitClassOrInterfaceModifier(JavaParser.ClassOrInterfaceModifierContext ctx) {
         if (ctx.PUBLIC() != null) classPublic = true;
-        return super.visitClassOrInterfaceModifier(ctx);
+        return null;
     }
 
     @Override
@@ -361,20 +585,6 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitFieldDeclaration(JavaParser.FieldDeclarationContext ctx) {
-        insideFieldDeclaration = true;
-        out.print("\n");
-        out.print(INDENT.repeat(indents));
-        if (memberPublic)
-            out.print("public ");
-        else
-            out.print("private ");
-        if (memberStatic)
-            out.print("static ");
-        this.currentType = ctx.typeType();
-        visitVariableDeclarators(ctx.variableDeclarators());
-        this.currentType = null;
-        out.print(";\n");
-        insideFieldDeclaration = false;
         return null;
     }
 
@@ -413,7 +623,7 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
     }
 
     private void checkCurrentPackageImports(String name) {
-        if (CaseUtil.isClassName(name) && !className.equals(name) &&
+        if (CaseUtil.isClassName(name) && !className.equals(name) && !pureClassName.equals(name) &&
                 !importedClasses.contains(name)) {
             imports.add("import { " + name + " } from './" + name + "';");
         }
@@ -489,25 +699,16 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         return Otterop.WRAPPED_CLASS.equals(javaFullClassName);
     }
 
-    @Override
-    public Void visitImportDeclaration(JavaParser.ImportDeclarationContext ctx) {
-        var qualifiedName = ctx.qualifiedName();
-        boolean isStatic = ctx.STATIC() != null;
-        var identifiers = qualifiedName.identifier().
-                stream().map(identifier -> identifier.getText()).collect(Collectors.toList());
+    private void addImport(List<String> identifiers, boolean isStatic) {
         int classNameIdx = identifiers.size() - (isStatic ?  2 : 1);
+        String className = identifiers.get(classNameIdx);
+
         var javaFullClassName = identifiers.subList(0, classNameIdx + 1).stream()
                 .collect(Collectors.joining("."));
 
-        String className = identifiers.get(classNameIdx);
-        javaFullClassNames.put(className, javaFullClassName);
-
         if (!excludeImports(javaFullClassName)) {
             importedClasses.add(className);
-            String methodName = null;
-            if (isStatic) {
-                methodName = identifiers.get(classNameIdx + 1);
-            }
+
             var isCurrentPackage = String.join(".", identifiers).startsWith(basePackage);
             var fileStr = "";
             if (isCurrentPackage) {
@@ -521,15 +722,29 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
                 );
             }
 
-            imports.add(
-                    "import { " + className + " } from '" + fileStr + "';"
-            );
-            if (isStatic) {
-                staticImports.add(
-                        "const { " + methodName + " } = " + className + ";"
-                );
+            var fullClassName = className + "OtterOP";
+            var pureClassName = className;
+            var aliasString = " as " + fullClassName;
+
+            pureClassNames.put(className, pureClassName);
+            if (!unwrappedClassName.containsKey(fullClassName)) {
+                var pureStr = fileStr.replaceAll("/" + className + "$", "/pure/" + className);
+                imports.add("import { " + className + " } from '" + pureStr + "';");
             }
+            imports.add(
+                    "import { " + className + aliasString + " } from '" + fileStr + "';"
+            );
         }
+    }
+
+    @Override
+    public Void visitImportDeclaration(JavaParser.ImportDeclarationContext ctx) {
+        var qualifiedName = ctx.qualifiedName();
+        boolean isStatic = ctx.STATIC() != null;
+        var identifiers = qualifiedName.identifier().
+                stream().map(identifier -> identifier.getText()).collect(Collectors.toList());
+
+        addImport(identifiers, isStatic);
         return null;
     }
 
@@ -626,14 +841,17 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
                 .collect(Collectors.joining("."));
         if ("Object".equals(identifier)) {
             out.print("object");
-        } else if ("java.lang.String".equals(identifier)) {
+        } else if ("Array".equals(identifier)) {
+            visitTypeType(ctx.typeArguments().get(0).typeArgument().get(0).typeType());
+            out.print("[]");
+            lastTypeArray = true;
+        } else if ("String".equals(identifier) || "java.lang.String".equals(identifier)) {
             out.print("string");
+            lastTypeWrapped = "StringOtterOP";
         } else {
             checkCurrentPackageImports(identifier);
+            lastTypeWrapped = identifier + "OtterOP";
             out.print(identifier);
-        }
-        if (!ctx.typeArguments().isEmpty()) {
-            printTypeArguments(ctx.typeArguments());
         }
         return null;
     }
@@ -654,17 +872,11 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         return null;
     }
 
-    public boolean makePure() {
-        return this.makePure;
-    }
-
     public void printTo(PrintStream ps) {
         for (String importStatement : imports) {
             ps.println(importStatement);
         }
-        for (String staticImport : staticImports) {
-            ps.println(staticImport);
-        }
+
         ps.println("");
         ps.print(outStream.toString());
         if (hasMain) {

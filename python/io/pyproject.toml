@@ -2,6 +2,9 @@
 requires = ["hatchling", "setuptools"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build.targets.wheel]
+packages = ["otterop"]
+
 [project]
 name = "otterop-io"
 version = "0.2.0"

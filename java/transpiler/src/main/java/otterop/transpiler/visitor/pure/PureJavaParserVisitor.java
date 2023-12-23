@@ -21,15 +21,15 @@ public class PureJavaParserVisitor extends JavaParserBaseVisitor<Void> {
     private String className = null;
     private boolean memberStatic = false;
     private boolean memberPublic = false;
-    private boolean printArguments = false;
+    private boolean insideMethodCall = false;
     private boolean insideFormalParameters = false;
     private String lastTypeWrapped = null;
     private boolean lastTypeArray = false;
     private Map<String,String> mappedArguments = new LinkedHashMap<>();
     private Map<String,Boolean> mappedArgumentArray = new LinkedHashMap<>();
     private Map<String,String> mappedArgumentClass = new LinkedHashMap<>();
-    private Map<String,String> fullClassName = new LinkedHashMap<>();
-    private Map<String,String> pureClassName = new LinkedHashMap<>();
+    private Map<String,String> fullClassNames = new LinkedHashMap<>();
+    private Map<String,String> pureClassNames = new LinkedHashMap<>();
     private Map<String,String> unwrappedClassName = new LinkedHashMap<>();
 
     public PureJavaParserVisitor() {
@@ -138,15 +138,15 @@ public class PureJavaParserVisitor extends JavaParserBaseVisitor<Void> {
                         .collect(Collectors.joining("."));
                 returnTypeArray = returnType.identifier(0).getText().equals("Array");
                 if (!returnTypeArray) {
-                    returnTypePure = pureClassName.get(returnTypeString);
+                    returnTypePure = pureClassNames.get(returnTypeString);
                 } else {
                     returnTypeString = returnType.typeArguments().get(0).typeArgument(0).typeType().getText();
-                    returnTypePure = pureClassName.get(returnTypeString);
+                    returnTypePure = pureClassNames.get(returnTypeString);
                 }
             }
         }
         if (returnTypeString != null) {
-            returnTypeString = fullClassName.get(returnTypeString);
+            returnTypeString = fullClassNames.get(returnTypeString);
         }
 
         mappedArguments.clear();
@@ -167,9 +167,9 @@ public class PureJavaParserVisitor extends JavaParserBaseVisitor<Void> {
             out.print("var retOtterop = ");
         out.print("_otterop.");
         out.print(name);
-        printArguments = true;
+        insideMethodCall = true;
         visitFormalParameters(ctx.formalParameters());
-        printArguments = false;
+        insideMethodCall = false;
         out.print(";\n");
         if (hasReturn) {
             if (!returnTypeArray) {
@@ -177,7 +177,7 @@ public class PureJavaParserVisitor extends JavaParserBaseVisitor<Void> {
                     out.print(INDENT.repeat(indents));
                     out.print("var ret = retOtterop;\n");
                 } else {
-                    if (returnTypePure.equals(pureClassName.get(className))) {
+                    if (returnTypePure.equals(pureClassNames.get(className))) {
                         out.print(INDENT.repeat(indents));
                         out.print("if (retOtterop == this._otterop) return this;\n");
                     }
@@ -198,7 +198,7 @@ public class PureJavaParserVisitor extends JavaParserBaseVisitor<Void> {
                 indents++;
                 out.print(INDENT.repeat(indents));
                 out.print("var retI = retOtterop.get(i);\n");
-                if (returnTypePure.equals(pureClassName.get(className))) {
+                if (returnTypePure.equals(pureClassNames.get(className))) {
                     out.print(INDENT.repeat(indents));
                     out.print("if (retI == this._otterop) {\n");
                     indents++;
@@ -266,10 +266,10 @@ public class PureJavaParserVisitor extends JavaParserBaseVisitor<Void> {
         mapArguments();
         out.print(INDENT.repeat(indents));
         out.print("this._otterop = new ");
-        out.print(fullClassName.get(className));
-        printArguments = true;
+        out.print(fullClassNames.get(className));
+        insideMethodCall = true;
         visitFormalParameters(ctx.formalParameters());
-        printArguments = false;
+        insideMethodCall = false;
         out.print(";\n");
         indents--;
         out.print(INDENT.repeat(indents));
@@ -300,11 +300,11 @@ public class PureJavaParserVisitor extends JavaParserBaseVisitor<Void> {
 
         var pureClassStr = String.join(".", languageIdentifiers);
 
-        fullClassName.put(className, classStr);
+        fullClassNames.put(className, classStr);
         if (unwrappedClassName.containsKey(classStr)) {
-            pureClassName.put(className, unwrappedClassName.get(classStr));
+            pureClassNames.put(className, unwrappedClassName.get(classStr));
         } else {
-            pureClassName.put(className, pureClassStr);
+            pureClassNames.put(className, pureClassStr);
         }
         return null;
     }
@@ -329,8 +329,8 @@ public class PureJavaParserVisitor extends JavaParserBaseVisitor<Void> {
     }
 
     private void wrapMethod() {
-        var currentPure = pureClassName.get(className);
-        var currentOtterop = fullClassName.get(className);
+        var currentPure = pureClassNames.get(className);
+        var currentOtterop = fullClassNames.get(className);
         out.print(INDENT.repeat(indents));
         out.print("public static ");
         out.print(currentPure);
@@ -348,7 +348,7 @@ public class PureJavaParserVisitor extends JavaParserBaseVisitor<Void> {
     }
 
     private void unwrapMethod() {
-        var currentOtterop = fullClassName.get(className);
+        var currentOtterop = fullClassNames.get(className);
         out.print(INDENT.repeat(indents));
         out.print("public ");
         out.print(currentOtterop);
@@ -362,7 +362,7 @@ public class PureJavaParserVisitor extends JavaParserBaseVisitor<Void> {
     }
 
     private void wrapperConstructor() {
-        var currentOtterop = fullClassName.get(className);
+        var currentOtterop = fullClassNames.get(className);
         var currentPure = className;
         out.print(INDENT.repeat(indents));
         out.print("private ");
@@ -386,8 +386,8 @@ public class PureJavaParserVisitor extends JavaParserBaseVisitor<Void> {
         className = ctx.identifier().getText();
         var currentFullClassName = packageString + "." + className;
         var currentPureClassName = purePackageString + "." + className;
-        fullClassName.put(className, currentFullClassName);
-        pureClassName.put(className, currentPureClassName);
+        fullClassNames.put(className, currentFullClassName);
+        pureClassNames.put(className, currentPureClassName);
         this.visitIdentifier(ctx.identifier());
         if (ctx.IMPLEMENTS() != null) {
             out.print(" implements ");
@@ -445,11 +445,11 @@ public class PureJavaParserVisitor extends JavaParserBaseVisitor<Void> {
                 lastTypeWrapped = "otterop.lang.String";
             }
         } else {
-            var pureClass = pureClassName.get(identifier);
+            var pureClass = pureClassNames.get(identifier);
             if (pureClass == null) pureClass = purePackageString + "." + identifier;
             out.print(pureClass);
             if (insideFormalParameters) {
-                lastTypeWrapped = fullClassName.get(identifier);
+                lastTypeWrapped = fullClassNames.get(identifier);
             }
         }
         return null;
@@ -474,7 +474,7 @@ public class PureJavaParserVisitor extends JavaParserBaseVisitor<Void> {
         boolean isLast = ctx.getParent().children.get(ctx.getParent().getChildCount()-1) == ctx;
         lastTypeWrapped = null;
         lastTypeArray = false;
-        if (!printArguments) {
+        if (!insideMethodCall) {
             visitTypeType(ctx.typeType());
             out.print(" ");
         }
@@ -484,7 +484,7 @@ public class PureJavaParserVisitor extends JavaParserBaseVisitor<Void> {
             mappedArgumentArray.put(parameterName, lastTypeArray);
             mappedArgumentClass.put(parameterName, lastTypeWrapped);
         }
-        if (printArguments && mappedArguments.containsKey(parameterName)) {
+        if (insideMethodCall && mappedArguments.containsKey(parameterName)) {
             out.print(mappedArguments.get(parameterName));
         } else {
             out.print(parameterName);

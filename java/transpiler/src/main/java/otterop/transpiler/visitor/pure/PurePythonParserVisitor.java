@@ -27,15 +27,15 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
     private String className = null;
     private boolean memberStatic = false;
     private boolean memberPublic = false;
-    private boolean printArguments = false;
+    private boolean insideMethodCall = false;
     private boolean insideFormalParameters = false;
     private String lastTypeWrapped = null;
     private boolean lastTypeArray = false;
     private Map<String,String> mappedArguments = new LinkedHashMap<>();
     private Map<String,Boolean> mappedArgumentArray = new LinkedHashMap<>();
     private Map<String,String> mappedArgumentClass = new LinkedHashMap<>();
-    private Map<String,String> fullClassName = new LinkedHashMap<>();
-    private Map<String,String> pureClassName = new LinkedHashMap<>();
+    private Map<String,String> fullClassNames = new LinkedHashMap<>();
+    private Map<String,String> pureClassNames = new LinkedHashMap<>();
     private Map<String,String> unwrappedClassName = new LinkedHashMap<>();
     private Set<String> imports = new LinkedHashSet<>();
 
@@ -139,10 +139,10 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
                         .collect(Collectors.joining("."));
                 returnTypeArray = returnType.identifier(0).getText().equals("Array");
                 if (!returnTypeArray) {
-                    returnTypePure = pureClassName.get(identifier);
+                    returnTypePure = pureClassNames.get(identifier);
                 } else {
                     var typeArgumentName = returnType.typeArguments().get(0).typeArgument(0).typeType().getText();
-                    returnTypePure = pureClassName.get(typeArgumentName);
+                    returnTypePure = pureClassNames.get(typeArgumentName);
                 }
             }
         }
@@ -165,9 +165,9 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
             out.print("ret_otterop = ");
         out.print("self.otterop.");
         out.print(name);
-        printArguments = true;
+        insideMethodCall = true;
         visitFormalParameters(ctx.formalParameters());
-        printArguments = false;
+        insideMethodCall = false;
         out.print("\n");
         if (hasReturn) {
             if (!returnTypeArray) {
@@ -175,7 +175,7 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
                     out.print(INDENT.repeat(indents));
                     out.print("ret = ret_otterop\n");
                 } else {
-                    if (returnTypePure.equals(pureClassName.get(className))) {
+                    if (returnTypePure.equals(pureClassNames.get(className))) {
                         out.print(INDENT.repeat(indents));
                         out.print("if ret_otterop is self.otterop:\n");
                         indents++;
@@ -198,7 +198,7 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
                 indents++;
                 out.print(INDENT.repeat(indents));
                 out.print("ret_i = ret_otterop.get(i)\n");
-                if (returnTypePure.equals(pureClassName.get(className))) {
+                if (returnTypePure.equals(pureClassNames.get(className))) {
                     out.print(INDENT.repeat(indents));
                     out.print("if ret_i is self.otterop:\n");
                     indents++;
@@ -256,10 +256,10 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
         mapArguments();
         out.print(INDENT.repeat(indents));
         out.print("self.otterop = ");
-        out.print(fullClassName.get(className));
-        printArguments = true;
+        out.print(fullClassNames.get(className));
+        insideMethodCall = true;
         visitFormalParameters(ctx.formalParameters());
-        printArguments = false;
+        insideMethodCall = false;
         out.print("\n");
         indents--;
         return null;
@@ -303,13 +303,13 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
         var purePackageStr = String.join(".", pureLanguageIdentifies);
         var pureClassStr = purePackageStr + "." + className;
 
-        fullClassName.put(className, classStr);
+        fullClassNames.put(className, classStr);
         imports.add("import " + packageString);
 
         if (unwrappedClassName.containsKey(classStr)) {
-            pureClassName.put(className, classStr);
+            pureClassNames.put(className, classStr);
         } else {
-            pureClassName.put(className, pureClassStr);
+            pureClassNames.put(className, pureClassStr);
             imports.add("import " + purePackageStr);
         }
 
@@ -324,8 +324,8 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
     }
 
     private void wrapMethod() {
-        var currentPure = pureClassName.get(className);
-        var currentOtterop = fullClassName.get(className);
+        var currentPure = pureClassNames.get(className);
+        var currentOtterop = fullClassNames.get(className);
         out.print(INDENT.repeat(indents));
         out.print("@staticmethod\n");
         out.print(INDENT.repeat(indents));
@@ -362,8 +362,8 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
         var currentPurePackageName = pureModule + "."+ camelCaseToSnakeCase(className);
         var currentFullClassName = currentFullPackageName + "." + className;
         var currentPureClassName = currentPurePackageName + "." + className;
-        fullClassName.put(className, currentFullClassName);
-        pureClassName.put(className, currentPureClassName);
+        fullClassNames.put(className, currentFullClassName);
+        pureClassNames.put(className, currentPureClassName);
         imports.add("import " + currentFullPackageName);
         this.visitIdentifier(ctx.identifier());
         out.print(":\n");
@@ -405,10 +405,10 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
                 lastTypeWrapped = "otterop.lang.string.String";
             }
         } else {
-            var pureClass = pureClassName.get(identifier);
+            var pureClass = pureClassNames.get(identifier);
             if (pureClass == null) pureClass = pureModule + "." + identifier;
             if (insideFormalParameters) {
-                lastTypeWrapped = fullClassName.get(identifier);
+                lastTypeWrapped = fullClassNames.get(identifier);
             }
         }
         return null;
@@ -417,10 +417,10 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
     @Override
     public Void visitFormalParameters(JavaParser.FormalParametersContext ctx) {
         if (ctx.formalParameterList() == null) {
-            if (printArguments) out.print("()");
+            if (insideMethodCall) out.print("()");
             else out.print("(self)");
         } else {
-            if (printArguments) out.print("(");
+            if (insideMethodCall) out.print("(");
             else out.print("(self, ");
             insideFormalParameters = true;
             visitFormalParameterList(ctx.formalParameterList());
@@ -435,7 +435,7 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
         boolean isLast = ctx.getParent().children.get(ctx.getParent().getChildCount()-1) == ctx;
         lastTypeWrapped = null;
         lastTypeArray = false;
-        if (!printArguments) {
+        if (!insideMethodCall) {
             visitTypeType(ctx.typeType());
         }
         var parameterName = ctx.variableDeclaratorId().identifier().getText();
@@ -445,7 +445,7 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
             mappedArgumentArray.put(parameterName, lastTypeArray);
             mappedArgumentClass.put(parameterName, lastTypeWrapped);
         }
-        if (printArguments && mappedArguments.containsKey(parameterName)) {
+        if (insideMethodCall && mappedArguments.containsKey(parameterName)) {
             out.print(mappedArguments.get(parameterName));
         } else {
             out.print(parameterName);

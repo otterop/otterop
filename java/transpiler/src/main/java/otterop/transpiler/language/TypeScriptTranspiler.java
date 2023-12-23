@@ -35,9 +35,11 @@ package otterop.transpiler.language;
 import otterop.transpiler.antlr.JavaParser;
 import otterop.transpiler.reader.ClassReader;
 import otterop.transpiler.visitor.TypeScriptParserVisitor;
+import otterop.transpiler.visitor.pure.PureTypeScriptParserVisitor;
 import otterop.transpiler.writer.FileWriter;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -54,6 +56,13 @@ public class TypeScriptTranspiler extends AbstractTranspiler {
         this.basePackage = basePackage;
     }
 
+    private String[] pureClazzParts(String[] clazzParts) {
+        var pureClazzParts = Arrays.copyOf(clazzParts, clazzParts.length + 1);
+        pureClazzParts[pureClazzParts.length - 1] = pureClazzParts[pureClazzParts.length - 2];
+        pureClazzParts[pureClazzParts.length - 2] = "pure";
+        return pureClazzParts;
+    }
+
     private String getCodePath(String[] clazzParts) {
         clazzParts = Arrays.copyOf(clazzParts, clazzParts.length);
         clazzParts[clazzParts.length - 1] = clazzParts[clazzParts.length - 1]
@@ -67,6 +76,20 @@ public class TypeScriptTranspiler extends AbstractTranspiler {
         return String.join(".", clazzParts);
     }
 
+    private void checkMakePure(TypeScriptParserVisitor visitor,
+                               String[] clazzParts,
+                               JavaParser.CompilationUnitContext compilationUnitContext) throws IOException {
+        if (visitor.makePure()) {
+            var pureClazzParts = pureClazzParts(clazzParts);
+            var codePath = getCodePath(pureClazzParts);
+            var purePackage = getCurrentPackage(pureClazzParts);
+            var outCodePath = getPath(codePath);
+            PureTypeScriptParserVisitor pureVisitor = new PureTypeScriptParserVisitor(
+                    basePackage, purePackage);
+            pureVisitor.visit(compilationUnitContext);
+            pureVisitor.printTo(fileWriter().getPrintStream(outCodePath));
+        }
+    }
     @Override
     public Future<Void> transpile(String[] clazzParts, Future<JavaParser.CompilationUnitContext> compilationUnitContext) {
         return this.executorService().submit(() -> {
@@ -82,6 +105,7 @@ public class TypeScriptTranspiler extends AbstractTranspiler {
             TypeScriptParserVisitor visitor = new TypeScriptParserVisitor(basePackage, currentPackage);
             visitor.visit(compilationUnitContext.get());
             visitor.printTo(fileWriter().getPrintStream(outCodePath));
+            checkMakePure(visitor, clazzParts, compilationUnitContext.get());
             return null;
         });
     }
