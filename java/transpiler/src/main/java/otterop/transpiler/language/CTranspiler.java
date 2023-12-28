@@ -141,12 +141,12 @@ public class CTranspiler extends AbstractTranspiler {
             var headerCodePath = getCodePath(clazzParts,  FileType.HEADER, true);
             String sourcePath = getPath(sourceCodePath);
             String headerPath = getPath(headerCodePath);
-            PureCParserVisitor sourceVisitor = new PureCParserVisitor(classReader(), false);
-            PureCParserVisitor headerVisitor = new PureCParserVisitor(classReader(), true);
-            sourceVisitor.visit(compilationUnitContext);
-            sourceVisitor.printTo(fileWriter().getPrintStream(sourcePath));
+            PureCParserVisitor headerVisitor = new PureCParserVisitor(classReader(), true, null);
             headerVisitor.visit(compilationUnitContext);
             headerVisitor.printTo(fileWriter().getPrintStream(headerPath));
+            PureCParserVisitor sourceVisitor = new PureCParserVisitor(classReader(), false, headerVisitor);
+            sourceVisitor.visit(compilationUnitContext);
+            sourceVisitor.printTo(fileWriter().getPrintStream(sourcePath));
             sources.add(sourceCodePath);
         }
     }
@@ -165,12 +165,13 @@ public class CTranspiler extends AbstractTranspiler {
             }
             sources.add(sourceCodePath);
 
-            CParserVisitor sourceVisitor = new CParserVisitor(classReader(), false);
-            CParserVisitor headerVisitor = new CParserVisitor(classReader(), true);
-            sourceVisitor.visit(compilationUnitContext.get());
-            sourceVisitor.printTo(fileWriter().getPrintStream(sourcePath));
+            CParserVisitor headerVisitor = new CParserVisitor(classReader(), true, null);
             headerVisitor.visit(compilationUnitContext.get());
             headerVisitor.printTo(fileWriter().getPrintStream(headerPath));
+            CParserVisitor sourceVisitor = new CParserVisitor(classReader(), false, headerVisitor);
+            sourceVisitor.visit(compilationUnitContext.get());
+            sourceVisitor.printTo(fileWriter().getPrintStream(sourcePath));
+
             checkMakePure(sourceVisitor, clazzParts, compilationUnitContext.get());
             return null;
         });

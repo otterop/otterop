@@ -37,6 +37,7 @@ import otterop.transpiler.Otterop;
 import otterop.transpiler.antlr.JavaParser;
 import otterop.transpiler.antlr.JavaParserBaseVisitor;
 import otterop.transpiler.reader.ClassReader;
+import otterop.transpiler.util.CaseUtil;
 
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
@@ -70,6 +71,7 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
     private String packageName = null;
     private String javaFullPackageName = null;
     private String fullPackageName = null;
+    private String superClassName;
     private int indents = 0;
     private int skipNewlines = 0;
     private static String INDENT = "    ";
@@ -172,6 +174,15 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
         printTypeParameters(this.classTypeParametersContext, true, false);
         out.print(" struct {\n");
         indents++;
+        if (ctx.EXTENDS() != null) {
+            out.print(INDENT.repeat(indents));
+            superClassName = ctx.typeType().getText();
+            checkCurrentPackageImports(superClassName);
+            out.print("*");
+            out.print(superClassName.toLowerCase());
+            out.print(".");
+            out.println(superClassName);
+        }
         for(var field: fields) {
             out.print(INDENT.repeat(indents));
             visitVariableDeclaratorId(field.variableDeclarators()
@@ -461,10 +472,20 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
         if (!isLocal && !variableType.containsKey(calledOn)) {
             usedImport(calledOn.toLowerCase());
         }
-        var methodName = ctx.identifier().getText();
-        var changeCase = !isLocal || publicMethods.contains(methodName);
-        if (changeCase) methodName = camelCaseToPascalCase(methodName);
-        out.print(methodName);
+
+        if (ctx.SUPER() == null) {
+            var methodName = ctx.identifier().getText();
+            var changeCase = !isLocal || publicMethods.contains(methodName);
+            if (changeCase) methodName = camelCaseToPascalCase(methodName);
+            out.print(methodName);
+        } else {
+            out.print("this.");
+            out.print(this.superClassName);
+            out.print(" = ");
+            out.print(this.superClassName.toLowerCase());
+            out.print(".New");
+            out.print(this.superClassName);
+        }
         out.print("(");
         visitExpressionList(ctx.expressionList());
         out.print(")");
@@ -479,10 +500,16 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
         return null;
     }
 
-    private void addClassToCurrentPackageImports(String className, String fileName) {
-        if (fileName == null) fileName = className.toLowerCase();
-        modules.put(className, fileName);
-        fromImports.put(fileName, "\"" + this.fullPackageName + "/" + fileName + "\"");
+    private boolean checkCurrentPackageImports(String className) {
+        if (CaseUtil.isClassName(className)) {
+            var fileName = className.toLowerCase();
+            if (!fromImports.containsKey(fileName)) {
+                modules.put(className, fileName);
+                fromImports.put(fileName, "\"" + this.fullPackageName + "/" + fileName + "\"");
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
@@ -500,8 +527,8 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
                     localMethodCall = true;
                     if (THIS.equals(name)) out.print("this.");
                     visitMethodCall(ctx.methodCall());
-                } else if (isClassName(name) && !fromImports.containsKey(fileName) ) {
-                    addClassToCurrentPackageImports(name, fileName);
+                } else {
+                    checkCurrentPackageImports(name);
                 }
             }
             if (!localMethodCall) {
@@ -599,7 +626,15 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
     @Override
     public Void visitLiteral(JavaParser.LiteralContext ctx) {
         if (ctx.NULL_LITERAL() != null) out.print("nil");
-        else out.print(ctx.getText());
+        else {
+            if (ctx.STRING_LITERAL() != null) {
+                out.print("string.Literal(");
+            }
+            out.print(ctx.getText());
+            if (ctx.STRING_LITERAL() != null) {
+                out.print(")");
+            }
+        }
         super.visitLiteral(ctx);
         return null;
     }
@@ -615,6 +650,7 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
     @Override
     public Void visitPrimary(JavaParser.PrimaryContext ctx) {
         if (ctx.THIS() != null)  out.print("this");
+        if (ctx.SUPER() != null)  out.print("this." + this.superClassName);
         if (ctx.LPAREN() != null) out.print('(');
         super.visitPrimary(ctx);
         if (ctx.RPAREN() != null) out.print(')');
@@ -649,7 +685,7 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
         if (!currentClassCreated) {
             var filename = createdName.toLowerCase();
             if (!fromImports.containsKey(filename)) {
-                addClassToCurrentPackageImports(createdName, null);
+                checkCurrentPackageImports(createdName);
             } else {
                 usedImport(filename);
             }
@@ -728,7 +764,7 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
         this.fullPackageName = packageReplacement.getValue();
         if (!packageReplacement.getKey().isEmpty())
             this.fullPackageName += "/" +
-                    String.join("/", packageReplacement.getKey().split("."));
+                    String.join("/", packageReplacement.getKey().split("\\."));
         return null;
     }
 

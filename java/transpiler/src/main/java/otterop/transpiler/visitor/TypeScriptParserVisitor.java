@@ -122,6 +122,11 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         this.visitIdentifier(ctx.identifier());
         this.classTypeParametersContext = ctx.typeParameters();
         printTypeParameters(this.classTypeParametersContext);
+        if (ctx.EXTENDS() != null) {
+            out.print(" extends ");
+            checkCurrentPackageImports(ctx.typeType().getText());
+            visitTypeType(ctx.typeType());
+        }
         if (ctx.IMPLEMENTS() != null) {
             out.print(" implements ");
             boolean first = true;
@@ -380,7 +385,10 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitMethodCall(JavaParser.MethodCallContext ctx) {
-        var methodName = ctx.identifier().getText();
+        var methodName = "super";
+        if (ctx.SUPER() == null) {
+            methodName = ctx.identifier().getText();
+        }
         out.print(methodName);
         out.print("(");
         visitExpressionList(ctx.expressionList());
@@ -562,6 +570,7 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
     @Override
     public Void visitPrimary(JavaParser.PrimaryContext ctx) {
         if(ctx.THIS() != null) out.print("this");
+        if(ctx.SUPER() != null) out.print("super");
         if (ctx.LPAREN() != null) out.print('(');
         super.visitPrimary(ctx);
         if (ctx.RPAREN() != null) out.print(')');

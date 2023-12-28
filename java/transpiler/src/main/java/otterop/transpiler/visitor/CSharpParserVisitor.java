@@ -51,6 +51,8 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
     private boolean memberPublic = false;
     private boolean classPublic = false;
     private boolean isGenericClass = false;
+    private boolean insideConstructor = false;
+    private boolean isNewMethod = false;
     private boolean hasStaticMethods = false;
     private boolean insideStaticNonGeneric = false;
     private String className = null;
@@ -59,6 +61,7 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
     private int skipNewlines = 0;
     private static String INDENT = "    ";
     private static String THIS = "this";
+    private static String SUPER = "super";
     private Map<String,String> fullClassName = new LinkedHashMap<>();
     private Map<String,String> javaFullClassName = new LinkedHashMap<>();
     private Map<String,String> staticImports = new LinkedHashMap<>();
@@ -104,6 +107,8 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         var annotationName = ctx.qualifiedName().identifier().get(0).getText();
         var fullAnnotationName = javaFullClassName.get(annotationName);
         makePure |= Otterop.WRAPPED_CLASS.equals(fullAnnotationName);
+        if ("Override".equals(annotationName))
+            this.isNewMethod = true;
         return null;
     }
 
@@ -121,9 +126,16 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
             isGenericClass = true;
         }
         printTypeParameters(this.classTypeParametersContext);
-        if (ctx.IMPLEMENTS() != null) {
+        if (ctx.IMPLEMENTS() != null || ctx.EXTENDS() != null) {
             out.print(" : ");
-            visitTypeList(ctx.typeList(0));
+            if (ctx.IMPLEMENTS() != null) {
+                visitTypeList(ctx.typeList(0));
+                if (ctx.EXTENDS() != null)
+                    out.print(", ");
+            }
+            if (ctx.EXTENDS() != null) {
+                visitTypeType(ctx.typeType());
+            }
         }
         out.print("\n");
         out.print(INDENT.repeat(indents));
@@ -200,7 +212,16 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         name = camelCaseToPascalCase(name);
         out.print(name);
         visitFormalParameters(ctx.formalParameters());
+        if (ctx.block() != null &&
+            ctx.block().blockStatement(0) != null &&
+            ctx.block().blockStatement(0).statement() != null &&
+            ctx.block().blockStatement(0).statement().getText().startsWith("super(")) {
+            out.print(" : ");
+            visitExpression(ctx.block().blockStatement(0).statement().statementExpression);
+        }
+        insideConstructor = true;
         visitBlock(ctx.block());
+        insideConstructor = false;
         this.memberStatic = false;
         this.memberPublic = false;
         out.print("\n");
@@ -273,6 +294,9 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         if (insideStaticNonGeneric && !memberStatic)
             return null;
         out.print(INDENT.repeat(indents));
+        if (isNewMethod) {
+            out.print("new ");
+        }
         if (memberPublic) {
             out.print("public ");
         }
@@ -294,6 +318,7 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
             visitMethodBody(ctx.methodBody());
         this.memberStatic = false;
         this.memberPublic = false;
+        this.isNewMethod = false;
         out.print("\n");
         return null;
     }
@@ -430,11 +455,17 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitMethodCall(JavaParser.MethodCallContext ctx) {
-        var methodName = ctx.identifier().getText();
+        var methodName = "base";
+        if (ctx.SUPER() == null) {
+            methodName = ctx.identifier().getText();
+        }
+
         if (staticImports.containsKey(methodName)) {
             methodName = staticImports.get(methodName);
         }
-        methodName = camelCaseToPascalCase(methodName);
+        if (ctx.SUPER() == null) {
+            methodName = camelCaseToPascalCase(methodName);
+        }
         out.print(methodName);
         out.print("(");
         visitExpressionList(ctx.expressionList());
@@ -522,6 +553,10 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitBlockStatement(JavaParser.BlockStatementContext ctx) {
+        if (ctx.statement() != null && ctx.statement().getText().startsWith("super") && insideConstructor) {
+            return null;
+        }
+
         out.print(INDENT.repeat(indents));
         super.visitBlockStatement(ctx);
         if (ctx.SEMI() != null)
@@ -549,6 +584,7 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
     @Override
     public Void visitPrimary(JavaParser.PrimaryContext ctx) {
         if(ctx.THIS() != null) out.print("this");
+        if(ctx.SUPER() != null) out.print("base");
         if (ctx.LPAREN() != null) out.print('(');
         super.visitPrimary(ctx);
         if (ctx.RPAREN() != null) out.print(')');

@@ -55,4 +55,16 @@ public class ClassReader {
         }
         return ret;
     }
+
+    public Collection<Method> findInheritedMethods(Class<?> clazz) {
+        Method[] methods = clazz.getMethods();
+        var ret = new ArrayList<Method>(methods.length);
+        for (Method m : methods) {
+            var declaringClass = m.getDeclaringClass();
+            if (declaringClass.equals(clazz) || declaringClass.equals(Object.class))
+                continue;
+            ret.add(m);
+        }
+        return ret;
+    }
 }

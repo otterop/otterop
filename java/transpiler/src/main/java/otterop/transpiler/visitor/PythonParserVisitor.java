@@ -96,6 +96,12 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
         className = ctx.identifier().getText();
         importedClasses.add(className);
         out.print(className);
+        if (ctx.EXTENDS() != null) {
+            out.print("(");
+            checkCurrentPackageImports(ctx.typeType().getText());
+            visitTypeType(ctx.typeType());
+            out.print(")");
+        }
         out.println(":");
         indents++;
         super.visitClassBody(ctx.classBody());
@@ -256,7 +262,11 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitMethodCall(JavaParser.MethodCallContext ctx) {
-        visitIdentifier(ctx.identifier());
+        if (ctx.SUPER() != null) {
+            out.print("super().__init__");
+        } else {
+            visitIdentifier(ctx.identifier());
+        }
         out.print("(");
         visitExpressionList(ctx.expressionList());
         out.print(")");
@@ -287,6 +297,15 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
         );
     }
 
+    private void checkCurrentPackageImports(String name) {
+        if (CaseUtil.isClassName(name) && !className.equals(name) &&
+                !importedClasses.contains(name)) {
+            var importStatement = "from " + currentPythonPackage + "." + camelCaseToSnakeCase(name) + " import "+ name;
+            fromImports.add(importStatement);
+            importedClasses.add(name);
+        }
+    }
+
     @Override
     public Void visitExpression(JavaParser.ExpressionContext ctx) {
         if (ctx.prefix != null) {
@@ -296,12 +315,7 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
         }
         if (ctx.bop != null) {
             var name = ctx.expression(0).getText();
-            if (CaseUtil.isClassName(name) && !className.equals(name) &&
-                    !importedClasses.contains(name)) {
-                var importStatement = "from " + currentPythonPackage + "." + camelCaseToSnakeCase(name) + " import "+ name;
-                fromImports.add(importStatement);
-                importedClasses.add(name);
-            }
+            checkCurrentPackageImports(name);
             if (ctx.expression(0) != null) visit(ctx.expression(0));
             var bop = ctx.bop.getText();
             if (bop.equals("&&")) bop = "and";
@@ -403,6 +417,7 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
     @Override
     public Void visitPrimary(JavaParser.PrimaryContext ctx) {
         if(ctx.THIS() != null) out.print("self");
+        if(ctx.SUPER() != null) out.print("super()");
         if (ctx.LPAREN() != null) out.print('(');
         super.visitPrimary(ctx);
         if (ctx.RPAREN() != null) out.print(')');

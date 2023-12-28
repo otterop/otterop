@@ -37,6 +37,12 @@ public class Array<T> {
     private final int end;
     private T[] _wrapped;
 
+    public Array(int size) {
+        this._wrapped = (T[]) new Object[size];
+        this.start = 0;
+        this.end = size;
+    }
+
     private Array(T[] array, int start, int end) {
         this._wrapped = array;
         this.start = start;

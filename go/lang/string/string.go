@@ -64,6 +64,10 @@ func Wrap(wrapped *string) *String {
     return newString(wrapped)
 }
 
+func Literal(wrapped string) *string {
+    return &wrapped
+}
+
 func (this *String) Unwrap() *string {
     return this.wrapped
 }
