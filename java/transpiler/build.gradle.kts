@@ -12,6 +12,7 @@ tasks.generateGrammarSource {
 }
 
 tasks.withType<Jar>() {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest.attributes["Main-Class"] = "otterop.transpiler.Otterop"
     configurations["compileClasspath"].forEach { file: File ->
         from(zipTree(file.absoluteFile))

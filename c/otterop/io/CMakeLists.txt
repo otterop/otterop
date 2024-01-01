@@ -1,1 +1,3 @@
-add_library(otterop_io STATIC otterop/io/console.c)
+add_library(otterop_io STATIC
+)
+include(otterop/io/CMakeLists.manual.txt OPTIONAL)

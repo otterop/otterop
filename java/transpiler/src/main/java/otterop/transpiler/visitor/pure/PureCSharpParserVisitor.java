@@ -33,6 +33,7 @@ public class PureCSharpParserVisitor extends JavaParserBaseVisitor<Void> {
     private Map<String,String> fullClassNames = new LinkedHashMap<>();
     private Map<String,String> pureClassNames = new LinkedHashMap<>();
     private Map<String,String> unwrappedClassName = new LinkedHashMap<>();
+    private boolean isInterface = false;
 
     public PureCSharpParserVisitor() {
         this.unwrappedClassName.put("Otterop.Lang.String", "string");
@@ -57,8 +58,10 @@ public class PureCSharpParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitModifier(JavaParser.ModifierContext ctx) {
-        memberStatic = ctx.getText().equals("static");
-        memberPublic = ctx.getText().equals("public");
+        if (ctx.getText().equals("static"))
+            memberStatic = true;
+        if (ctx.getText().equals("public"))
+            memberPublic = true;
         super.visitModifier(ctx);
         return null;
     }
@@ -236,8 +239,6 @@ public class PureCSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         indents--;
         out.print(INDENT.repeat(indents));
         out.print("}\n");
-        this.memberStatic = false;
-        this.memberPublic = false;
         out.print("\n");
         return null;
     }
@@ -289,6 +290,13 @@ public class PureCSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print(INDENT.repeat(indents));
         out.print("}\n\n");
         return null;
+    }
+
+    @Override
+    public Void visitClassBodyDeclaration(JavaParser.ClassBodyDeclarationContext ctx) {
+        this.memberStatic = false;
+        this.memberPublic = isInterface;
+        return super.visitClassBodyDeclaration(ctx);
     }
 
     @Override
@@ -436,6 +444,7 @@ public class PureCSharpParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitInterfaceDeclaration(JavaParser.InterfaceDeclarationContext ctx) {
+        isInterface = true;
         out.print(INDENT.repeat(indents));
         out.print("public ");
         out.print("interface ");
@@ -449,6 +458,7 @@ public class PureCSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         indents--;
         out.print(INDENT.repeat(indents));
         out.println("}\n");
+        isInterface = false;
         return null;
     }
 

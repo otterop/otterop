@@ -33,6 +33,7 @@
 package otterop.transpiler.language;
 
 import otterop.transpiler.antlr.JavaParser;
+import otterop.transpiler.config.OtteropConfig;
 import otterop.transpiler.reader.ClassReader;
 import otterop.transpiler.visitor.TypeScriptParserVisitor;
 import otterop.transpiler.visitor.pure.PureTypeScriptParserVisitor;
@@ -51,9 +52,10 @@ public class TypeScriptTranspiler extends AbstractTranspiler {
     public TypeScriptTranspiler(String outFolder, FileWriter fileWriter,
                                 ExecutorService executorService,
                                 ClassReader classReader,
-                                String basePackage) {
-        super(outFolder, fileWriter, executorService, classReader);
-        this.basePackage = basePackage;
+                                OtteropConfig config) {
+        super(outFolder, fileWriter, executorService, classReader, config);
+        this.basePackage = config.basePackage();
+        this.ignoreFile().addPattern("**.js");
     }
 
     private String[] pureClazzParts(String[] clazzParts) {
@@ -67,8 +69,10 @@ public class TypeScriptTranspiler extends AbstractTranspiler {
         clazzParts = Arrays.copyOf(clazzParts, clazzParts.length);
         clazzParts[clazzParts.length - 1] = clazzParts[clazzParts.length - 1]
                 .replaceAll("$", ".ts");
-        if (firstClassPart() == null) setFirstClassPart(clazzParts[0]);
-        return String.join(File.separator, clazzParts);
+
+        var codePath = String.join(File.separator, clazzParts);
+        String ret = replaceBasePath(codePath);
+        return ret;
     }
 
     private String getCurrentPackage(String[] clazzParts) {

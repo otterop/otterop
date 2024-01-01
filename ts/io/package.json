@@ -2,7 +2,9 @@
   "name": "@otterop/io",
   "version": "0.2.0",
   "description": "Otterop Development Kit IO classes",
-  "main": "index.js",
+  "exports": {
+    "./*": "./otterop/io/*.js"
+  },
   "scripts": {
     "test": "npm test",
     "build": "tsc -p .",

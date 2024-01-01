@@ -333,9 +333,14 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
         indents--;
         out.print(INDENT.repeat(indents));
         out.print("}\n\n");
+        return null;
+    }
+
+    @Override
+    public Void visitClassBodyDeclaration(JavaParser.ClassBodyDeclarationContext ctx) {
         this.memberStatic = false;
         this.memberPublic = false;
-        return null;
+        return super.visitClassBodyDeclaration(ctx);
     }
 
     @Override
@@ -541,8 +546,6 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
         indents--;
         out.print("}\n\n");
 
-        this.memberStatic = false;
-        this.memberPublic = false;
         this.isMain = false;
         variableType.clear();
         return null;
@@ -594,8 +597,10 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitModifier(JavaParser.ModifierContext ctx) {
-        memberStatic = ctx.getText().equals("static");
-        memberPublic = ctx.getText().equals("public");
+        if (ctx.getText().equals("static"))
+            memberStatic = true;
+        if (ctx.getText().equals("public"))
+            memberPublic = true;
         super.visitModifier(ctx);
         return null;
     }

@@ -33,6 +33,7 @@
 package otterop.transpiler.language;
 
 import otterop.transpiler.antlr.JavaParser;
+import otterop.transpiler.config.OtteropConfig;
 import otterop.transpiler.reader.ClassReader;
 import otterop.transpiler.util.CaseUtil;
 import otterop.transpiler.visitor.CSharpParserVisitor;
@@ -48,24 +49,30 @@ import java.util.concurrent.Future;
 public class CSharpTranspiler extends AbstractTranspiler {
 
     public CSharpTranspiler(String outFolder, FileWriter fileWriter,
-                            ExecutorService executorService, ClassReader classReader) {
-        super(outFolder, fileWriter, executorService, classReader);
+                            ExecutorService executorService, ClassReader classReader, OtteropConfig config) {
+        super(outFolder, fileWriter, executorService, classReader, config);
+    }
+
+    public String changePackageCase(String part) {
+        return CaseUtil.camelCaseToPascalCase(part);
     }
 
     private String getCodePath(String[] clazzParts, boolean pure) {
         int len = !pure ? clazzParts.length : clazzParts.length + 1;
         String[] newClassParts = Arrays.copyOf(clazzParts, len);
         for(int i = 0; i < clazzParts.length - 1; i++) {
-            newClassParts[i] = CaseUtil.camelCaseToPascalCase(clazzParts[i]);
+            newClassParts[i] = changePackageCase(clazzParts[i]);
         }
-        if (firstClassPart() == null) setFirstClassPart(clazzParts[0]);
 
         newClassParts[newClassParts.length - 1] = clazzParts[clazzParts.length - 1]
                 .replaceAll("$", ".cs");
         if (pure) {
             newClassParts[newClassParts.length - 2] = "Pure";
         }
-        return String.join(File.separator, newClassParts);
+
+        var codePath = String.join(File.separator, newClassParts);
+        String ret = replaceBasePath(codePath);
+        return ret;
     }
 
     private void checkMakePure(CSharpParserVisitor visitor,

@@ -124,6 +124,13 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
     }
 
     @Override
+    public Void visitClassBodyDeclaration(JavaParser.ClassBodyDeclarationContext ctx) {
+        this.memberStatic = false;
+        this.memberPublic = false;
+        return super.visitClassBodyDeclaration(ctx);
+    }
+
+    @Override
     public Void visitMethodDeclaration(JavaParser.MethodDeclarationContext ctx) {
         variableType.clear();
         out.print("\n");
@@ -138,7 +145,6 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print(name);
         visitFormalParameters(ctx.formalParameters());
         visitMethodBody(ctx.methodBody());
-        this.memberStatic = false;
         variableType.clear();
         return null;
     }
@@ -170,8 +176,10 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitModifier(JavaParser.ModifierContext ctx) {
-        memberStatic = ctx.getText().equals("static");
-        memberPublic = ctx.getText().equals("public");
+        if (ctx.getText().equals("static"))
+            memberStatic = true;
+        if (ctx.getText().equals("public"))
+            memberPublic = true;
         super.visitModifier(ctx);
         return null;
     }

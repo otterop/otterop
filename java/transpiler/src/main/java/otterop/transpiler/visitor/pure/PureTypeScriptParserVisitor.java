@@ -250,10 +250,15 @@ public class PureTypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         indents--;
         out.print(INDENT.repeat(indents));
         out.print("}");
-        this.memberStatic = false;
-        this.memberPublic = false;
         out.print("\n");
         return null;
+    }
+
+    @Override
+    public Void visitClassBodyDeclaration(JavaParser.ClassBodyDeclarationContext ctx) {
+        this.memberStatic = false;
+        this.memberPublic = false;
+        return super.visitClassBodyDeclaration(ctx);
     }
 
     @Override
@@ -441,8 +446,6 @@ public class PureTypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         indents--;
         out.print(INDENT.repeat(indents));
         out.println("}");
-        this.memberStatic = false;
-        this.memberPublic = false;
         out.print("\n");
         variableType.clear();
         return null;
@@ -495,8 +498,10 @@ public class PureTypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitModifier(JavaParser.ModifierContext ctx) {
-        memberStatic = ctx.getText().equals("static");
-        memberPublic = ctx.getText().equals("public");
+        if (ctx.getText().equals("static"))
+            memberStatic = true;
+        if (ctx.getText().equals("public"))
+            memberPublic = true;
         super.visitModifier(ctx);
         return null;
     }
@@ -715,11 +720,11 @@ public class PureTypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
                 fileStr = relativePath(currentPackageIdentifiers, identifiers
                         .toArray(new String[0]));
             } else {
-                fileStr = "@" + String.join("/",
-                        identifiers.subList(0, classNameIdx + 1).stream().map(
-                                        identifier -> identifier.toLowerCase())
-                                .collect(Collectors.toList())
-                );
+                var parts = identifiers.subList(0, classNameIdx).stream().map(
+                                identifier -> identifier.toLowerCase())
+                        .collect(Collectors.toList());
+                parts.add(className);
+                fileStr = "@" + String.join("/", parts);
             }
 
             var fullClassName = className + "OtterOP";

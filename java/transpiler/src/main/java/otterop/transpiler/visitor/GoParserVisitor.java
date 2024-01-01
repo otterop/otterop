@@ -272,9 +272,14 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
         insideConstructor = true;
         visitBlock(ctx.block());
         insideConstructor = false;
+        return null;
+    }
+
+    @Override
+    public Void visitClassBodyDeclaration(JavaParser.ClassBodyDeclarationContext ctx) {
         this.memberStatic = false;
         this.memberPublic = false;
-        return null;
+        return super.visitClassBodyDeclaration(ctx);
     }
 
     @Override
@@ -317,8 +322,6 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print(" ");
         visitTypeTypeOrVoid(ctx.typeTypeOrVoid());
         visitMethodBody(ctx.methodBody());
-        this.memberStatic = false;
-        this.memberPublic = false;
         this.isMain = false;
         variableType.clear();
         return null;
@@ -351,8 +354,10 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitModifier(JavaParser.ModifierContext ctx) {
-        memberStatic = ctx.getText().equals("static");
-        memberPublic = ctx.getText().equals("public");
+        if (ctx.getText().equals("static"))
+            memberStatic = true;
+        if (ctx.getText().equals("public"))
+            memberPublic = true;
         super.visitModifier(ctx);
         return null;
     }

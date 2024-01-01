@@ -70,9 +70,11 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
     private JavaParser.TypeParametersContext classTypeParametersContext;
     private JavaParser.TypeParametersContext methodTypeParametersContext;
     private boolean makePure = false;
+    private boolean isInterface = false;
 
     @Override
     public Void visitInterfaceDeclaration(JavaParser.InterfaceDeclarationContext ctx) {
+        isInterface = true;
         out.print(INDENT.repeat(indents));
         if (classPublic) {
             out.print("public ");
@@ -88,6 +90,7 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         indents--;
         out.print(INDENT.repeat(indents));
         out.println("}\n");
+        isInterface = false;
         return null;
     }
 
@@ -222,10 +225,15 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         insideConstructor = true;
         visitBlock(ctx.block());
         insideConstructor = false;
-        this.memberStatic = false;
-        this.memberPublic = false;
         out.print("\n");
         return null;
+    }
+
+    @Override
+    public Void visitClassBodyDeclaration(JavaParser.ClassBodyDeclarationContext ctx) {
+        this.memberStatic = false;
+        this.memberPublic = isInterface;
+        return super.visitClassBodyDeclaration(ctx);
     }
 
     @Override
@@ -316,8 +324,6 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
             visitMethodDeclarationInsideStaticNonGeneric(ctx, name);
         } else
             visitMethodBody(ctx.methodBody());
-        this.memberStatic = false;
-        this.memberPublic = false;
         this.isNewMethod = false;
         out.print("\n");
         return null;
@@ -354,8 +360,10 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitModifier(JavaParser.ModifierContext ctx) {
-        memberStatic = ctx.getText().equals("static");
-        memberPublic = ctx.getText().equals("public");
+        if (ctx.getText().equals("static"))
+            memberStatic = true;
+        if (ctx.getText().equals("public"))
+            memberPublic = true;
         super.visitModifier(ctx);
         return null;
     }

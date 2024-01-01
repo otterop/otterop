@@ -33,6 +33,7 @@
 package otterop.transpiler.language;
 
 import otterop.transpiler.antlr.JavaParser;
+import otterop.transpiler.config.OtteropConfig;
 import otterop.transpiler.reader.ClassReader;
 import otterop.transpiler.util.CaseUtil;
 import otterop.transpiler.visitor.PythonParserVisitor;
@@ -48,8 +49,8 @@ import java.util.concurrent.Future;
 public class PythonTranspiler extends AbstractTranspiler {
 
     public PythonTranspiler(String outFolder, FileWriter fileWriter,
-                            ExecutorService executorService, ClassReader classReader) {
-        super(outFolder, fileWriter, executorService, classReader);
+                            ExecutorService executorService, ClassReader classReader, OtteropConfig config) {
+        super(outFolder, fileWriter, executorService, classReader, config);
     }
 
     private String getCodePath(String[] clazzParts, boolean pure) {
@@ -57,11 +58,13 @@ public class PythonTranspiler extends AbstractTranspiler {
         String[] newClassParts = Arrays.copyOf(clazzParts, len);
         newClassParts[newClassParts.length - 1] = CaseUtil.camelCaseToSnakeCase(clazzParts[clazzParts.length - 1])
                 .replaceAll("$", ".py");
-        if (firstClassPart() == null) setFirstClassPart(clazzParts[0]);
+
         if (pure) {
             newClassParts[newClassParts.length - 2] = "pure";
         }
-        return String.join(File.separator, newClassParts);
+        var codePath = String.join(File.separator, newClassParts);
+        String ret = replaceBasePath(codePath);
+        return ret;
     }
 
     private void checkMakePure(PythonParserVisitor visitor,

@@ -64,8 +64,10 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitModifier(JavaParser.ModifierContext ctx) {
-        memberStatic = ctx.getText().equals("static");
-        memberPublic = ctx.getText().equals("public");
+        if (ctx.getText().equals("static"))
+            memberStatic = true;
+        if (ctx.getText().equals("public"))
+            memberPublic = true;
         super.visitModifier(ctx);
         return null;
     }
@@ -218,8 +220,6 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
             out.print("return ret\n");
         }
         indents--;
-        this.memberStatic = false;
-        this.memberPublic = false;
         out.print("\n");
         return null;
     }
@@ -249,8 +249,6 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print(INDENT.repeat(indents));
         out.print("def __init__");
         visitFormalParameters(ctx.formalParameters());
-        this.memberStatic = false;
-        this.memberPublic = false;
         indents++;
         out.print(":\n");
         mapArguments();
@@ -263,6 +261,13 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print("\n");
         indents--;
         return null;
+    }
+
+    @Override
+    public Void visitClassBodyDeclaration(JavaParser.ClassBodyDeclarationContext ctx) {
+        this.memberStatic = false;
+        this.memberPublic = false;
+        return super.visitClassBodyDeclaration(ctx);
     }
 
     @Override

@@ -32,7 +32,9 @@
 
 package otterop.transpiler.language;
 
+import otterop.transpiler.TargetType;
 import otterop.transpiler.antlr.JavaParser;
+import otterop.transpiler.config.OtteropConfig;
 import otterop.transpiler.reader.ClassReader;
 import otterop.transpiler.util.CaseUtil;
 import otterop.transpiler.visitor.CParserVisitor;
@@ -56,6 +58,7 @@ public class CTranspiler extends AbstractTranspiler {
 
     private List<String> sources = Collections.synchronizedList(new LinkedList<>());
     private String[] packageParts;
+    private TargetType targetType;
 
     private enum FileType {
         SOURCE,
@@ -65,9 +68,11 @@ public class CTranspiler extends AbstractTranspiler {
 
     public CTranspiler(String outFolder, FileWriter fileWriter,
                        ExecutorService executorService, ClassReader classReader,
-                       String packageName) {
-        super(outFolder, fileWriter, executorService, classReader);
-        packageParts = packageName.split("\\.");
+                       OtteropConfig config) {
+        super(outFolder, fileWriter, executorService, classReader, config);
+        packageParts = config.basePackage().split("\\.");
+        this.targetType = config.targetType();
+        this.ignoreFile().addPattern("CMakeLists.manual.txt");
     }
 
     private String getCodePath(String[] clazzParts, FileType fileType, boolean pure) {
@@ -88,20 +93,24 @@ public class CTranspiler extends AbstractTranspiler {
         clazzParts = Arrays.copyOf(clazzParts, clazzParts.length);
         clazzParts[clazzParts.length - 1] = CaseUtil.camelCaseToSnakeCase(clazzParts[clazzParts.length - 1])
                 .replaceAll("$", replacement);
-        if (firstClassPart() == null) setFirstClassPart(clazzParts[0]);
+
+        String codePath;
         if (!pure)
-            return String.join(File.separator, clazzParts);
+            codePath = String.join(File.separator, clazzParts);
         else {
             String[] clazzPartsPure = Arrays.copyOf(clazzParts, clazzParts.length + 1);
             clazzPartsPure[clazzPartsPure.length - 1] = clazzPartsPure[clazzPartsPure.length - 2];
             clazzPartsPure[clazzPartsPure.length - 2] = "pure";
-            return String.join(File.separator, clazzPartsPure);
+            codePath = String.join(File.separator, clazzPartsPure);
         }
+        String ret = replaceBasePath(codePath);
+        return ret;
     }
 
     public void writeCMakeLists() {
         var cmakeListsCodePath = getCodePath(packageParts, FileType.CMAKELISTS, false);
         var cmakeListsFile = getPath(cmakeListsCodePath);
+        var cmakeListsManualFile = cmakeListsCodePath.replaceAll("\\.txt$", ".manual.txt");
         OutputStream out = null;
         PrintStream ps = null;
         Collections.sort(sources);
@@ -110,13 +119,20 @@ public class CTranspiler extends AbstractTranspiler {
             ps = new PrintStream(out);
             var execName = String.join("_", packageParts);
 
-            ps.print("add_executable(");
+            boolean isLibrary = targetType == TargetType.LIBRARY;
+            if (!isLibrary)
+                ps.print("add_executable(");
+            else
+                ps.print("add_library(");
             ps.print(execName);
+            if (isLibrary)
+                ps.print(" STATIC");
             ps.print("\n");
             for (var sourceCodePath : sources) {
-                ps.println(sourceCodePath);
+                ps.println(reverseReplaceBasePath(sourceCodePath));
             }
             ps.println(")");
+            ps.println("include(" + reverseReplaceBasePath(cmakeListsManualFile) + " OPTIONAL)");
         } catch (FileNotFoundException e) {
             throw new RuntimeException(e);
         } finally {
@@ -175,13 +191,6 @@ public class CTranspiler extends AbstractTranspiler {
             checkMakePure(sourceVisitor, clazzParts, compilationUnitContext.get());
             return null;
         });
-    }
-
-    @Override
-    protected boolean ignored(String relativePath) {
-        var ret = super.ignored(relativePath);
-        if (ret && relativePath.endsWith(".c")) sources.add(relativePath);
-        return ret;
     }
 
     @Override

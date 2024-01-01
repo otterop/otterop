@@ -2,7 +2,9 @@
   "name": "@otterop/lang",
   "version": "0.2.0",
   "description": "Otterop Development Kit language classes",
-  "main": "index.js",
+  "exports": {
+    "./*": "./otterop/lang/*.js"
+  },
   "scripts": {
     "test": "npm test",
     "build": "tsc -p .",

@@ -33,6 +33,8 @@
 package otterop.transpiler.language;
 
 import otterop.transpiler.antlr.JavaParser;
+import otterop.transpiler.config.OtteropConfig;
+import otterop.transpiler.config.ReplaceBasePackage;
 import otterop.transpiler.reader.ClassReader;
 import otterop.transpiler.visitor.GoParserVisitor;
 import otterop.transpiler.visitor.pure.PureCSharpParserVisitor;
@@ -54,9 +56,9 @@ public class GoTranspiler extends AbstractTranspiler{
                         FileWriter fileWriter,
                         ExecutorService executorService,
                         ClassReader classReader,
-                        Map<String,String> importDomainMapping) {
-        super(outFolder, fileWriter, executorService, classReader);
-        this.importDomainMapping = importDomainMapping;
+                        OtteropConfig config) {
+        super(outFolder, fileWriter, executorService, classReader, config);
+        this.importDomainMapping = config.go().packageMapping();
     }
 
     private String getCodePath(String[] clazzParts, boolean pure) {
@@ -66,11 +68,19 @@ public class GoTranspiler extends AbstractTranspiler{
         int endClassName = classPartsLen - 1;
         clazzParts = Arrays.copyOf(clazzParts, classPartsLen);
         clazzParts[startClazzName] = clazzName;
+        for (var i = 0; i < startClazzName; i++) {
+            clazzParts[i] = changePackageCase(clazzParts[i]);
+        }
         if (pure)
             clazzParts[startClazzName + 1] = "pure";
         clazzParts[endClassName] = clazzName.replaceAll("$", ".go");
-        if (firstClassPart() == null) setFirstClassPart(clazzParts[0]);
-        return String.join(File.separator, clazzParts);
+        var codePath = String.join(File.separator, clazzParts);
+        String ret = replaceBasePath(codePath);
+        return ret;
+    }
+
+    public String changePackageCase(String part) {
+        return part.toLowerCase();
     }
 
     private void checkMakePure(GoParserVisitor visitor,

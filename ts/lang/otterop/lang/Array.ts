@@ -30,7 +30,7 @@
  */
 
 
-import { String } from './string';
+import { String } from './String';
 
 export class Array<T> {
     private wrapped : T[];

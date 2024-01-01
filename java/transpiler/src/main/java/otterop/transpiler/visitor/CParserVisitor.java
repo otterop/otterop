@@ -434,9 +434,14 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         if (insideMemberDeclaration) out.print(";");
         else visitBlock(ctx.block());
         insideConstructor = false;
+        return null;
+    }
+
+    @Override
+    public Void visitClassBodyDeclaration(JavaParser.ClassBodyDeclarationContext ctx) {
         this.memberStatic = false;
         this.memberPublic = false;
-        return null;
+        return super.visitClassBodyDeclaration(ctx);
     }
 
     private void interfaceConstructorImplementation() {
@@ -554,8 +559,6 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         visitFormalParameters(ctx.formalParameters());
         if (insideMemberDeclaration) out.print(";\n");
         else interfaceMethodImplementation(ctx, name);
-        this.memberStatic = false;
-        this.memberPublic = false;
         arrayArgs.clear();
         variableType.clear();
         return null;
@@ -595,8 +598,6 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         visitFormalParameters(ctx.formalParameters());
         if (insideMemberDeclaration) out.print(";\n");
         else visitMethodBody(ctx.methodBody());
-        this.memberStatic = false;
-        this.memberPublic = false;
         this.isMain = false;
         arrayArgs.clear();
         variableType.clear();
@@ -684,8 +685,10 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitModifier(JavaParser.ModifierContext ctx) {
-        memberStatic = ctx.getText().equals("static");
-        memberPublic = ctx.getText().equals("public");
+        if (ctx.getText().equals("static"))
+            memberStatic = true;
+        if (ctx.getText().equals("public"))
+            memberPublic = true;
         super.visitModifier(ctx);
         return null;
     }

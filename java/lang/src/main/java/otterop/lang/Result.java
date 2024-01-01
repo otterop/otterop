@@ -34,25 +34,25 @@ package otterop.lang;
 
 public class Result<RES,ERR> {
 
-    private RES _res;
+    private RES res;
 
-    private ERR _err;
+    private ERR err;
 
-    private Result(RES _res, ERR _err) {
-        this._res = _res;
-        this._err = _err;
+    private Result(RES res, ERR err) {
+        this.res = res;
+        this.err = err;
     }
 
     public boolean isOK(){
-        return  this._err != null;
+        return  this.err != null;
     }
 
     public ERR err() {
-        return this._err;
+        return this.err;
     }
 
     public RES unwrap() {
-        return this._res;
+        return this.res;
     }
 
     public static <RES0, ERR0> Result<RES0,ERR0> of(RES0 res, ERR0 err) {

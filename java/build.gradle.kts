@@ -1,5 +1,6 @@
 val version : String by project
 val junitVersion : String by project
+val jacksonVersion : String by project
 
 plugins {
     `maven-publish`
@@ -20,6 +21,7 @@ subprojects {
     }
 
     dependencies {
+        implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:${jacksonVersion}")
         // Use JUnit Jupiter for testing.
         testImplementation("org.junit.jupiter:junit-jupiter:${junitVersion}")
     }

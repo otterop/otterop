@@ -40,6 +40,7 @@ import otterop.transpiler.util.CaseUtil;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -69,6 +70,8 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
     private PrintStream out = new PrintStream(outStream);
     private JavaParser.TypeParametersContext classTypeParametersContext;
     private JavaParser.TypeParametersContext methodTypeParametersContext;
+    private Set<String> currentTypeParameters = new HashSet<>();
+    private Set<String> currentMethodTypeParameters = new HashSet<>();
     private Map<String, JavaParser.TypeTypeContext> variableType = new LinkedHashMap<>();
     private Set<String> attributePrivate = new LinkedHashSet<>();
     private JavaParser.TypeTypeContext currentType;
@@ -121,7 +124,7 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         className = ctx.identifier().getText();
         this.visitIdentifier(ctx.identifier());
         this.classTypeParametersContext = ctx.typeParameters();
-        printTypeParameters(this.classTypeParametersContext);
+        printTypeParameters(this.classTypeParametersContext, true, false);
         if (ctx.EXTENDS() != null) {
             out.print(" extends ");
             checkCurrentPackageImports(ctx.typeType().getText());
@@ -146,8 +149,11 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         return null;
     }
 
-    private void printTypeParameters(JavaParser.TypeParametersContext typeParametersContext) {
+    private void printTypeParameters(JavaParser.TypeParametersContext typeParametersContext, boolean classDeclaration, boolean methodDeclaration) {
         if (typeParametersContext != null) {
+            if (methodDeclaration) {
+                currentMethodTypeParameters.clear();
+            }
             out.print("<");
             boolean rest = false;
             for (var t: typeParametersContext.typeParameter()) {
@@ -155,6 +161,10 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
                     out.print(", ");
                 else
                     rest = true;
+                if (classDeclaration) currentTypeParameters.add(t.identifier().getText());
+                else if (methodDeclaration) {
+                    currentMethodTypeParameters.add(t.identifier().getText());
+                }
                 visitIdentifier(t.identifier());
             }
             out.print(">");
@@ -190,10 +200,15 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print("constructor");
         visitFormalParameters(ctx.formalParameters());
         visitBlock(ctx.block());
-        this.memberStatic = false;
-        this.memberPublic = false;
         out.print("\n");
         return null;
+    }
+
+    @Override
+    public Void visitClassBodyDeclaration(JavaParser.ClassBodyDeclarationContext ctx) {
+        this.memberStatic = false;
+        this.memberPublic = false;
+        return super.visitClassBodyDeclaration(ctx);
     }
 
     @Override
@@ -231,14 +246,12 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         }
         out.print(name);
         if (methodTypeParametersContext != null) {
-            printTypeParameters(methodTypeParametersContext);
+            printTypeParameters(methodTypeParametersContext, false, true);
         }
         visitFormalParameters(ctx.formalParameters());
         out.print(" : ");
         visitTypeTypeOrVoid(ctx.typeTypeOrVoid());
         visitMethodBody(ctx.methodBody());
-        this.memberStatic = false;
-        this.memberPublic = false;
         out.print("\n");
         variableType.clear();
         return null;
@@ -276,8 +289,10 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitModifier(JavaParser.ModifierContext ctx) {
-        memberStatic = ctx.getText().equals("static");
-        memberPublic = ctx.getText().equals("public");
+        if (ctx.getText().equals("static"))
+            memberStatic = true;
+        if (ctx.getText().equals("public"))
+            memberPublic = true;
         super.visitModifier(ctx);
         return null;
     }
@@ -422,7 +437,9 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
 
     private void checkCurrentPackageImports(String name) {
         if (CaseUtil.isClassName(name) && !className.equals(name) &&
-                !importedClasses.contains(name)) {
+                !importedClasses.contains(name) &&
+                !currentTypeParameters.contains(name) &&
+                !currentMethodTypeParameters.contains(name)) {
             imports.add("import { " + name + " } from './" + name + "';");
         }
     }
@@ -522,11 +539,11 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
                 fileStr = relativePath(currentPackageIdentifiers, identifiers
                         .toArray(new String[0]));
             } else {
-                fileStr = "@" + String.join("/",
-                        identifiers.subList(0, classNameIdx + 1).stream().map(
-                                        identifier -> identifier.toLowerCase())
-                                .collect(Collectors.toList())
-                );
+                var parts = identifiers.subList(0, classNameIdx).stream().map(
+                                identifier -> identifier.toLowerCase())
+                        .collect(Collectors.toList());
+                parts.add(className);
+                fileStr = "@" + String.join("/", parts);
             }
 
             imports.add(

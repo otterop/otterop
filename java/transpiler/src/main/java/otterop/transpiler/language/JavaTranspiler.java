@@ -1,6 +1,7 @@
 package otterop.transpiler.language;
 
 import otterop.transpiler.antlr.JavaParser;
+import otterop.transpiler.config.OtteropConfig;
 import otterop.transpiler.reader.ClassReader;
 import otterop.transpiler.visitor.JavaParserVisitor;
 import otterop.transpiler.visitor.pure.PureJavaParserVisitor;
@@ -15,8 +16,8 @@ import java.util.concurrent.Future;
 
 public class JavaTranspiler extends AbstractTranspiler {
     public JavaTranspiler(String outFolder, FileWriter fileWriter,
-                          ExecutorService executorService, ClassReader classReader) {
-        super(outFolder, fileWriter, executorService, classReader);
+                          ExecutorService executorService, ClassReader classReader, OtteropConfig config) {
+        super(outFolder, fileWriter, executorService, classReader, config);
     }
 
     private String getCodePath(String[] clazzParts, boolean pure) {
@@ -24,7 +25,7 @@ public class JavaTranspiler extends AbstractTranspiler {
         String[] newClassParts = Arrays.copyOf(clazzParts, len);
         newClassParts[newClassParts.length - 1] = clazzParts[clazzParts.length - 1]
                 .replaceAll("$", ".java");
-        if (firstClassPart() == null) setFirstClassPart(clazzParts[0]);
+
         if (pure) {
             newClassParts[newClassParts.length - 2] = "pure";
         }
