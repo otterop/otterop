@@ -12,6 +12,7 @@ import java.util.List;
 public class OtteropConfig {
     private String basePackage;
     private String basePath = "src/main/java";
+    private String testBasePath = "src/test/java";
     private GoConfig go = new GoConfig();
     private CConfig c = new CConfig();
     private CSharpConfig csharp = new CSharpConfig();
@@ -36,6 +37,14 @@ public class OtteropConfig {
 
     public void setBasePath(String basePath) {
         this.basePath = basePath;
+    }
+
+    public String testBasePath() {
+        return testBasePath;
+    }
+
+    public void setTestBasePath(String testBasePath) {
+        this.testBasePath = testBasePath;
     }
 
     public GoConfig go() {

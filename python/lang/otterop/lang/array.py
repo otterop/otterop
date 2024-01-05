@@ -58,6 +58,10 @@ class Array:
         return self._wrapped
 
     @staticmethod
+    def new_array(size, clazz):
+        return Array([None] * size, 0, size)
+
+    @staticmethod
     def wrap(list):
         return Array(list, 0, len(list))
 

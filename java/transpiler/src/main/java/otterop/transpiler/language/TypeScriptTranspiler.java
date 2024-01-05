@@ -49,11 +49,12 @@ public class TypeScriptTranspiler extends AbstractTranspiler {
 
     private String basePackage;
 
-    public TypeScriptTranspiler(String outFolder, FileWriter fileWriter,
+    public TypeScriptTranspiler(FileWriter fileWriter,
                                 ExecutorService executorService,
                                 ClassReader classReader,
                                 OtteropConfig config) {
-        super(outFolder, fileWriter, executorService, classReader, config);
+        super(config.ts().outPath(), null,
+                fileWriter, executorService, classReader, config);
         this.basePackage = config.basePackage();
         this.ignoreFile().addPattern("**.js");
     }
@@ -65,10 +66,13 @@ public class TypeScriptTranspiler extends AbstractTranspiler {
         return pureClazzParts;
     }
 
-    private String getCodePath(String[] clazzParts) {
+    private String getCodePath(String[] clazzParts, boolean isTest) {
         clazzParts = Arrays.copyOf(clazzParts, clazzParts.length);
-        clazzParts[clazzParts.length - 1] = clazzParts[clazzParts.length - 1]
-                .replaceAll("$", ".ts");
+        clazzParts[clazzParts.length - 1] = clazzParts[clazzParts.length - 1];
+        if (!isTest)
+            clazzParts[clazzParts.length - 1] = clazzParts[clazzParts.length - 1].replaceAll("$", ".ts");
+        else
+            clazzParts[clazzParts.length - 1] = clazzParts[clazzParts.length - 1].replaceAll("$", ".test.ts");
 
         var codePath = String.join(File.separator, clazzParts);
         String ret = replaceBasePath(codePath);
@@ -82,12 +86,13 @@ public class TypeScriptTranspiler extends AbstractTranspiler {
 
     private void checkMakePure(TypeScriptParserVisitor visitor,
                                String[] clazzParts,
-                               JavaParser.CompilationUnitContext compilationUnitContext) throws IOException {
+                               JavaParser.CompilationUnitContext compilationUnitContext,
+                               boolean isTest) throws IOException {
         if (visitor.makePure()) {
             var pureClazzParts = pureClazzParts(clazzParts);
-            var codePath = getCodePath(pureClazzParts);
+            var codePath = getCodePath(pureClazzParts, false);
             var purePackage = getCurrentPackage(pureClazzParts);
-            var outCodePath = getPath(codePath);
+            var outCodePath = getPath(codePath, isTest);
             PureTypeScriptParserVisitor pureVisitor = new PureTypeScriptParserVisitor(
                     basePackage, purePackage);
             pureVisitor.visit(compilationUnitContext);
@@ -95,10 +100,12 @@ public class TypeScriptTranspiler extends AbstractTranspiler {
         }
     }
     @Override
-    public Future<Void> transpile(String[] clazzParts, Future<JavaParser.CompilationUnitContext> compilationUnitContext) {
+    public Future<Void> transpile(String[] clazzParts,
+                                  Future<JavaParser.CompilationUnitContext> compilationUnitContext,
+                                  boolean isTest) {
         return this.executorService().submit(() -> {
-            var codePath = getCodePath(clazzParts);
-            String outCodePath = getPath(codePath);
+            var codePath = getCodePath(clazzParts, false);
+            String outCodePath = getPath(codePath, isTest);
             String currentPackage = getCurrentPackage(clazzParts);
 
             if (ignoreFile().ignores(codePath)) {
@@ -108,8 +115,18 @@ public class TypeScriptTranspiler extends AbstractTranspiler {
 
             TypeScriptParserVisitor visitor = new TypeScriptParserVisitor(basePackage, currentPackage);
             visitor.visit(compilationUnitContext.get());
+
+            if (isTest && visitor.testClass()) {
+                var testCodePath= getCodePath(clazzParts, true);
+                outCodePath = getPath(testCodePath, true);
+                if (ignoreFile().ignores(testCodePath)) {
+                    System.out.println("TypeScript ignored: " + testCodePath);
+                    return null;
+                }
+            }
+
             visitor.printTo(fileWriter().getPrintStream(outCodePath));
-            checkMakePure(visitor, clazzParts, compilationUnitContext.get());
+            checkMakePure(visitor, clazzParts, compilationUnitContext.get(), isTest);
             return null;
         });
     }

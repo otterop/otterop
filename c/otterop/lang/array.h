@@ -38,6 +38,8 @@
 
 typedef struct otterop_lang_Array_s otterop_lang_Array_t;
 
+otterop_lang_Array_t *otterop_lang_Array_new_array(int size, void *clazz);
+
 otterop_lang_Array_t *otterop_lang_Array_wrap(void *wrapped, int wrapped_cnt);
 
 otterop_lang_Array_t *otterop_lang_Array_wrap_string(char **wrapped, int wrapped_cnt);

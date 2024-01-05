@@ -1,0 +1,4 @@
+target_sources(otterop_test
+  PUBLIC
+  otterop/test/test_base.c
+)

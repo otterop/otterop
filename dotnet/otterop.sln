@@ -3,9 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Io", "Io\Otterop.Io.csproj", "{31F222B9-7E71-44E8-B38C-385F321AC8FF}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Io", "src\Io\Otterop.Io.csproj", "{31F222B9-7E71-44E8-B38C-385F321AC8FF}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lang", "Lang\Otterop.Lang.csproj", "{035D98DC-B937-40CD-A146-F8A934ABD440}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lang", "src\Lang\Otterop.Lang.csproj", "{035D98DC-B937-40CD-A146-F8A934ABD440}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Otterop.Test", "src\Test\Otterop.Test.csproj", "{6447B871-054C-4FA1-BAEF-23898599739C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -24,5 +26,9 @@ Global
 		{035D98DC-B937-40CD-A146-F8A934ABD440}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{035D98DC-B937-40CD-A146-F8A934ABD440}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{035D98DC-B937-40CD-A146-F8A934ABD440}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6447B871-054C-4FA1-BAEF-23898599739C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6447B871-054C-4FA1-BAEF-23898599739C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6447B871-054C-4FA1-BAEF-23898599739C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6447B871-054C-4FA1-BAEF-23898599739C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

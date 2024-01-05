@@ -43,10 +43,13 @@ import java.io.PrintStream;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import static otterop.transpiler.util.CaseUtil.camelCaseToSnakeCase;
 
 public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
     private final String basePackage;
@@ -76,6 +79,9 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
     private Set<String> attributePrivate = new LinkedHashSet<>();
     private JavaParser.TypeTypeContext currentType;
     private boolean makePure = false;
+    private boolean isTestMethod = false;
+    private List<JavaParser.MethodDeclarationContext> testMethods = new LinkedList<>();
+
 
     private static final Set<String> NUMERIC_TYPES = new LinkedHashSet<String>() {{
         add("int");
@@ -112,6 +118,9 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         var annotationName = ctx.qualifiedName().identifier().get(0).getText();
         var fullAnnotationName = javaFullClassNames.get(annotationName);
         makePure |= Otterop.WRAPPED_CLASS.equals(fullAnnotationName);
+        boolean isTestAnnotation = Otterop.TEST_ANNOTATION.equals(fullAnnotationName);
+        if (isTestAnnotation)
+            this.isTestMethod = true;
         return null;
     }
 
@@ -208,6 +217,7 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
     public Void visitClassBodyDeclaration(JavaParser.ClassBodyDeclarationContext ctx) {
         this.memberStatic = false;
         this.memberPublic = false;
+        this.isTestMethod = false;
         return super.visitClassBodyDeclaration(ctx);
     }
 
@@ -231,6 +241,8 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitMethodDeclaration(JavaParser.MethodDeclarationContext ctx) {
+        if (isTestMethod)
+            testMethods.add(ctx);
         variableType.clear();
         out.print("\n");
         out.print(INDENT.repeat(indents));
@@ -481,6 +493,13 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
 
             if (isIntDivision)
                 out.print(")");
+        } else if (ctx.LPAREN() != null) {
+            // this is a cast
+            out.print("(");
+            visitExpression(ctx.expression().get(0));
+            out.print(" as unknown as ");
+            visitTypeType(ctx.typeType(0));
+            out.print(")");
         } else {
             super.visitExpression(ctx);
         }
@@ -511,7 +530,8 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
     }
 
     private boolean excludeImports(String javaFullClassName) {
-        return Otterop.WRAPPED_CLASS.equals(javaFullClassName);
+        return Otterop.WRAPPED_CLASS.equals(javaFullClassName) ||
+               Otterop.TEST_ANNOTATION.equals(javaFullClassName);
     }
 
     @Override
@@ -619,6 +639,8 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         var name = ctx.createdName().getText();
         out.print("new ");
         out.print(name);
+        var className = ctx.createdName().identifier().get(ctx.createdName().identifier().size()-1).getText();
+        checkCurrentPackageImports(className);
         visitClassCreatorRest(ctx.classCreatorRest());
         return null;
     }
@@ -681,7 +703,11 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
     }
 
     public boolean makePure() {
-        return this.makePure;
+        return this.makePure && !testClass();
+    }
+
+    public boolean testClass() {
+        return !testMethods.isEmpty();
     }
 
     public void printTo(PrintStream ps) {
@@ -693,6 +719,23 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         }
         ps.println("");
         ps.print(outStream.toString());
+        if (!testMethods.isEmpty()) {
+            for (var testMethod : testMethods) {
+                var methodName = testMethod.identifier().getText();
+                ps.print("\ntest('");
+                ps.print(methodName);
+                ps.print("', () => {\n");
+                indents++;
+                ps.print(INDENT.repeat(indents));
+                ps.print("new ");
+                ps.print(className);
+                ps.print("().");
+                ps.print(methodName);
+                ps.print("();\n");
+                indents--;
+                ps.print("});\n");
+            }
+        }
         if (hasMain) {
             ps.print(className + ".main(process.argv.slice(2));");
         }

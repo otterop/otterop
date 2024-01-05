@@ -15,9 +15,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
 public class JavaTranspiler extends AbstractTranspiler {
-    public JavaTranspiler(String outFolder, FileWriter fileWriter,
+    public JavaTranspiler(FileWriter fileWriter,
                           ExecutorService executorService, ClassReader classReader, OtteropConfig config) {
-        super(outFolder, fileWriter, executorService, classReader, config);
+        super(config.java().outPath(), config.java().testOutPath(),
+                fileWriter, executorService, classReader, config);
     }
 
     private String getCodePath(String[] clazzParts, boolean pure) {
@@ -34,10 +35,11 @@ public class JavaTranspiler extends AbstractTranspiler {
 
     private void checkMakePure(JavaParserVisitor visitor,
                                String[] clazzParts,
-                               JavaParser.CompilationUnitContext compilationUnitContext) throws IOException {
+                               JavaParser.CompilationUnitContext compilationUnitContext,
+                               boolean isTest) throws IOException {
         if (visitor.makePure()) {
             var codePath = getCodePath(clazzParts, true);
-            var outCodePath = getPath(codePath);
+            var outCodePath = getPath(codePath, isTest);
             var pureVisitor = new PureJavaParserVisitor();
             pureVisitor.visit(compilationUnitContext);
             pureVisitor.printTo(fileWriter().getPrintStream(outCodePath));
@@ -45,7 +47,9 @@ public class JavaTranspiler extends AbstractTranspiler {
     }
 
     @Override
-    public Future<Void> transpile(String[] clazzParts, Future<JavaParser.CompilationUnitContext> compilationUnitContext) {
+    public Future<Void> transpile(String[] clazzParts,
+                                  Future<JavaParser.CompilationUnitContext> compilationUnitContext,
+                                  boolean isTest) {
         return this.executorService().submit(() -> {
             var codePath = getCodePath(clazzParts, false);
 
@@ -57,7 +61,7 @@ public class JavaTranspiler extends AbstractTranspiler {
             JavaParserVisitor visitor = new JavaParserVisitor();
             visitor.visit(compilationUnitContext.get());
 
-            checkMakePure(visitor, clazzParts, compilationUnitContext.get());
+            checkMakePure(visitor, clazzParts, compilationUnitContext.get(), isTest);
             return null;
         });
     }

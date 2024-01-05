@@ -1,6 +1,7 @@
 package result
 
 
+
 type Result[RES any, ERR any] struct {
     res *RES
     err *ERR

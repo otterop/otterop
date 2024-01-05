@@ -23,6 +23,7 @@ abstract class AbstractTranspiler implements Transpiler {
 
     private ExecutorService executorService;
     private String outFolder;
+    private String testOutFolder;
     private FileWriter fileWriter;
     private ClassReader classReader;
     private IgnoreFile ignoreFile;
@@ -32,11 +33,17 @@ abstract class AbstractTranspiler implements Transpiler {
     private Pattern reverseSearchBasePath;
     private String reverseReplaceBasePath;
 
-    AbstractTranspiler(String outFolder, FileWriter fileWriter,
+    AbstractTranspiler(String outFolder,
+                       String testOutFolder,
+                       FileWriter fileWriter,
                        ExecutorService executorService, ClassReader classReader,
                        OtteropConfig config) {
         this.config = config;
         this.outFolder = outFolder;
+        if (testOutFolder == null)
+            this.testOutFolder = outFolder;
+        else
+            this.testOutFolder = testOutFolder;
         this.fileWriter = fileWriter;
         this.executorService = executorService;
         this.classReader = classReader;
@@ -72,6 +79,10 @@ abstract class AbstractTranspiler implements Transpiler {
         return outFolder;
     }
 
+    protected String testOutFolder() {
+        return testOutFolder;
+    }
+
     protected FileWriter fileWriter() {
         return fileWriter;
     }
@@ -84,9 +95,14 @@ abstract class AbstractTranspiler implements Transpiler {
         return ignoreFile;
     }
 
-    protected String getPath(String codePath) {
+    protected String getPath(String codePath, boolean isTest) {
+        String outFolder;
+        if (isTest)
+            outFolder = this.testOutFolder();
+        else
+            outFolder = this.outFolder();
         return Paths.get(
-                this.outFolder(),
+                outFolder,
                 codePath
         ).toString();
     }
@@ -99,22 +115,30 @@ abstract class AbstractTranspiler implements Transpiler {
         return ignoreFile().alwaysIgnores(relativePath);
     }
 
-    public abstract Future<Void> transpile(String[] clazzParts, Future<JavaParser.CompilationUnitContext> compilationUnitContext);
+    public abstract Future<Void> transpile(String[] clazzParts,
+                                           Future<JavaParser.CompilationUnitContext> compilationUnitContext,
+                                           boolean isTest);
+
+    private void cleanFolder(String folder, long before) {
+        var folderPath = Path.of(folder);
+        var cleanPath = folderPath;
+        Function<File, Boolean> filter = (File file) -> {
+            var relativePath = folderPath.relativize(file.toPath()).toString();
+            var ignored = this.ignored(relativePath);
+            if (ignored && !this.alwaysIgnored(relativePath)) {
+                System.out.println("Clean ignored: " + relativePath);
+            }
+            return !ignored && file.lastModified() < before;
+        };
+        FileUtil.clean(cleanPath.toString(), filter);
+    }
 
     @Override
     public Future<Void> clean(long before) {
         return this.executorService().submit(() -> {
-            var outFolderPath = Path.of(outFolder());
-            var cleanPath = outFolderPath;
-            Function<File, Boolean> filter = (File file) -> {
-                var relativePath = outFolderPath.relativize(file.toPath()).toString();
-                var ignored = this.ignored(relativePath);
-                if (ignored && !this.alwaysIgnored(relativePath)) {
-                    System.out.println("Clean ignored: " + relativePath);
-                }
-                return !ignored && file.lastModified() < before;
-            };
-            FileUtil.clean(cleanPath.toString(), filter);
+            cleanFolder(outFolder(), before);
+            if (!testOutFolder().equals(outFolder()))
+                cleanFolder(testOutFolder(), before);
             return null;
         });
     }

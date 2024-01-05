@@ -4,6 +4,7 @@ import (
     string "github.com/otterop/otterop/go/lang/string"
 )
 
+
 type Error struct {
     code int
     message *string.String

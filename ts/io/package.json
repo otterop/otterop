@@ -21,6 +21,6 @@
     "typescript": "^4.9.4"
   },
   "peerDependencies": {
-    "@otterop/lang": ">= 0.2.0"
+    "@otterop/lang": "file:../lang"
   }
 }

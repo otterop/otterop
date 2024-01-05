@@ -48,17 +48,21 @@ import java.util.concurrent.Future;
 
 public class PythonTranspiler extends AbstractTranspiler {
 
-    public PythonTranspiler(String outFolder, FileWriter fileWriter,
+    public PythonTranspiler(FileWriter fileWriter,
                             ExecutorService executorService, ClassReader classReader, OtteropConfig config) {
-        super(outFolder, fileWriter, executorService, classReader, config);
+        super(config.python().outPath(), null,
+                fileWriter, executorService, classReader, config);
     }
 
-    private String getCodePath(String[] clazzParts, boolean pure) {
+    private String getCodePath(String[] clazzParts, boolean pure, boolean isTest) {
         int len = !pure ? clazzParts.length : clazzParts.length + 1;
         String[] newClassParts = Arrays.copyOf(clazzParts, len);
         newClassParts[newClassParts.length - 1] = CaseUtil.camelCaseToSnakeCase(clazzParts[clazzParts.length - 1])
                 .replaceAll("$", ".py");
 
+        if (isTest && !newClassParts[newClassParts.length - 1].startsWith("test_")) {
+            newClassParts[newClassParts.length - 1] = "test_" + newClassParts[newClassParts.length - 1];
+        }
         if (pure) {
             newClassParts[newClassParts.length - 2] = "pure";
         }
@@ -69,10 +73,11 @@ public class PythonTranspiler extends AbstractTranspiler {
 
     private void checkMakePure(PythonParserVisitor visitor,
                                String[] clazzParts,
-                               JavaParser.CompilationUnitContext compilationUnitContext) throws IOException {
+                               JavaParser.CompilationUnitContext compilationUnitContext,
+                               boolean isTest) throws IOException {
         if (visitor.makePure()) {
-            var codePath = getCodePath(clazzParts, true);
-            var outCodePath = getPath(codePath);
+            var codePath = getCodePath(clazzParts, true, false);
+            var outCodePath = getPath(codePath, isTest);
             var pureVisitor = new PurePythonParserVisitor();
             pureVisitor.visit(compilationUnitContext);
             pureVisitor.printTo(fileWriter().getPrintStream(outCodePath));
@@ -80,10 +85,12 @@ public class PythonTranspiler extends AbstractTranspiler {
     }
 
     @Override
-    public Future<Void> transpile(String[] clazzParts, Future<JavaParser.CompilationUnitContext> compilationUnitContext) {
+    public Future<Void> transpile(String[] clazzParts,
+                                  Future<JavaParser.CompilationUnitContext> compilationUnitContext,
+                                  boolean isTest) {
         return this.executorService().submit(() -> {
-            var codePath = getCodePath(clazzParts, false);
-            String outCodePath = getPath(codePath);
+            var codePath = getCodePath(clazzParts, false, false);
+            String outCodePath = getPath(codePath, isTest);
 
             if (ignoreFile().ignores(codePath)) {
                 System.out.println("Python ignored: " + codePath);
@@ -92,9 +99,21 @@ public class PythonTranspiler extends AbstractTranspiler {
 
             PythonParserVisitor visitor = new PythonParserVisitor();
             visitor.visit(compilationUnitContext.get());
+
+            if (isTest && visitor.testClass()) {
+                var testCodePath= getCodePath(clazzParts, false, true);
+                if (!testCodePath.equals(codePath)) {
+                    outCodePath = getPath(testCodePath, true);
+                    if (ignoreFile().ignores(testCodePath)) {
+                        System.out.println("Python ignored: " + testCodePath);
+                        return null;
+                    }
+                }
+            }
+
             visitor.printTo(fileWriter().getPrintStream(outCodePath));
 
-            checkMakePure(visitor, clazzParts, compilationUnitContext.get());
+            checkMakePure(visitor, clazzParts, compilationUnitContext.get(), isTest);
             return null;
         });
     }

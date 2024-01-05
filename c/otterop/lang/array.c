@@ -45,6 +45,11 @@ otterop_lang_Array_t *otterop_lang_Array_new(void **wrapped, int start, int end)
     return ret;
 }
 
+otterop_lang_Array_t *otterop_lang_Array_new_array(int size, void *clazz) {
+    void **wrapped = GC_malloc(size * sizeof(void *));
+    return otterop_lang_Array_new(wrapped, 0, size);
+}
+
 otterop_lang_Array_t *otterop_lang_Array_wrap(void *wrapped, int wrapped_cnt) {
     return otterop_lang_Array_new((void **) wrapped, 0, wrapped_cnt);
 }

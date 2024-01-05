@@ -1,13 +1,9 @@
 package otterop.test;
+import org.junit.jupiter.api.Assertions;
+import otterop.lang.String;
 
 public class TestBase {
-    private TestRun testRun;
-
-    public void setRun(TestRun testRun) {
-        this.testRun = testRun;
-    }
-
-    public TestRun run() {
-       return this.testRun;
+    public void assertTrue(boolean value, String message) {
+        Assertions.assertTrue(value, message.unwrap());
     }
 }

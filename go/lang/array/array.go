@@ -70,6 +70,11 @@ func (a *Array[T]) Slice(start int, end int) *Array[T] {
     return newArray(a._wrapped, newStart, newEnd)
 }
 
+func NewArray[T any](size int, clazz T) *Array[T] {
+    array := make([]T, size)
+    return newArray(array, 0, len(array))
+}
+
 func Wrap[T any](array []T) *Array[T] {
     return newArray(array, 0, len(array))
 }

@@ -37,12 +37,6 @@ public class Array<T> {
     private final int end;
     private T[] _wrapped;
 
-    public Array(int size) {
-        this._wrapped = (T[]) new Object[size];
-        this.start = 0;
-        this.end = size;
-    }
-
     private Array(T[] array, int start, int end) {
         this._wrapped = array;
         this.start = start;
@@ -67,6 +61,11 @@ public class Array<T> {
         if (newStart < this.start || newStart > this.end || newEnd < newStart ||
                 newEnd > this.end) throw new ArrayIndexOutOfBoundsException();
         return new Array<T>(_wrapped, newStart, newEnd);
+    }
+
+    public static <T> Array<T> newArray(int size, T clazz) {
+        T[] wrapped = (T[]) new Object[size];
+        return new Array<>(wrapped, 0, wrapped.length);
     }
 
     public static <T> Array<T> wrap(T[] list) {

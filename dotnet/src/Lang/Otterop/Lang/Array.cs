@@ -58,6 +58,12 @@ public class Array
         }
         return new Array<T>(wrapped, 0, wrapped.Count());
     }
+
+    public static Array<T> NewArray<T>(int size, T? clazz)
+    {
+        T[] wrapped = new T[size];
+        return new Array<T>(wrapped, 0, wrapped.Count());
+    }
 }
 
 public class Array<T> : Array

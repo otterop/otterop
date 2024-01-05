@@ -42,21 +42,22 @@ import otterop.transpiler.visitor.pure.PureCParserVisitor;
 import otterop.transpiler.writer.FileWriter;
 
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import static otterop.transpiler.util.FileUtil.withPrintStream;
 
 public class CTranspiler extends AbstractTranspiler {
 
+    private String mainClass;
+    private String testMainClass;
     private List<String> sources = Collections.synchronizedList(new LinkedList<>());
+    private List<String> testSources = Collections.synchronizedList(new LinkedList<>());
+    private List<String> testClasses = Collections.synchronizedList(new LinkedList<>());
     private String[] packageParts;
     private TargetType targetType;
 
@@ -66,10 +67,12 @@ public class CTranspiler extends AbstractTranspiler {
         CMAKELISTS
     }
 
-    public CTranspiler(String outFolder, FileWriter fileWriter,
+    public CTranspiler(FileWriter fileWriter,
                        ExecutorService executorService, ClassReader classReader,
                        OtteropConfig config) {
-        super(outFolder, fileWriter, executorService, classReader, config);
+        super(config.c().outPath(),
+                config.c().testOutPath(),
+                fileWriter, executorService, classReader, config);
         packageParts = config.basePackage().split("\\.");
         this.targetType = config.targetType();
         this.ignoreFile().addPattern("CMakeLists.manual.txt");
@@ -107,79 +110,121 @@ public class CTranspiler extends AbstractTranspiler {
         return ret;
     }
 
-    public void writeCMakeLists() {
+    public void writeCMakeLists(boolean isTest) {
+        if (isTest && (this.testOutFolder().equals(outFolder()) || !new File(this.testOutFolder()).exists()))
+            return;
+
         var cmakeListsCodePath = getCodePath(packageParts, FileType.CMAKELISTS, false);
-        var cmakeListsFile = getPath(cmakeListsCodePath);
-        var cmakeListsManualFile = cmakeListsCodePath.replaceAll("\\.txt$", ".manual.txt");
-        OutputStream out = null;
-        PrintStream ps = null;
+        var cmakeListsFile = getPath(cmakeListsCodePath, isTest);
+        String cmakeListsManualFile;
+        if (isTest)
+            cmakeListsManualFile = cmakeListsCodePath.replaceAll("\\.txt$", ".manual.tests.txt");
+        else
+            cmakeListsManualFile = cmakeListsCodePath.replaceAll("\\.txt$", ".manual.txt");
+
+        var sources = isTest ? this.testSources : this.sources;
         Collections.sort(sources);
-        try {
-            out = new FileOutputStream(cmakeListsFile);
-            ps = new PrintStream(out);
-            var execName = String.join("_", packageParts);
+        withPrintStream(cmakeListsFile, (ps) -> {
+            var targetName = String.join("_", packageParts);
 
             boolean isLibrary = targetType == TargetType.LIBRARY;
-            if (!isLibrary)
+            if (!isLibrary) {
                 ps.print("add_executable(");
-            else
-                ps.print("add_library(");
-            ps.print(execName);
-            if (isLibrary)
-                ps.print(" STATIC");
-            ps.print("\n");
-            for (var sourceCodePath : sources) {
-                ps.println(reverseReplaceBasePath(sourceCodePath));
-            }
-            ps.println(")");
-            ps.println("include(" + reverseReplaceBasePath(cmakeListsManualFile) + " OPTIONAL)");
-        } catch (FileNotFoundException e) {
-            throw new RuntimeException(e);
-        } finally {
-            if (out != null) {
-                try {
-                    out.close();
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
+                ps.print(targetName);
+                if (isTest)
+                    ps.print("_tests");
+                ps.println();
+                for (var sourceCodePath : sources) {
+                    ps.print("${CMAKE_CURRENT_LIST_DIR}/");
+                    ps.println(sourceCodePath);
                 }
+                if (!isTest && mainClass != null) {
+                    ps.print("${CMAKE_CURRENT_LIST_DIR}/");
+                    ps.println(mainClass);
+                }
+                else if (isTest && testMainClass != null) {
+                    ps.print("${CMAKE_CURRENT_LIST_DIR}/");
+                    ps.println(testMainClass);
+                }
+                ps.println(")");
             }
-            if (ps != null) {
-                ps.close();
+            if (!isTest) {
+                ps.print("add_library(");
+                ps.print(targetName);
+                if (!isLibrary)
+                    ps.print("__lib");
+                ps.print(" STATIC\n");
+                for (var sourceCodePath : sources) {
+                    ps.print("${CMAKE_CURRENT_LIST_DIR}/");
+                    ps.println(sourceCodePath);
+                }
+                ps.println(")");
             }
-        }
+            ps.println("include(${CMAKE_CURRENT_LIST_DIR}/" + cmakeListsManualFile + " OPTIONAL)");
+        });
+    }
+
+    public void writeTestsMain() {
+        if (this.testOutFolder().equals(outFolder()) || !new File(this.testOutFolder()).exists())
+            return;
+
+        testMainClass = "__tests_main.c";
+
+        withPrintStream(getPath(testMainClass, true), (ps) -> {
+            ps.print("#include \"unity_fixture.h\"\n\n");
+            ps.print("static void __run_all_tests(void) {\n");
+            for (var testClass : this.testClasses) {
+                ps.print("    RUN_TEST_GROUP(");
+                ps.print(testClass);
+                ps.print(");\n");
+            }
+            ps.print("}\n");
+            ps.print("\nint main(int argc, const char *argv[]) {\n");
+            ps.print("    return UnityMain(argc, argv, __run_all_tests);\n");
+            ps.print("}\n");
+        });
+    }
+
+    private void addToSources(String path, boolean isTest) {
+        if (isTest)
+            testSources.add(path);
+        else
+            sources.add(path);
     }
 
     private void checkMakePure(CParserVisitor visitor,
                                String[] clazzParts,
-                               JavaParser.CompilationUnitContext compilationUnitContext) throws IOException {
+                               JavaParser.CompilationUnitContext compilationUnitContext,
+                               boolean isTest) throws IOException {
         if (visitor.makePure()) {
             var sourceCodePath = getCodePath(clazzParts,  FileType.SOURCE, true);
             var headerCodePath = getCodePath(clazzParts,  FileType.HEADER, true);
-            String sourcePath = getPath(sourceCodePath);
-            String headerPath = getPath(headerCodePath);
+            String sourcePath = getPath(sourceCodePath, isTest);
+            String headerPath = getPath(headerCodePath, isTest);
             PureCParserVisitor headerVisitor = new PureCParserVisitor(classReader(), true, null);
             headerVisitor.visit(compilationUnitContext);
             headerVisitor.printTo(fileWriter().getPrintStream(headerPath));
             PureCParserVisitor sourceVisitor = new PureCParserVisitor(classReader(), false, headerVisitor);
             sourceVisitor.visit(compilationUnitContext);
             sourceVisitor.printTo(fileWriter().getPrintStream(sourcePath));
-            sources.add(sourceCodePath);
+            addToSources(sourceCodePath, isTest);
         }
     }
 
     @Override
-    public Future<Void> transpile(String[] clazzParts, Future<JavaParser.CompilationUnitContext> compilationUnitContext) {
+    public Future<Void> transpile(String[] clazzParts,
+                                  Future<JavaParser.CompilationUnitContext> compilationUnitContext,
+                                  boolean isTest) {
         return this.executorService().submit(() -> {
             var sourceCodePath = getCodePath(clazzParts, FileType.SOURCE, false);
             var headerCodePath = getCodePath(clazzParts, FileType.HEADER, false);
-            String sourcePath = getPath(sourceCodePath);
-            String headerPath = getPath(headerCodePath);
+            String sourcePath = getPath(sourceCodePath, isTest);
+            String headerPath = getPath(headerCodePath, isTest);
 
             if (ignoreFile().ignores(sourceCodePath)) {
                 System.out.println("C ignored: " + sourceCodePath);
                 return null;
             }
-            sources.add(sourceCodePath);
 
             CParserVisitor headerVisitor = new CParserVisitor(classReader(), true, null);
             headerVisitor.visit(compilationUnitContext.get());
@@ -187,8 +232,16 @@ public class CTranspiler extends AbstractTranspiler {
             CParserVisitor sourceVisitor = new CParserVisitor(classReader(), false, headerVisitor);
             sourceVisitor.visit(compilationUnitContext.get());
             sourceVisitor.printTo(fileWriter().getPrintStream(sourcePath));
+            if (!sourceVisitor.hasMain())
+                addToSources(sourceCodePath, isTest);
+            else if (!isTest)
+                mainClass = sourceCodePath;
 
-            checkMakePure(sourceVisitor, clazzParts, compilationUnitContext.get());
+            if (sourceVisitor.testClass()) {
+                testClasses.add(sourceVisitor.fullClassName());
+            }
+
+            checkMakePure(sourceVisitor, clazzParts, compilationUnitContext.get(), isTest);
             return null;
         });
     }
@@ -196,7 +249,9 @@ public class CTranspiler extends AbstractTranspiler {
     @Override
     public Future<Void> finish() {
         return this.executorService().submit(() -> {
-            writeCMakeLists();
+            writeCMakeLists(false);
+            writeTestsMain();
+            writeCMakeLists(true);
             return null;
         });
     }

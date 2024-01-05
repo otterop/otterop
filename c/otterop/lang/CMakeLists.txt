@@ -1,5 +1,5 @@
 add_library(otterop_lang STATIC
-otterop/lang/error.c
-otterop/lang/result.c
+${CMAKE_CURRENT_LIST_DIR}/error.c
+${CMAKE_CURRENT_LIST_DIR}/result.c
 )
-include(otterop/lang/CMakeLists.manual.txt OPTIONAL)
+include(${CMAKE_CURRENT_LIST_DIR}/CMakeLists.manual.txt OPTIONAL)

@@ -32,12 +32,12 @@
 
 import { String } from './String';
 
-export class Array<T> {
+class ArrayOtterOP<T> {
     private wrapped : T[];
     private start : number;
     private end : number;
 
-    private constructor(wrapped: T[], start : number, end: number) {
+    constructor(wrapped: T[], start: number, end: number) {
         this.wrapped = wrapped;
         this.start = start;
         this.end = end;
@@ -60,18 +60,26 @@ export class Array<T> {
         const newEnd = this.start + end;
         if (newStart < this.start || newStart > this.end || newEnd < newStart ||
             newEnd > this.end) throw new Error("slice arguments out of bounds");
-        return new Array<T>(this.wrapped, newStart, newEnd);
+        return new ArrayOtterOP<T>(this.wrapped, newStart, newEnd);
     }
 
-    public static wrap<T>(wrapped: T[]) : Array<T> {
-        return new Array<T>(wrapped, 0, wrapped.length)
+    public static newArray<T>(size: number, clazz: T) : ArrayOtterOP<T> {
+        const wrapped = new Array(size);
+        return new ArrayOtterOP<T>(wrapped, 0, wrapped.length);
     }
 
-    public static wrapString(wrapped: string[]) : Array<String> {
+    public static wrap<T>(wrapped: T[]) : ArrayOtterOP<T> {
+        return new ArrayOtterOP<T>(wrapped, 0, wrapped.length)
+    }
+
+    public static wrapString(wrapped: string[]) : ArrayOtterOP<String> {
         let ret : String[] = [];
         for(let i = 0; i < wrapped.length; i++) {
             ret[i] = String.wrap(wrapped[i]);
         }
-        return new Array<String>(ret, 0, ret.length);
+        return new ArrayOtterOP<String>(ret, 0, ret.length);
     }
 }
+
+
+export { ArrayOtterOP as Array };

@@ -70,6 +70,7 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
     private JavaParser.TypeParametersContext classTypeParametersContext;
     private JavaParser.TypeParametersContext methodTypeParametersContext;
     private boolean makePure = false;
+    private boolean hasTestAnnotations = false;
     private boolean isInterface = false;
 
     @Override
@@ -110,8 +111,14 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         var annotationName = ctx.qualifiedName().identifier().get(0).getText();
         var fullAnnotationName = javaFullClassName.get(annotationName);
         makePure |= Otterop.WRAPPED_CLASS.equals(fullAnnotationName);
+        boolean isTestAnnotation = Otterop.TEST_ANNOTATION.equals(fullAnnotationName);
+        hasTestAnnotations |= isTestAnnotation;
         if ("Override".equals(annotationName))
             this.isNewMethod = true;
+        if (isTestAnnotation) {
+            out.print(INDENT.repeat(indents));
+            out.print("[Otterop.Test.Test]\n");
+        }
         return null;
     }
 
@@ -302,11 +309,11 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         if (insideStaticNonGeneric && !memberStatic)
             return null;
         out.print(INDENT.repeat(indents));
-        if (isNewMethod) {
-            out.print("new ");
-        }
         if (memberPublic) {
             out.print("public ");
+        }
+        if (isNewMethod) {
+            out.print("new ");
         }
         if (memberStatic) {
             out.print("static ");
@@ -513,11 +520,12 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
                 else if (ctx.methodCall() != null) visitMethodCall(ctx.methodCall());
                 else if (ctx.identifier() != null) visitIdentifier(ctx.identifier());
             }
-        } else if (ctx.RPAREN() != null) {
-            visitExpression(ctx.expression(0));
-            out.print(".(");
+        } else if (ctx.LPAREN() != null) {
+            // this is a cast
+            out.print("(");
             visitTypeType(ctx.typeType(0));
-            out.print(")");
+            out.print("?) ");
+            visitExpression(ctx.expression(0));
         } else if (fullClassName.containsKey(ctx.getText())) {
             out.print(fullClassName.get(ctx.getText()));
         } else {
@@ -623,7 +631,10 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
     public Void visitCreator(JavaParser.CreatorContext ctx) {
         var name = ctx.createdName().identifier(0).getText();
         out.print("new ");
-        out.print(fullClassName.get(name));
+        if (fullClassName.containsKey(name))
+            out.print(fullClassName.get(name));
+        else
+            out.print(name);
         var typeArguments = ctx.createdName().typeArgumentsOrDiamond();
         if (!typeArguments.isEmpty()) {
             printTypeArguments(List.of(typeArguments.get(0).typeArguments()));
@@ -696,7 +707,7 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
     }
 
     public boolean makePure() {
-        return this.makePure;
+        return this.makePure && !this.hasTestAnnotations;
     }
 
     public void printTo(PrintStream ps) {

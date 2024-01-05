@@ -42,6 +42,7 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -68,6 +69,8 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
     private JavaParser.TypeTypeContext currentType;
     private PrintStream out = new PrintStream(outStream);
     private boolean makePure = false;
+    private boolean isTestMethod = false;
+    private List<JavaParser.MethodDeclarationContext> testMethods = new LinkedList<>();
 
     @Override
     public Void visitInterfaceDeclaration(JavaParser.InterfaceDeclarationContext ctx) {
@@ -87,6 +90,9 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
         var annotationName = ctx.qualifiedName().identifier().get(0).getText();
         var fullAnnotationName = javaFullClassName.get(annotationName);
         makePure |= Otterop.WRAPPED_CLASS.equals(fullAnnotationName);
+        boolean isTestAnnotation = Otterop.TEST_ANNOTATION.equals(fullAnnotationName);
+        if (isTestAnnotation)
+            this.isTestMethod = true;
         return null;
     }
 
@@ -127,11 +133,14 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
     public Void visitClassBodyDeclaration(JavaParser.ClassBodyDeclarationContext ctx) {
         this.memberStatic = false;
         this.memberPublic = false;
+        this.isTestMethod = false;
         return super.visitClassBodyDeclaration(ctx);
     }
 
     @Override
     public Void visitMethodDeclaration(JavaParser.MethodDeclarationContext ctx) {
+        if (isTestMethod)
+            testMethods.add(ctx);
         variableType.clear();
         out.print("\n");
         if (memberStatic) {
@@ -363,7 +372,8 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
     }
 
     private boolean excludeImports(String javaFullClassName) {
-        return Otterop.WRAPPED_CLASS.equals(javaFullClassName);
+        return Otterop.WRAPPED_CLASS.equals(javaFullClassName) ||
+               Otterop.TEST_ANNOTATION.equals(javaFullClassName);
     }
 
     @Override
@@ -380,8 +390,8 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
         var javaFullClassName = identifiers.subList(0, classNameIdx + 1).stream()
                 .map(identifier -> identifier.getText())
                 .collect(Collectors.joining("."));
-
         this.javaFullClassName.put(className, javaFullClassName);
+
         if (!excludeImports(javaFullClassName)) {
             var importStatement = "from " + pythonPackage + " import " + className;
             importedClasses.add(className);
@@ -453,7 +463,9 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitCreator(JavaParser.CreatorContext ctx) {
-        out.print(ctx.createdName().identifier(0).getText());
+        var className = ctx.createdName().identifier(0).getText();
+        checkCurrentPackageImports(className);
+        out.print(className);
         visitClassCreatorRest(ctx.classCreatorRest());
         return null;
     }
@@ -477,7 +489,11 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
     }
 
     public boolean makePure() {
-        return this.makePure;
+        return this.makePure && !testClass();
+    }
+
+    public boolean testClass() {
+        return !testMethods.isEmpty();
     }
 
     public void printTo(PrintStream ps) {
@@ -492,5 +508,20 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
         }
         ps.println("");
         ps.print(outStream.toString());
+        if (!testMethods.isEmpty()) {
+            for (var testMethod : testMethods) {
+                var methodName = camelCaseToSnakeCase(testMethod.identifier().getText());
+                ps.print("\ndef test_");
+                ps.print(methodName);
+                ps.print("():\n");
+                indents++;
+                ps.print(INDENT.repeat(indents));
+                ps.print(className);
+                ps.print("().");
+                ps.print(methodName);
+                ps.print("()\n");
+                indents--;
+            }
+        }
     }
 }

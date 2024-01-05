@@ -5,12 +5,9 @@ settings:
   excludeLinksFromLockfile: false
 
 dependencies:
-  '@otterop/io':
-    specifier: 'link:'
-    version: 'link:'
   '@otterop/lang':
-    specifier: '>= 0.2.0'
-    version: link:../lang
+    specifier: file:../lang
+    version: file:../lang
 
 devDependencies:
   '@types/node':
@@ -37,3 +34,8 @@ packages:
   /undici-types@5.26.5:
     resolution: {integrity: sha512-JlCMO+ehdEIKqlFxk6IfVoAUVmgz7cU7zD/h9XZ0qzeosSHmUJVOzSQvvYSYWXkFXC+IfLKSIffhv0sVZup6pA==}
     dev: true
+
+  file:../lang:
+    resolution: {directory: ../lang, type: directory}
+    name: '@otterop/lang'
+    dev: false

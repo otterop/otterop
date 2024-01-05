@@ -52,16 +52,17 @@ public class GoTranspiler extends AbstractTranspiler{
 
     private Map<String,String> importDomainMapping;
 
-    public GoTranspiler(String outFolder,
-                        FileWriter fileWriter,
+    public GoTranspiler(FileWriter fileWriter,
                         ExecutorService executorService,
                         ClassReader classReader,
                         OtteropConfig config) {
-        super(outFolder, fileWriter, executorService, classReader, config);
+        super(config.go().outPath(),
+                null,
+                fileWriter, executorService, classReader, config);
         this.importDomainMapping = config.go().packageMapping();
     }
 
-    private String getCodePath(String[] clazzParts, boolean pure) {
+    private String getCodePath(String[] clazzParts, boolean pure, boolean isTest) {
         String clazzName = clazzParts[clazzParts.length - 1].toLowerCase();
         int classPartsLen = !pure ? clazzParts.length + 1 : clazzParts.length + 2;
         int startClazzName = !pure ? classPartsLen - 2 : classPartsLen - 3;
@@ -73,6 +74,8 @@ public class GoTranspiler extends AbstractTranspiler{
         }
         if (pure)
             clazzParts[startClazzName + 1] = "pure";
+        if (isTest)
+            clazzName = clazzName + "_test";
         clazzParts[endClassName] = clazzName.replaceAll("$", ".go");
         var codePath = String.join(File.separator, clazzParts);
         String ret = replaceBasePath(codePath);
@@ -85,10 +88,11 @@ public class GoTranspiler extends AbstractTranspiler{
 
     private void checkMakePure(GoParserVisitor visitor,
                                String[] clazzParts,
-                               JavaParser.CompilationUnitContext compilationUnitContext) throws IOException {
+                               JavaParser.CompilationUnitContext compilationUnitContext,
+                               boolean isTest) throws IOException {
         if (visitor.makePure()) {
-            var codePath = getCodePath(clazzParts, true);
-            var outCodePath = getPath(codePath);
+            var codePath = getCodePath(clazzParts, true, false);
+            var outCodePath = getPath(codePath, isTest);
             PureGoParserVisitor pureVisitor = new PureGoParserVisitor(
                     this.classReader(), this.importDomainMapping);
             pureVisitor.visit(compilationUnitContext);
@@ -97,10 +101,12 @@ public class GoTranspiler extends AbstractTranspiler{
     }
 
     @Override
-    public Future<Void> transpile(String[] clazzParts, Future<JavaParser.CompilationUnitContext> compilationUnitContext) {
+    public Future<Void> transpile(String[] clazzParts,
+                                  Future<JavaParser.CompilationUnitContext> compilationUnitContext,
+                                  boolean isTest) {
         return this.executorService().submit(() -> {
-            var codePath = getCodePath(clazzParts, false);
-            var outCodePath = getPath(codePath);
+            var codePath = getCodePath(clazzParts, false, false);
+            var outCodePath = getPath(codePath, isTest);
 
             if (ignoreFile().ignores(codePath)) {
                 System.out.println("Go ignored: " + codePath);
@@ -109,8 +115,18 @@ public class GoTranspiler extends AbstractTranspiler{
 
             GoParserVisitor visitor = new GoParserVisitor(classReader(), importDomainMapping);
             visitor.visit(compilationUnitContext.get());
+
+            if (isTest && visitor.testClass()) {
+                var testCodePath= getCodePath(clazzParts, false, true);
+                outCodePath = getPath(testCodePath, true);
+                if (ignoreFile().ignores(testCodePath)) {
+                    System.out.println("Go ignored: " + testCodePath);
+                    return null;
+                }
+            }
+
             visitor.printTo(fileWriter().getPrintStream(outCodePath));
-            checkMakePure(visitor, clazzParts, compilationUnitContext.get());
+            checkMakePure(visitor, clazzParts, compilationUnitContext.get(), isTest);
             return null;
         });
     }

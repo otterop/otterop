@@ -1,13 +1,13 @@
-basePath: java/lang/src/main/java
-basePackage: otterop.lang
+basePath: java/test/src/main/java
+basePackage: otterop.test
 targetType: library
 python:
-  outPath: python/lang/otterop/lang/
+  outPath: python/test/otterop/test/
 ts:
-  outPath: ts/lang/otterop/lang/
+  outPath: ts/test/otterop/test/
 c:
-  outPath: c/otterop/lang/
+  outPath: c/otterop/test/
 csharp:
-  outPath: dotnet/Lang/Otterop/Lang/
+  outPath: dotnet/src/Test/Otterop/Test/
 go:
-  outPath: go/lang/
+  outPath: go/test/

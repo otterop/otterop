@@ -80,6 +80,7 @@ public class Otterop {
     private Set<TranspilerName> selectedLanguages;
 
     public static final String WRAPPED_CLASS = "otterop.lang.MakePure";
+    public static final String TEST_ANNOTATION = "otterop.test.Test";
     public static final Pattern PURE_CLASSES = Pattern.compile("^.*\\/pure\\/[^\\/\\.]*\\.java$");
 
     private String[] pathToClassParts(String path) {
@@ -89,9 +90,11 @@ public class Otterop {
     }
 
     private void clean() throws ExecutionException, InterruptedException {
-        var cleanOps = transpilers.values().stream().map(transpiler ->
-                transpiler.clean(start)
-        ).collect(Collectors.toList());
+        var cleanOps = transpilers.entrySet().stream().map(transpilerEntry -> {
+            if (selectedLanguages.contains(transpilerEntry.getKey()))
+                return transpilerEntry.getValue().clean(start);
+            return CompletableFuture.completedFuture(null);
+        }).collect(Collectors.toList());
         for (var cleanOp : cleanOps) {
             cleanOp.get();
         }
@@ -127,37 +130,31 @@ public class Otterop {
             throw new RuntimeException("targetType is a required configuration property");
 
         TypeScriptTranspiler tsTranspiler = new TypeScriptTranspiler(
-                config.ts().outPath(),
                 fileWriter,
                 executor,
                 classReader,
                 config);
         CSharpTranspiler csTranspiler = new CSharpTranspiler(
-                config.csharp().outPath(),
                 fileWriter,
                 executor,
                 classReader,
                 config);
         cTranspiler = new CTranspiler(
-                config.c().outPath(),
                 fileWriter,
                 executor,
                 classReader,
                 config);
         PythonTranspiler pythonTranspiler = new PythonTranspiler(
-                config.python().outPath(),
                 fileWriter,
                 executor,
                 classReader,
                 config);
         GoTranspiler goTranspiler = new GoTranspiler(
-                config.go().outPath(),
                 fileWriter,
                 executor,
                 classReader,
                 config);
         JavaTranspiler javaTranspiler = new JavaTranspiler(
-                config.java().outPath(),
                 fileWriter,
                 executor,
                 classReader,
@@ -183,10 +180,30 @@ public class Otterop {
             selectedLanguages = languages;
             selectedLanguages.retainAll(transpilers.keySet());
         }
+    }
 
-        if (config.basePath() != null && config.java().outPath() == null) {
-            config.java().setOutPath(config.basePath());
+    private void transpileBasePath(String basePath, boolean isTest) throws InterruptedException, ExecutionException {
+        AtomicBoolean complete = new AtomicBoolean(false);
+        BlockingQueue<String> classes = fileReader.walkClasses(basePath, complete);
+        List<Future<Void>> futures = new LinkedList<>();
+        while (!complete.get() || !classes.isEmpty()) {
+            String clazz = classes.poll(100, TimeUnit.MILLISECONDS);
+            if (clazz != null) {
+                if (!this.ignored(clazz)) {
+                    System.out.print("Transpiled: ");
+                    futures.add(executor.submit(() ->
+                            this.transpile(basePath, clazz, isTest).get()
+                    ));
+                } else {
+                    System.out.print("Transpiler ignored: ");
+                }
+                System.out.println(clazz);
+            }
+            while(!futures.isEmpty() && futures.get(0).isDone()) {
+                futures.remove(0).get();
+            }
         }
+        for (Future f: futures) f.get();
     }
 
     public void transpile(String configPath) throws InterruptedException, ExecutionException {
@@ -200,43 +217,27 @@ public class Otterop {
         System.out.println("Transpiling to languages: " + selectedLanguages.stream()
                 .map(language -> language.getName()).collect(Collectors.joining(",")));
         this.start = Instant.now().toEpochMilli();
-        AtomicBoolean complete = new AtomicBoolean(false);
         var basePath = config.basePath();
-        BlockingQueue<String> classes = fileReader.walkClasses(basePath, complete);
-        List<Future<Void>> futures = new LinkedList<>();
-        while (!complete.get() || !classes.isEmpty()) {
-            String clazz = classes.poll(100, TimeUnit.MILLISECONDS);
-            if (clazz != null) {
-                if (!this.ignored(clazz)) {
-                    System.out.print("Transpiled: ");
-                    futures.add(executor.submit(() ->
-                            this.transpile(basePath, clazz).get()
-                    ));
-                } else {
-                    System.out.print("Transpiler ignored: ");
-                }
-                System.out.println(clazz);
-            }
-            while(!futures.isEmpty() && futures.get(0).isDone()) {
-                futures.remove(0).get();
-            }
-        }
-        for (Future f: futures) f.get();
+        var testBasePath = config.testBasePath();
+        transpileBasePath(basePath, false);
+        transpileBasePath(testBasePath, true);
         clean();
         finish();
     }
 
-    public Future<Void> transpile(String basePath, String classFile) {
-        return this.transpile(basePath, classFile, selectedLanguages);
+    public Future<Void> transpile(String basePath, String classFile, boolean isTest) {
+        return this.transpile(basePath, classFile, selectedLanguages, isTest);
     }
 
-    public Future<Void> transpile(String basePath, String classFile, Set<TranspilerName> selectedLanguages) {
+    public Future<Void> transpile(String basePath, String classFile,
+                                  Set<TranspilerName> selectedLanguages,
+                                  boolean isTest) {
         var clazzParts = pathToClassParts(classFile);
         var in = fileReader.readFile(basePath, classFile);
         var context = parser.parse(in);
         var futures = selectedLanguages.stream().map(transpiler ->
                 executor.submit(() ->
-                        transpilers.get(transpiler).transpile(clazzParts, context).get()
+                        transpilers.get(transpiler).transpile(clazzParts, context, isTest).get()
                 )
         ).collect(Collectors.toList());
         return executor.submit(() -> {

@@ -8,6 +8,6 @@ ts:
 c:
   outPath: c/otterop/lang/
 csharp:
-  outPath: dotnet/Lang/Otterop/Lang/
+  outPath: dotnet/src/Lang/Otterop/Lang/
 go:
   outPath: go/lang/

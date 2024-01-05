@@ -55,6 +55,11 @@ public class FileReader {
         BlockingQueue<String> ret = new LinkedBlockingQueue<>();
         Path base = Path.of(basePath);
         executorService.submit(() -> {
+            if (!base.toFile().exists()) {
+                complete.set(true);
+                return null;
+            }
+
             Files.walk(base).forEach(path -> {
                 var file = path.toFile();
                 if (file.isFile()) {

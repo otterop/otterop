@@ -48,9 +48,10 @@ import java.util.concurrent.Future;
 
 public class CSharpTranspiler extends AbstractTranspiler {
 
-    public CSharpTranspiler(String outFolder, FileWriter fileWriter,
+    public CSharpTranspiler(FileWriter fileWriter,
                             ExecutorService executorService, ClassReader classReader, OtteropConfig config) {
-        super(outFolder, fileWriter, executorService, classReader, config);
+        super(config.csharp().outPath(), config.csharp().testOutPath(),
+                fileWriter, executorService, classReader, config);
     }
 
     public String changePackageCase(String part) {
@@ -77,10 +78,11 @@ public class CSharpTranspiler extends AbstractTranspiler {
 
     private void checkMakePure(CSharpParserVisitor visitor,
                                String[] clazzParts,
-                               JavaParser.CompilationUnitContext compilationUnitContext) throws IOException {
+                               JavaParser.CompilationUnitContext compilationUnitContext,
+                               boolean isTest) throws IOException {
         if (visitor.makePure()) {
             var codePath = getCodePath(clazzParts, true);
-            var outCodePath = getPath(codePath);
+            var outCodePath = getPath(codePath, isTest);
             PureCSharpParserVisitor pureVisitor = new PureCSharpParserVisitor();
             pureVisitor.visit(compilationUnitContext);
             pureVisitor.printTo(fileWriter().getPrintStream(outCodePath));
@@ -88,10 +90,12 @@ public class CSharpTranspiler extends AbstractTranspiler {
     }
 
     @Override
-    public Future<Void> transpile(String[] clazzParts, Future<JavaParser.CompilationUnitContext> compilationUnitContext) {
+    public Future<Void> transpile(String[] clazzParts,
+                                  Future<JavaParser.CompilationUnitContext> compilationUnitContext,
+                                  boolean isTest) {
         return this.executorService().submit(() -> {
             var codePath = getCodePath(clazzParts, false);
-            var outCodePath = getPath(codePath);
+            var outCodePath = getPath(codePath, isTest);
 
             if (ignoreFile().ignores(codePath)) {
                 System.out.println("C# ignored: " + codePath);
@@ -102,7 +106,7 @@ public class CSharpTranspiler extends AbstractTranspiler {
             visitor.visit(compilationUnitContext.get());
             visitor.printTo(fileWriter().getPrintStream(outCodePath));
 
-            checkMakePure(visitor, clazzParts, compilationUnitContext.get());
+            checkMakePure(visitor, clazzParts, compilationUnitContext.get(), isTest);
             return null;
         });
     }
