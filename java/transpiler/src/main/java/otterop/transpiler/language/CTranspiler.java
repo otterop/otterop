@@ -170,6 +170,7 @@ public class CTranspiler extends AbstractTranspiler {
 
         testMainClass = "__tests_main.c";
 
+        Collections.sort(this.testClasses);
         withPrintStream(getPath(testMainClass, true), (ps) -> {
             ps.print("#include \"unity_fixture.h\"\n\n");
             ps.print("static void __run_all_tests(void) {\n");
