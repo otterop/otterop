@@ -44,6 +44,7 @@ import otterop.transpiler.visitor.clazz.CClassVisitor;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -108,6 +109,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     private Set<String> arrayArgs = new LinkedHashSet<>();
     private Map<String, JavaParser.TypeTypeContext> variableType = new LinkedHashMap<>();
     private PrintStream out = new PrintStream(outStream);
+    private Map<String,String> importDomainMapping;
     private boolean header = false;
     private boolean makePure = false;
     private boolean isTestMethod = false;
@@ -121,13 +123,15 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     private List<JavaParser.MethodDeclarationContext> testMethods = new LinkedList<>();
     private CClassVisitor classVisitor;
 
-    public CParserVisitor(ClassReader classReader, boolean header, CParserVisitor headerVisitor) {
+    public CParserVisitor(ClassReader classReader, boolean header, CParserVisitor headerVisitor,
+                          Map<String,String> importDomainMapping) {
         this.header = header;
         if (headerVisitor != null) {
             headerFullClassNames = headerVisitor.getFullClassNames();
         }
         this.classReader = classReader;
         this.classVisitor = new CClassVisitor(this);
+        this.importDomainMapping = new HashMap<>(importDomainMapping);
     }
 
     private void detectMethods(ParserRuleContext ctx) {
@@ -945,8 +949,9 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     public void addToIncludes(List<String> identifiers) {
         String className = identifiers.get(identifiers.size() - 1);
         var prefixIdentifiers = identifiers.subList(0, identifiers.size() - 1);
+        var includeIdentifiers = replaceBasePackageIdentifiers(prefixIdentifiers);
         var fileName = camelCaseToSnakeCase(className);
-        var includeStr = String.join("/", prefixIdentifiers);
+        var includeStr = String.join("/", includeIdentifiers);
         var fullClassName =
                 prefixIdentifiers.stream()
                         .map(identifier -> camelCaseToSnakeCase(identifier))
@@ -973,6 +978,33 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         if (CaseUtil.isClassName(name) && !fullClassNames.containsKey(name)) {
             addToIncludes(packagePrefix + "_" + name);
         }
+    }
+
+    private AbstractMap.SimpleEntry<String,String> replaceBasePackage(String packageName) {
+        var replacement = "";
+        for(var replacePackage : importDomainMapping.keySet()) {
+            if (packageName.equals(replacePackage) || packageName.startsWith(replacePackage + ".")) {
+                replacement = importDomainMapping.get(replacePackage);
+                if (packageName.equals(replacePackage)) packageName = "";
+                else packageName = packageName.replace(replacePackage + ".", "");
+                break;
+            }
+        }
+        return new AbstractMap.SimpleEntry(packageName, replacement);
+    }
+
+    private List<String> replaceBasePackageIdentifiers(List<String> identifiers) {
+        var replacement = replaceBasePackage(
+                identifiers.stream().collect(Collectors.joining("."))
+        );
+        var rest = replacement.getKey().split("\\.");
+        var replacementArray = replacement.getValue().split("/");
+        var ret = new ArrayList<String>();
+        if (replacementArray.length >= 1 && replacementArray[0].length() > 0)
+            Collections.addAll(ret, replacementArray);
+        if (rest.length >= 1 && rest[0].length() > 0)
+            Collections.addAll(ret, rest);
+        return ret;
     }
 
     @Override
@@ -1152,14 +1184,16 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     @Override
     public Void visitPackageDeclaration(JavaParser.PackageDeclarationContext ctx) {
         var identifiers = ctx.qualifiedName().identifier();
-        packagePrefix = identifiers.stream().map(
-                identifier ->
-                    camelCaseToSnakeCase(identifier.getText())
-        ).collect(Collectors.joining("_"));
-        javaPackagePrefix = identifiers.stream().map(
+        var stringIdentifiers = identifiers.stream().map(
                 identifier ->
                         identifier.getText()
-        ).collect(Collectors.joining("."));
+        ).collect(Collectors.toList());
+        packagePrefix = stringIdentifiers.stream().map(
+                identifier ->
+                    camelCaseToSnakeCase(identifier)
+        ).collect(Collectors.joining("_"));
+        javaPackagePrefix = stringIdentifiers.stream()
+                .collect(Collectors.joining("."));
         return null;
     }
 
@@ -1214,12 +1248,11 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
             ps.println("#include \"unity.h\"");
             ps.println("#include \"unity_fixture.h\"");
         }
-        for (String importStatement : includes) {
-            ps.println(INDENT.repeat(indents) + importStatement);
-        }
-
         if (mustPrintDefaultConstructor()) {
             includes.add("#include <gc.h>");
+        }
+        for (String importStatement : includes) {
+            ps.println(INDENT.repeat(indents) + importStatement);
         }
 
         ps.println("");

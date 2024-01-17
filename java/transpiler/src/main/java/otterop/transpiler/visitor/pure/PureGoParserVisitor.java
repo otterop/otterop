@@ -798,7 +798,7 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
     private AbstractMap.SimpleEntry<String,String> replaceBasePackage(String packageName) {
         var replacement = "";
         for(var replacePackage : importDomainMapping.keySet()) {
-            if (packageName.startsWith(replacePackage)) {
+            if (packageName.equals(replacePackage) || packageName.startsWith(replacePackage + ".")) {
                 replacement = importDomainMapping.get(replacePackage);
                 if (packageName.equals(replacePackage)) packageName = "";
                 else packageName = packageName.replace(replacePackage + ".", "");

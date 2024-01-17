@@ -43,6 +43,7 @@ import otterop.transpiler.util.CaseUtil;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -113,6 +114,7 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
     private Set<String> arrayArgs = new LinkedHashSet<>();
     private Map<String, JavaParser.TypeTypeContext> variableType = new LinkedHashMap<>();
     private PrintStream out = new PrintStream(outStream);
+    private Map<String,String> importDomainMapping;
     private boolean header = false;
     private Set<String> currentTypeParameters = new HashSet<>();
     private Set<String> currentMethodTypeParameters = new HashSet<>();
@@ -126,13 +128,16 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
     private String calledOn = null;
     private Map<String,String> headerFullClassNames = Collections.emptyMap();
 
-    public PureCParserVisitor(ClassReader classReader, boolean header, PureCParserVisitor headerVisitor) {
+    public PureCParserVisitor(ClassReader classReader, boolean header,
+                              PureCParserVisitor headerVisitor,
+                              Map<String,String> importDomainMapping) {
         this.header = header;
         this.classReader = classReader;
         if (headerVisitor != null) {
             headerFullClassNames = headerVisitor.getFullClassNames();
         }
         this.unwrappedClassName.put("otterop_lang_String", "char");
+        this.importDomainMapping = new HashMap<>(importDomainMapping);
     }
 
     private void detectMethods(ParserRuleContext ctx) {
@@ -1251,6 +1256,8 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
     }
 
     private void addToIncludes(List<String> identifiers, boolean isPure) {
+        identifiers = replaceBasePackageIdentifiers(identifiers);
+
         String className = identifiers.get(identifiers.size() - 1);
         var prefixIdentifiers = identifiers.subList(0, identifiers.size() - 1);
         var fileName = camelCaseToSnakeCase(className);
@@ -1286,6 +1293,33 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
         if (CaseUtil.isClassName(name) && !fullClassNames.containsKey(name)) {
             addToIncludes(packagePrefix + "_" + name, true);
         }
+    }
+
+    private AbstractMap.SimpleEntry<String,String> replaceBasePackage(String packageName) {
+        var replacement = "";
+        for(var replacePackage : importDomainMapping.keySet()) {
+            if (packageName.equals(replacePackage) || packageName.startsWith(replacePackage + ".")) {
+                replacement = importDomainMapping.get(replacePackage);
+                if (packageName.equals(replacePackage)) packageName = "";
+                else packageName = packageName.replace(replacePackage + ".", "");
+                break;
+            }
+        }
+        return new AbstractMap.SimpleEntry(packageName, replacement);
+    }
+
+    private List<String> replaceBasePackageIdentifiers(List<String> identifiers) {
+        var replacement = replaceBasePackage(
+                identifiers.stream().collect(Collectors.joining("."))
+        );
+        var rest = replacement.getKey().split("\\.");
+        var replacementArray = replacement.getValue().split("/");
+        var ret = new ArrayList<String>();
+        if (replacementArray.length >= 1 && replacementArray[0].length() > 0)
+            Collections.addAll(ret, replacementArray);
+        if (rest.length >= 1 && rest[0].length() > 0)
+            Collections.addAll(ret, rest);
+        return ret;
     }
 
     @Override
@@ -1482,15 +1516,18 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
     @Override
     public Void visitPackageDeclaration(JavaParser.PackageDeclarationContext ctx) {
         var identifiers = ctx.qualifiedName().identifier();
-        packagePrefix = identifiers.stream().map(
-                identifier ->
-                    camelCaseToSnakeCase(identifier.getText())
-        ).collect(Collectors.joining("_"));
-        purePackagePrefix = packagePrefix + "_pure";
-        var javaPackagePrefixList = identifiers.stream().map(
+        var stringIdentifiers = identifiers.stream().map(
                 identifier ->
                         identifier.getText()
         ).collect(Collectors.toList());
+        stringIdentifiers = replaceBasePackageIdentifiers(stringIdentifiers);
+
+        packagePrefix = stringIdentifiers.stream().map(
+                identifier ->
+                    camelCaseToSnakeCase(identifier)
+        ).collect(Collectors.joining("_"));
+        purePackagePrefix = packagePrefix + "_pure";
+        var javaPackagePrefixList = stringIdentifiers.stream().collect(Collectors.toList());
         javaPackagePrefix = javaPackagePrefixList.stream().collect(Collectors.joining("."));
         javaPackagePrefixList.add("pure");
         javaPurePackagePrefix = javaPackagePrefixList.stream().collect(Collectors.joining("."));

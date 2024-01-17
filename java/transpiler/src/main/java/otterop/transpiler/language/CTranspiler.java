@@ -47,6 +47,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import static otterop.transpiler.util.FileUtil.withPrintStream;
@@ -60,6 +61,7 @@ public class CTranspiler extends AbstractTranspiler {
     private List<String> testClasses = Collections.synchronizedList(new LinkedList<>());
     private String[] packageParts;
     private TargetType targetType;
+    private Map<String,String> importDomainMapping;
 
     private enum FileType {
         SOURCE,
@@ -76,6 +78,7 @@ public class CTranspiler extends AbstractTranspiler {
         packageParts = config.basePackage().split("\\.");
         this.targetType = config.targetType();
         this.ignoreFile().addPattern("CMakeLists.manual.txt");
+        this.importDomainMapping = config.c().packageMapping();
     }
 
     private String getCodePath(String[] clazzParts, FileType fileType, boolean pure) {
@@ -202,10 +205,12 @@ public class CTranspiler extends AbstractTranspiler {
             var headerCodePath = getCodePath(clazzParts,  FileType.HEADER, true);
             String sourcePath = getPath(sourceCodePath, isTest);
             String headerPath = getPath(headerCodePath, isTest);
-            PureCParserVisitor headerVisitor = new PureCParserVisitor(classReader(), true, null);
+            PureCParserVisitor headerVisitor = new PureCParserVisitor(classReader(), true, null,
+                    importDomainMapping);
             headerVisitor.visit(compilationUnitContext);
             headerVisitor.printTo(fileWriter().getPrintStream(headerPath));
-            PureCParserVisitor sourceVisitor = new PureCParserVisitor(classReader(), false, headerVisitor);
+            PureCParserVisitor sourceVisitor = new PureCParserVisitor(classReader(), false, headerVisitor,
+                    importDomainMapping);
             sourceVisitor.visit(compilationUnitContext);
             sourceVisitor.printTo(fileWriter().getPrintStream(sourcePath));
             addToSources(sourceCodePath, isTest);
@@ -227,10 +232,12 @@ public class CTranspiler extends AbstractTranspiler {
                 return null;
             }
 
-            CParserVisitor headerVisitor = new CParserVisitor(classReader(), true, null);
+            CParserVisitor headerVisitor = new CParserVisitor(classReader(), true, null,
+                    importDomainMapping);
             headerVisitor.visit(compilationUnitContext.get());
             headerVisitor.printTo(fileWriter().getPrintStream(headerPath));
-            CParserVisitor sourceVisitor = new CParserVisitor(classReader(), false, headerVisitor);
+            CParserVisitor sourceVisitor = new CParserVisitor(classReader(), false, headerVisitor,
+                    importDomainMapping);
             sourceVisitor.visit(compilationUnitContext.get());
             sourceVisitor.printTo(fileWriter().getPrintStream(sourcePath));
             if (!sourceVisitor.hasMain())
