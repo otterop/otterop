@@ -221,8 +221,8 @@ public class Otterop {
         var testBasePath = config.testBasePath();
         transpileBasePath(basePath, false);
         transpileBasePath(testBasePath, true);
-        clean();
         finish();
+        clean();
     }
 
     public Future<Void> transpile(String basePath, String classFile, boolean isTest) {

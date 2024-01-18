@@ -104,10 +104,10 @@ public class IgnoreFile {
     }
 
     public boolean ignores(String relativePath) {
-        if (!this.ignoreFileExists)
-            return false;
         if (alwaysIgnores(relativePath))
             return true;
+        if (!this.ignoreFileExists)
+            return false;
         boolean ret = matchesPatterns(getPatterns(), relativePath);
         return ret && !matchesPatterns(getAntiPatterns(), relativePath);
     }

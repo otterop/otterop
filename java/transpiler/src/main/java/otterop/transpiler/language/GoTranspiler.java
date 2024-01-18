@@ -47,6 +47,7 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.regex.Pattern;
 
 public class GoTranspiler extends AbstractTranspiler{
 
@@ -59,6 +60,7 @@ public class GoTranspiler extends AbstractTranspiler{
         super(config.go().outPath(),
                 null,
                 fileWriter, executorService, classReader, config);
+        this.ignoreFile().addPattern("go.mod*");
         this.importDomainMapping = config.go().packageMapping();
     }
 
