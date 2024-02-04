@@ -6,7 +6,7 @@ namespace Otterop.Test
     {
         public void AssertTrue(bool value, Otterop.Lang.String message)
         {
-            Assert.True(value, message.ToString());
+            Assert.True(value, message!.ToString());
         }
     }
 

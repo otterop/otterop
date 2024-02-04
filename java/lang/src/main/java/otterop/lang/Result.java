@@ -43,10 +43,6 @@ public class Result<RES,ERR> {
         this.err = err;
     }
 
-    public boolean isOK(){
-        return  this.err != null;
-    }
-
     public ERR err() {
         return this.err;
     }

@@ -9,3 +9,7 @@ obj
 bin
 *.js
 *.egg-info
+CMakeFiles
+CMakeCache.txt
+c/Makefile
+*.cmake

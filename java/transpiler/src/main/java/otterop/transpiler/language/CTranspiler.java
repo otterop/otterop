@@ -131,7 +131,7 @@ public class CTranspiler extends AbstractTranspiler {
             var targetName = String.join("_", packageParts);
 
             boolean isLibrary = targetType == TargetType.LIBRARY;
-            if (!isLibrary) {
+            if (isTest || !isLibrary) {
                 ps.print("add_executable(");
                 ps.print(targetName);
                 if (isTest)

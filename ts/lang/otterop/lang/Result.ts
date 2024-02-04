@@ -10,10 +10,6 @@ export class Result<RES, ERR> {
         this._err = err;
     }
 
-    public isOK() : boolean {
-        return this._err != null;
-    }
-
     public err() : ERR {
         return this._err;
     }

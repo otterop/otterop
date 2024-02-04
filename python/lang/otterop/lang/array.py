@@ -30,6 +30,7 @@
 
 
 from otterop.lang.string import String
+from otterop.lang.panic import Panic
 
 class Array:
     def __init__(self, list, start, end):
@@ -60,6 +61,14 @@ class Array:
     @staticmethod
     def new_array(size, clazz):
         return Array([None] * size, 0, size)
+
+    @staticmethod
+    def copy(src, src_pos, dst, dst_pos, length):
+        if src._start + src_pos + length > src._end:
+            Panic.index_out_of_bounds("source index out of bounds")
+        if dst._start + dst_pos + length > dst._end:
+            Panic.index_out_of_bounds("destination index out of bounds")
+        dst._wrapped[dst._start + dst_pos:dst._start + dst_pos + length] = src._wrapped[src._start + src_pos:src._start + src_pos + length]
 
     @staticmethod
     def wrap(list):

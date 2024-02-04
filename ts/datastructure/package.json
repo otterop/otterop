@@ -1,0 +1,28 @@
+{
+  "name": "@otterop/datastructure",
+  "version": "0.2.0",
+  "description": "Otterop Development Kit data structure classes",
+  "exports": {
+    "./*": "./otterop/datastructure/*.js"
+  },
+  "scripts": {
+    "test": "jest --passWithNoTests",
+    "build": "tsc -p ."
+  },
+  "keywords": [
+    "otterop",
+    "datastructure"
+  ],
+  "author": "Emanuele Sabellico",
+  "license": "BSD-2-Clause",
+  "devDependencies": {
+    "@types/node": "^18.11.17",
+    "@types/jest": "^29.5.11",
+    "jest": "^29.7.0",
+    "@otterop/test": "file:../test",
+    "typescript": "^4.9.4"
+  },
+  "peerDependencies": {
+    "@otterop/lang": "file:../lang"
+  }
+}

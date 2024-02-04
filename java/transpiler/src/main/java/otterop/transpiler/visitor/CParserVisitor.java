@@ -1018,7 +1018,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
 
         addToIncludes(identifiersString);
         if (isStatic) {
-            String className = identifiersString.get(identifiers.size() - 1);
+            String className = identifiersString.get(classNameIdx);
             var prefix = fullClassNames.get(className);
             var methodName = identifiers.get(classNameIdx + 1).getText();
             var methodNameSnake = camelCaseToSnakeCase(methodName);
@@ -1094,6 +1094,9 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     public Void visitLocalVariableDeclaration(JavaParser.LocalVariableDeclarationContext ctx) {
         currentType = ctx.typeType();
         var currentTypeName = currentType.getText();
+        if (currentType.classOrInterfaceType() != null) {
+            currentTypeName = currentType.classOrInterfaceType().identifier(0).getText();
+        }
         currentTypePointer = fullClassNames.containsKey(currentTypeName);
         visitTypeType(currentType);
         out.print(" ");
@@ -1110,7 +1113,8 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         }
 
         var fullClassName = fullClassNames.get(name);
-        var currentTypeName = currentType != null ? currentType.getText()
+        var currentTypeName = currentType != null && currentType.classOrInterfaceType() != null ?
+                currentType.classOrInterfaceType().identifier(0).getText()
                 : null;
         boolean interfaceCreation = currentTypeName != null && !name.equals(currentTypeName);
         if (interfaceCreation) {
@@ -1198,7 +1202,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     }
 
     private boolean mustPrintDefaultConstructor() {
-        return !hasConstructor && !isHeader() && !isInterface();
+        return !hasConstructor && !isInterface();
     }
 
     private void printDefaultConstructor(PrintStream ps) {
@@ -1208,7 +1212,12 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         ps.print(fullClassNameType);
         ps.print("* ");
         ps.print(fullClassName);
-        ps.print("_new() {\n");
+        ps.print("_new()");
+        if (isHeader()) {
+            ps.print(";\n");
+            return;
+        }
+        ps.print(" {\n");
         indents++;
         ps.print(INDENT.repeat(indents));
         ps.print(fullClassNameType);
@@ -1248,7 +1257,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
             ps.println("#include \"unity.h\"");
             ps.println("#include \"unity_fixture.h\"");
         }
-        if (mustPrintDefaultConstructor()) {
+        if (!isHeader() && mustPrintDefaultConstructor()) {
             includes.add("#include <gc.h>");
         }
         for (String importStatement : includes) {

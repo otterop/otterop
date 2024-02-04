@@ -59,20 +59,24 @@ public class Array
         return new Array<T>(wrapped, 0, wrapped.Count());
     }
 
-    public static Array<T> NewArray<T>(int size, T? clazz)
+    public static Array<T> NewArray<T>(int size, T clazz)
     {
         T[] wrapped = new T[size];
         return new Array<T>(wrapped, 0, wrapped.Count());
+    }
+
+    public static void Copy<T>(Array<T> src, int srcPos, Array<T> dst, int dstPos, int length) {
+        System.Array.Copy(src.wrapped, src.start + srcPos, dst.wrapped, dst.start + dstPos, length);
     }
 }
 
 public class Array<T> : Array
 {
-    private T[] wrapped;
+    internal T[] wrapped;
 
-    private int start;
+    internal int start;
 
-    private int end;
+    internal int end;
 
     internal Array(T[] wrapped, int start, int end)
     {

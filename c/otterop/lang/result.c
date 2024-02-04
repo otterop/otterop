@@ -1,6 +1,5 @@
 #include <otterop/lang/result.h>
 #include <gc.h>
-#include <stdlib.h>
 
 typedef struct otterop_lang_Result_s {
     void *res;
@@ -15,10 +14,6 @@ otterop_lang_Result_t *otterop_lang_Result_new(void *res, void *err) {
     this->res = res;
     this->err = err;
     return this;
-}
-
-int otterop_lang_Result_is_ok(otterop_lang_Result_t *this) {
-    return this->err != NULL;
 }
 
 void *otterop_lang_Result_err(otterop_lang_Result_t *this) {

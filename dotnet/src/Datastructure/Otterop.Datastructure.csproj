@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <Version>0.2.0</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Lang/Otterop.Lang.csproj" />
+  </ItemGroup>
+</Project>

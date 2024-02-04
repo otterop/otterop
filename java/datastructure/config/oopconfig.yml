@@ -1,0 +1,16 @@
+basePath: java/datastructure/src/main/java
+testBasePath: java/datastructure/src/test/java
+basePackage: otterop.datastructure
+targetType: library
+python:
+  outPath: python/datastructure/otterop/datastructure/
+ts:
+  outPath: ts/datastructure/otterop/datastructure/
+c:
+  outPath: c/otterop/datastructure/
+  testOutPath: c/test/tests/otterop/datastructure/
+csharp:
+  outPath: dotnet/src/Datastructure/Otterop/Datastructure/
+  testOutPath: dotnet/tests/Datastructure/Otterop/Datastructure/
+go:
+  outPath: go/datastructure/

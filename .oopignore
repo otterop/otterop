@@ -1,3 +1,6 @@
 **
 !otterop/lang/Error.java
 !otterop/lang/Result.java
+!otterop/lang/Generic.java
+!otterop/datastructure/List.java
+!otterop/**/Test*.java

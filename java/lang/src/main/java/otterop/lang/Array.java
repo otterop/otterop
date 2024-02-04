@@ -35,20 +35,20 @@ package otterop.lang;
 public class Array<T> {
     private final int start;
     private final int end;
-    private T[] _wrapped;
+    private T[] wrapped;
 
     private Array(T[] array, int start, int end) {
-        this._wrapped = array;
+        this.wrapped = array;
         this.start = start;
         this.end = end;
     }
 
     public T get(int i) {
-        return _wrapped[start + i];
+        return wrapped[start + i];
     }
 
     public void set(int i, T value) {
-        _wrapped[start + i] = value;
+        wrapped[start + i] = value;
     }
 
     public int size() {
@@ -60,12 +60,16 @@ public class Array<T> {
         var newEnd = this.start + end;
         if (newStart < this.start || newStart > this.end || newEnd < newStart ||
                 newEnd > this.end) throw new ArrayIndexOutOfBoundsException();
-        return new Array<T>(_wrapped, newStart, newEnd);
+        return new Array<T>(wrapped, newStart, newEnd);
     }
 
     public static <T> Array<T> newArray(int size, T clazz) {
         T[] wrapped = (T[]) new Object[size];
         return new Array<>(wrapped, 0, wrapped.length);
+    }
+
+    public static <T> void copy(Array<T> src, int srcPos, Array<T> dst, int dstPos, int length) {
+        System.arraycopy(src.wrapped, src.start + srcPos, dst.wrapped, dst.start + dstPos, length);
     }
 
     public static <T> Array<T> wrap(T[] list) {

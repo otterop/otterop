@@ -11,4 +11,5 @@ rootProject.name = "otterop"
 include("lang")
 include("io")
 include("test")
+include("datastructure")
 include("transpiler")

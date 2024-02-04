@@ -662,7 +662,7 @@ public class PureTypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
             }
             else if (ctx.methodCall() != null) visitMethodCall(ctx.methodCall());
             else if (ctx.identifier() != null) {
-                if (THIS.equals(ctx.expression(0).getText()) && bop.equals(".")
+                if (bop.equals(".")
                         && attributePrivate.contains(ctx.identifier().getText())) {
                     out.print("_");
                 }

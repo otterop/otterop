@@ -1,10 +1,10 @@
 /**
  * Copyright (c) 2023 The OtterOP Authors. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
  * met:
- * 
+ *
  *    * Redistributions of source code must retain the above copyright
  * notice, this list of conditions and the following disclaimer.
  *    * Redistributions in binary form must reproduce the above
@@ -14,7 +14,7 @@
  *    * Neither the name of the copyright holder nor the names of its
  * contributors may be used to endorse or promote products derived from
  * this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -26,23 +26,24 @@
  * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
+ *
  */
 
 
 package array;
 
 import String "github.com/otterop/otterop/go/lang/string"
+import "github.com/otterop/otterop/go/lang/panic"
 
 type Array[T any] struct {
-    _wrapped []T;
+    wrapped []T;
     start int
     end int
 }
 
 func newArray[T any](array []T, start int, end int) *Array[T] {
     ret := new(Array[T])
-    ret._wrapped = array
+    ret.wrapped = array
     ret.start = start
     ret.end = end
     return ret
@@ -53,11 +54,11 @@ func (a *Array[T]) Size() int {
 }
 
 func (a *Array[T]) Get(i int) T {
-    return a._wrapped[a.start + i]
+    return a.wrapped[a.start + i]
 }
 
 func (a *Array[T]) Set(i int, val T) {
-    a._wrapped[a.start + i] = val
+    a.wrapped[a.start + i] = val
 }
 
 func (a *Array[T]) Slice(start int, end int) *Array[T] {
@@ -65,9 +66,9 @@ func (a *Array[T]) Slice(start int, end int) *Array[T] {
     newEnd := a.start + end
     if newStart < a.start || newStart > a.end || newEnd < newStart ||
        newEnd > a.end {
-        panic("slice arguments out of bounds")
+        panic.IndexOutOfBounds(String.WrapLiteral("slice arguments out of bounds"))
     }
-    return newArray(a._wrapped, newStart, newEnd)
+    return newArray(a.wrapped, newStart, newEnd)
 }
 
 func NewArray[T any](size int, clazz T) *Array[T] {
@@ -85,4 +86,16 @@ func WrapString(arg []*string) *Array[*String.String] {
         ret[i] = String.Wrap(v)
     }
     return newArray(ret, 0, len(ret))
+}
+
+
+func Copy[T any](src *Array[T], srcPos int, dst *Array[T], dstPos int, length int) {
+    if src.start + srcPos + length > src.end {
+        panic.IndexOutOfBounds(String.WrapLiteral("source array index out of bounds"))
+    }
+    if dst.start + dstPos + length > dst.end {
+        panic.IndexOutOfBounds(String.WrapLiteral("destination array index out of bounds"))
+    }
+    copy(dst.wrapped[dst.start + dstPos:dst.start + dstPos + length],
+         src.wrapped[src.start + srcPos:src.start + srcPos + length])
 }

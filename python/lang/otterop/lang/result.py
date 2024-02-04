@@ -2,17 +2,14 @@
 class Result:
         
     def __init__(self, res, err):
-        self.res = res
-        self.err = err
-
-    def is_ok(self):
-        return self.err != None
+        self._res = res
+        self._err = err
 
     def err(self):
-        return self.err
+        return self._err
 
     def unwrap(self):
-        return self.res
+        return self._res
 
     @staticmethod
     def of(res, err):

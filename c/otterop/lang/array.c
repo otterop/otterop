@@ -30,6 +30,7 @@
  */
 
 #include "array.h"
+#include <otterop/lang/panic.h>
 
 typedef struct otterop_lang_Array_s {
     void **wrapped;
@@ -43,6 +44,16 @@ otterop_lang_Array_t *otterop_lang_Array_new(void **wrapped, int start, int end)
     ret->start = start;
     ret->end = end;
     return ret;
+}
+
+void otterop_lang_Array_copy(otterop_lang_Array_t *src, int src_pos,
+                             otterop_lang_Array_t *dst, int dst_pos, int length) {
+        if (src->wrapped + src->start + length > src->wrapped + src->end)
+            otterop_lang_Panic_index_out_of_bounds(otterop_lang_String_wrap("source array index out of bounds"));
+        if (dst->wrapped + dst->start + length > dst->wrapped + dst->end)
+            otterop_lang_Panic_index_out_of_bounds(otterop_lang_String_wrap("destination array index out of bounds"));
+        memmove(dst->wrapped + dst->start + dst_pos, src->wrapped + src->start + src_pos,
+            length * sizeof(*src->wrapped));
 }
 
 otterop_lang_Array_t *otterop_lang_Array_new_array(int size, void *clazz) {

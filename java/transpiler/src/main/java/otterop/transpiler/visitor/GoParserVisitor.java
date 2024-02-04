@@ -758,7 +758,6 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
             out.print("any");
         } else if (currentTypeParameters.contains(identifier) ||
                    currentMethodTypeParameters.contains(identifier)) {
-            if (!insideTypeArgument) out.print("*");
             out.print(identifier);
         } else {
             var fileName = identifier.toLowerCase();

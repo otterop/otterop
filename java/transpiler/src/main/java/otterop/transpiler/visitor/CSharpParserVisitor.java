@@ -39,9 +39,11 @@ import otterop.transpiler.antlr.JavaParserBaseVisitor;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static otterop.transpiler.util.CaseUtil.camelCaseToPascalCase;
@@ -69,6 +71,8 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
     private PrintStream out = new PrintStream(outStream);
     private JavaParser.TypeParametersContext classTypeParametersContext;
     private JavaParser.TypeParametersContext methodTypeParametersContext;
+    private Set<String> currentTypeParameters = new HashSet<>();
+    private Set<String> currentMethodTypeParameters = new HashSet<>();
     private boolean makePure = false;
     private boolean hasTestAnnotations = false;
     private boolean isInterface = false;
@@ -135,7 +139,7 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         if (this.classTypeParametersContext != null) {
             isGenericClass = true;
         }
-        printTypeParameters(this.classTypeParametersContext);
+        printTypeParameters(this.classTypeParametersContext, true, false);
         if (ctx.IMPLEMENTS() != null || ctx.EXTENDS() != null) {
             out.print(" : ");
             if (ctx.IMPLEMENTS() != null) {
@@ -176,8 +180,13 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         return null;
     }
 
-    private void printTypeParameters(JavaParser.TypeParametersContext typeParametersContext) {
+    private void printTypeParameters(JavaParser.TypeParametersContext typeParametersContext,
+                                     boolean classDeclaration,
+                                     boolean methodDeclaration) {
         if (typeParametersContext != null) {
+            if (methodDeclaration) {
+                currentMethodTypeParameters.clear();
+            }
             out.print("<");
             boolean rest = false;
             for (var t: typeParametersContext.typeParameter()) {
@@ -185,6 +194,10 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
                     out.print(", ");
                 else
                     rest = true;
+                if (classDeclaration) currentTypeParameters.add(t.identifier().getText());
+                else if (methodDeclaration) {
+                    currentMethodTypeParameters.add(t.identifier().getText());
+                }
                 visitIdentifier(t.identifier());
             }
             out.print(">");
@@ -273,7 +286,7 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print(">");
         out.print(".");
         out.print(name);
-        printTypeParameters(methodTypeParametersContext);
+        printTypeParameters(methodTypeParametersContext, false, true);
         out.print("(");
         rest = false;
         for (var formalParameter : ctx.formalParameters().formalParameterList().formalParameter()) {
@@ -324,7 +337,7 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         name = camelCaseToPascalCase(name);
         out.print(name);
         if (methodTypeParametersContext != null) {
-            printTypeParameters(methodTypeParametersContext);
+            printTypeParameters(methodTypeParametersContext, false, true);
         }
         visitFormalParameters(ctx.formalParameters());
         if (insideStaticNonGeneric) {
@@ -666,6 +679,11 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         return super.visitTypeTypeOrVoid(ctx);
     }
 
+    private boolean isTypeParameter(String name) {
+        return currentTypeParameters.contains(name) ||
+                currentMethodTypeParameters.contains(name);
+    }
+
     @Override
     public Void visitClassOrInterfaceType(JavaParser.ClassOrInterfaceTypeContext ctx) {
         var identifier = ctx.identifier().stream().map(i -> i.getText())
@@ -678,9 +696,9 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
             if (fullClassName.containsKey(identifier))
                 identifier = fullClassName.get(identifier);
             out.print(identifier);
-        }
-        if (ctx.typeArguments().size() > 0) {
-            printTypeArguments(ctx.typeArguments());
+            if (ctx.typeArguments().size() > 0) {
+                printTypeArguments(ctx.typeArguments());
+            }
         }
         return null;
     }

@@ -1,7 +1,7 @@
-build: transpile build-java build-dotnet \
+build: transpile build-java build-c build-dotnet \
 build-python build-go build-ts
 
-VERSION=0.2.0-SNAPSHOT
+VERSION=0.2.0
 BLUE=\033[0;34m
 RESET_COLOR=\e[0m
 
@@ -22,30 +22,41 @@ check-submodules:
 
 transpiler:
 	@echo "$(BLUE)Build OOP Transpiler ...${RESET_COLOR}"
-	@(cd java && ./gradlew :transpiler:jar) > /dev/null
+	@(cd java && ./gradlew :transpiler:build :transpiler:jar) > /dev/null
 
 transpile-lang: transpiler
 	@echo "$(BLUE)Transpile OOP Lang ...${RESET_COLOR}"
 	@(cd java && ./gradlew :lang:build) > /dev/null
-	@java -cp java/transpiler/build/libs/transpiler-$(VERSION).jar:java/lang/build/classes/java/main:java/lang/build/classes/java/test otterop.transpiler.Otterop config/lang/oopconfig.yml
+	@java -cp java/transpiler/build/libs/transpiler-$(VERSION).jar:java/lang/build/classes/java/main:java/lang/build/classes/java/test otterop.transpiler.Otterop java/lang/config/oopconfig.yml
 	@(cd java && ./gradlew :lang:jar) > /dev/null
 
 transpile-io: transpiler
 	@echo "$(BLUE)Transpile OOP IO ...${RESET_COLOR}"
 	@(cd java && ./gradlew :io:build) > /dev/null
-	@java -cp java/transpiler/build/libs/transpiler-$(VERSION).jar:java/lang/build/libs/lang-$(VERSION).jar:java/io/build/classes/java/main:java/io/build/classes/java/test otterop.transpiler.Otterop config/io/oopconfig.yml
+	@java -cp java/transpiler/build/libs/transpiler-$(VERSION).jar:java/lang/build/libs/lang-$(VERSION).jar:java/io/build/classes/java/main:java/io/build/classes/java/test otterop.transpiler.Otterop java/io/config/oopconfig.yml
 	@(cd java && ./gradlew :io:jar) > /dev/null
 
 transpile-test: transpiler
 	@echo "$(BLUE)Transpile OOP Test ...${RESET_COLOR}"
 	@(cd java && ./gradlew :test:build) > /dev/null
-	@java -cp java/transpiler/build/libs/transpiler-$(VERSION).jar:java/lang/build/libs/lang-$(VERSION).jar:java/test/build/classes/java/main:java/test/build/classes/java/test otterop.transpiler.Otterop config/test/oopconfig.yml
+	@java -cp java/transpiler/build/libs/transpiler-$(VERSION).jar:java/lang/build/libs/lang-$(VERSION).jar:java/test/build/classes/java/main:java/test/build/classes/java/test otterop.transpiler.Otterop java/test/config/oopconfig.yml
 	@(cd java && ./gradlew :test:jar) > /dev/null
 
-transpile: transpile-lang transpile-io transpile-test
+transpile-datastructure: transpiler
+	@echo "$(BLUE)Transpile OOP Datastructure ...${RESET_COLOR}"
+	@(cd java && ./gradlew :datastructure:build) > /dev/null
+	@java -cp java/transpiler/build/libs/transpiler-$(VERSION).jar:java/lang/build/libs/lang-$(VERSION).jar:java/test/build/classes/java/main:java/datastructure/build/classes/java/main:java/datastructure/build/classes/java/test otterop.transpiler.Otterop java/datastructure/config/oopconfig.yml
+	@(cd java && ./gradlew :datastructure:jar) > /dev/null
+	@(cd java && ./gradlew test)
+
+transpile: transpile-lang transpile-io transpile-test transpile-datastructure
 	@echo "$(BLUE)Transpiled OOP Libraries${RESET_COLOR}"
 
 build-java: transpile
+
+build-c:
+	@(cd c && \
+	make test)
 
 build-python:
 	@echo "$(BLUE)Build Python ...${RESET_COLOR}"
@@ -55,30 +66,38 @@ build-python:
 	fi && \
 	. ./_venv/bin/activate && \
 	python -m pip install ./lang ./io ./test ) > /dev/null
+	@(cd python && \
+	. ./_venv/bin/activate && \
+	pytest)
 
 build-ts:
 	@echo "$(BLUE)Build TypeScript ...${RESET_COLOR}"
 	@(cd ts/lang && \
-	rm -rf node_modules && \
 	pnpm i && \
 	pnpm build) > /dev/null
 	@(cd ts/io && \
-	rm -rf node_modules && \
+	pnpm i && \
+	pnpm build) > /dev/null
+	@(cd ts/datastructure && \
 	pnpm i && \
 	pnpm build) > /dev/null
 	@(cd ts/test && \
-	rm -rf node_modules && \
 	pnpm i && \
 	pnpm build) > /dev/null
+	@(cd ts/datastructure && \
+	pnpm test)
 
 build-dotnet:
 	@echo "$(BLUE)Build .NET ...${RESET_COLOR}"
 	@(cd dotnet && \
 	dotnet build) > /dev/null
+	@(cd dotnet && \
+	dotnet test)
 
 build-go:
 	@echo "$(BLUE)Build Go ...${RESET_COLOR}"
 	@(cd go && go build ./...) > /dev/null
+	@(cd go && go test ./...)
 
 clean: check-submodules
 	@echo "$(BLUE)Cleaning ...${RESET_COLOR}"

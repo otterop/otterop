@@ -3,11 +3,11 @@ from otterop.lang.string import String
 class Error:
         
     def __init__(self, code, message):
-        self.code = code
-        self.message = message
+        self._code = code
+        self._message = message
 
     def code(self):
-        return self.code
+        return self._code
 
     def message(self):
-        return self.message
+        return self._message

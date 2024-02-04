@@ -53,6 +53,7 @@ import static otterop.transpiler.util.CaseUtil.camelCaseToSnakeCase;
 public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
     private boolean memberStatic = false;
     private boolean memberPublic = false;
+    private boolean insideFieldDeclaration = false;
     private boolean hasMain = false;
     private int indents = 0;
     private int skipNewlines = 0;
@@ -67,6 +68,7 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
     private Map<String,String> javaFullClassName = new LinkedHashMap<>();
     private Map<String, JavaParser.TypeTypeContext> variableType = new LinkedHashMap<>();
     private JavaParser.TypeTypeContext currentType;
+    private Set<String> attributePrivate = new LinkedHashSet<>();
     private PrintStream out = new PrintStream(outStream);
     private boolean makePure = false;
     private boolean isTestMethod = false;
@@ -258,7 +260,12 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitVariableDeclarator(JavaParser.VariableDeclaratorContext ctx) {
-        variableType.put(ctx.variableDeclaratorId().getText(), currentType);
+        var text = ctx.variableDeclaratorId().getText();
+        if (insideFieldDeclaration && !memberPublic) {
+            attributePrivate.add(text);
+            text = "_" + text;
+        }
+        variableType.put(text, currentType);
         if (ctx.variableInitializer() != null) {
             visitVariableDeclaratorId(ctx.variableDeclaratorId());
             out.print(" = ");
@@ -269,11 +276,13 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitFieldDeclaration(JavaParser.FieldDeclarationContext ctx) {
+        insideFieldDeclaration = true;
         out.print(INDENT.repeat(indents));
         if (memberStatic) {
             visitVariableDeclarators(ctx.variableDeclarators());
             out.print("\n");
         }
+        insideFieldDeclaration = false;
         return null;
     }
 
@@ -348,7 +357,14 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
             out.print(bop);
             if (ctx.expression(1) != null) visitExpression(ctx.expression(1));
             else if (ctx.methodCall() != null) visitMethodCall(ctx.methodCall());
-            else if (ctx.identifier() != null) visitIdentifier(ctx.identifier());
+            else if (ctx.identifier() != null) {
+                if (bop.equals(".")
+                        && (attributePrivate.contains(ctx.identifier().getText())
+                            || "this".equals(name))) {
+                    out.print("_");
+                }
+                visitIdentifier(ctx.identifier());
+            }
         } else if (ctx.RPAREN() != null) {
             visitExpression(ctx.expression(0));
         } else {
