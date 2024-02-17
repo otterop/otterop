@@ -10,8 +10,7 @@ namespace Otterop.Datastructure
         {
             this.size = 0;
             this.capacity = 4;
-            Otterop.Lang.Generic<T> genericT = new Otterop.Lang.Generic<T>();
-            this.tZero = genericT.Zero();
+            this.tZero = new Otterop.Lang.Generic<T>().Zero();
             this.array = Otterop.Lang.Array.NewArray(this.capacity, this.tZero);
         }
 
@@ -30,8 +29,7 @@ namespace Otterop.Datastructure
         public void Add(T element)
         {
             EnsureCapacity(this.size + 1);
-            Otterop.Lang.Array<T> arr = this.array;
-            arr.Set(this.size, element);
+            this.array.Set(this.size, element);
             this.size++;
         }
 
@@ -65,8 +63,7 @@ namespace Otterop.Datastructure
                 Otterop.Lang.Array.Copy(this.array, index, this.array, index + 1, this.size - index);
             }
 
-            Otterop.Lang.Array<T> arr = this.array;
-            arr.Set(index, element);
+            this.array.Set(index, element);
             this.size++;
         }
 
@@ -91,15 +88,13 @@ namespace Otterop.Datastructure
         public T Get(int index)
         {
             CheckIndexOutOfBounds(index);
-            Otterop.Lang.Array<T> arr = this.array;
-            return arr.Get(index);
+            return this.array.Get(index);
         }
 
         public T RemoveIndex(int index)
         {
             CheckIndexOutOfBounds(index);
-            Otterop.Lang.Array<T> arr = this.array;
-            T ret = arr.Get(index);
+            T ret = this.array.Get(index);
             if (index + 1 < this.size)
             {
                 Otterop.Lang.Array.Copy(this.array, index + 1, this.array, index, this.size - index - 1);

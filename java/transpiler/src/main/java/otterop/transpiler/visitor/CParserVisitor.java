@@ -39,6 +39,7 @@ import otterop.transpiler.antlr.JavaParser;
 import otterop.transpiler.antlr.JavaParserBaseVisitor;
 import otterop.transpiler.reader.ClassReader;
 import otterop.transpiler.util.CaseUtil;
+import otterop.transpiler.util.PrintStreamStack;
 import otterop.transpiler.visitor.clazz.CClassVisitor;
 
 import java.io.ByteArrayOutputStream;
@@ -57,7 +58,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static otterop.transpiler.util.CaseUtil.camelCaseToSnakeCase;
@@ -85,7 +85,8 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     private static final String MALLOC = "GC_malloc";
     private String packagePrefix = null;
     private String javaPackagePrefix = null;
-    private JavaParser.TypeTypeContext currentType = null;
+    private String currentTypeName = null;
+    private String currentTypeFullClassName = null;
     private boolean currentTypePointer = false;
     private String currentInstanceName;
     private Set<String> includes = new LinkedHashSet<>();
@@ -107,8 +108,9 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     private Map<String,String> javaFullClassNames = new LinkedHashMap<>();
     private Map<String,String> methodNameFull = new LinkedHashMap<>();
     private Set<String> arrayArgs = new LinkedHashSet<>();
-    private Map<String, JavaParser.TypeTypeContext> variableType = new LinkedHashMap<>();
-    private PrintStream out = new PrintStream(outStream);
+    private Map<String, String> fieldVariableType = new LinkedHashMap<>();
+    private Map<String, String> variableType = new LinkedHashMap<>();
+    private PrintStreamStack out = new PrintStreamStack(outStream);
     private Map<String,String> importDomainMapping;
     private boolean header = false;
     private boolean makePure = false;
@@ -364,9 +366,11 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
             for (var field : fields) {
                 out.print(INDENT.repeat(indents));
                 visitTypeType(field.typeType());
+                var variableDeclaratorId = field.variableDeclarators()
+                        .variableDeclarator(0).variableDeclaratorId();
+                this.fieldVariableType.put(variableDeclaratorId.getText(), typeName(field.typeType()));
                 out.print(" ");
-                visitVariableDeclaratorId(field.variableDeclarators()
-                        .variableDeclarator(0).variableDeclaratorId());
+                visitVariableDeclaratorId(variableDeclaratorId);
                 out.print(";\n");
             }
             indents--;
@@ -672,7 +676,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         var parameterName = ctx.variableDeclaratorId().getText();
         var parameterType = ctx.typeType();
         var isJavaArray = parameterType.LBRACK().size() > 0;
-        variableType.put(parameterName, parameterType);
+        variableType.put(parameterName, typeName(parameterType));
         var declaratorId = ctx.variableDeclaratorId();
         visitTypeType(parameterType);
         out.print(" ");
@@ -796,14 +800,14 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     @Override
     public Void visitVariableDeclarator(JavaParser.VariableDeclaratorContext ctx) {
         var variableName = ctx.variableDeclaratorId().getText();
-        variableType.put(variableName, currentType);
+        variableType.put(variableName, currentTypeName);
         visitVariableDeclaratorId(ctx.variableDeclaratorId());
         if (!insideMemberDeclaration && ctx.variableInitializer() != null) {
             out.print(" = ");
             var variableInitializerText = ctx.variableInitializer().getText();
             String className = null;
             if (variableType.containsKey(variableInitializerText)) {
-                className = variableType.get(variableInitializerText).getText();
+                className = variableType.get(variableInitializerText);
             }
             checkInterfaceCreation(className, () -> {
                 super.visitVariableInitializer(ctx.variableInitializer());
@@ -870,6 +874,24 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         fullClassNames.put(className, packagePrefix + "_" + className);
     }
 
+    private String typeName(JavaParser.TypeTypeContext ctx) {
+        if (ctx.classOrInterfaceType() != null) {
+            return ctx.classOrInterfaceType().identifier(0).getText();
+        } else if (ctx.primitiveType() != null) {
+            return ctx.primitiveType().getText();
+        }
+        return null;
+    }
+
+    private void changeCurrentTypeName(String currentTypeName) {
+        this.currentTypeName = currentTypeName;
+        if (currentTypeName == null) {
+            this.currentTypeFullClassName = null;
+        } else if (javaFullClassNames.get(currentTypeName) != null) {
+            this.currentTypeFullClassName = fullClassNames.get(currentTypeName);
+        }
+    }
+
     @Override
     public Void visitExpression(JavaParser.ExpressionContext ctx) {
         if (ctx.LPAREN() != null) {
@@ -901,18 +923,20 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
                     currentInstanceName = THIS + "->_super";
                     out.print(fullSuperClassName + "_");
                 } else if (variableType.containsKey(name)) {
+                    changeCurrentTypeName(variableType.get(name));
                     currentInstanceName = camelCaseToSnakeCase(name);
-                    JavaParser.TypeTypeContext type = variableType.get(name);
-                    var typeName = type.primitiveType() != null ? type.getText()
-                                          : type.classOrInterfaceType().identifier(0).getText();
-                    var fullClassName = fullClassNames.get(typeName);
-                    out.print(fullClassName + "_");
+                    out.print(currentTypeFullClassName + "_");
                 } else if (fullClassNames.containsKey(name)) {
                     var fullClassName = fullClassNames.get(name);
                     out.print(fullClassName + "_");
                 } else if (isClassName(name)) {
                     addClassToFullClassNames(name);
                     out.print(fullClassNames.get(name) + "_");
+                } else {
+                    out.startCapture();
+                    visitExpression(ctx.expression(0));
+                    currentInstanceName = out.endCapture();
+                    out.print(currentTypeFullClassName + "_");
                 }
                 visitMethodCall(ctx.methodCall());
             }
@@ -920,7 +944,9 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
                 var name = ctx.expression(0).getText();
                 var isClassName = isClassName(name);
                 var bop = ctx.bop.getText();
-                if ("=".equals(bop)) currentType = variableType.get(name);
+                if ("=".equals(bop)) {
+                    changeCurrentTypeName(variableType.get(name));
+                }
 
                 if (ctx.expression(0) != null) visitExpression(ctx.expression(0));
                 if (!bop.equals(".")) bop = " " + bop + " ";
@@ -928,8 +954,13 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
                 else bop = "->";
                 out.print(bop);
                 if (ctx.expression(1) != null) visitExpression(ctx.expression(1));
-                else if (ctx.identifier() != null) visitIdentifier(ctx.identifier());
-                currentType = null;
+                else if (ctx.identifier() != null) {
+                    visitIdentifier(ctx.identifier());
+                    var identifierText = ctx.identifier().getText();
+                    if (fieldVariableType.containsKey(identifierText)) {
+                        changeCurrentTypeName(fieldVariableType.get(identifierText));
+                    }
+                }
             }
         } else {
             super.visitExpression(ctx);
@@ -946,17 +977,22 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
                Otterop.TEST_ANNOTATION.equals(javaFullClassName);
     }
 
+    private String javaFullClassNameToC(List<String> identifiers) {
+        String className = identifiers.get(identifiers.size() - 1);
+        var prefixIdentifiers = identifiers.subList(0, identifiers.size() - 1);
+        return prefixIdentifiers.stream()
+                .map(identifier -> camelCaseToSnakeCase(identifier))
+                .collect(Collectors.joining("_"))
+                + "_" + className;
+    }
+
     public void addToIncludes(List<String> identifiers) {
         String className = identifiers.get(identifiers.size() - 1);
         var prefixIdentifiers = identifiers.subList(0, identifiers.size() - 1);
         var includeIdentifiers = replaceBasePackageIdentifiers(prefixIdentifiers);
         var fileName = camelCaseToSnakeCase(className);
         var includeStr = String.join("/", includeIdentifiers);
-        var fullClassName =
-                prefixIdentifiers.stream()
-                        .map(identifier -> camelCaseToSnakeCase(identifier))
-                        .collect(Collectors.joining("_"))
-                        + "_" + className;
+        var fullClassName = javaFullClassNameToC(identifiers);
         var javaFullClassName = identifiers.stream()
                 .collect(Collectors.joining("."));
 
@@ -1092,16 +1128,12 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitLocalVariableDeclaration(JavaParser.LocalVariableDeclarationContext ctx) {
-        currentType = ctx.typeType();
-        var currentTypeName = currentType.getText();
-        if (currentType.classOrInterfaceType() != null) {
-            currentTypeName = currentType.classOrInterfaceType().identifier(0).getText();
-        }
+        visitTypeType(ctx.typeType());
+        changeCurrentTypeName(typeName(ctx.typeType()));
         currentTypePointer = fullClassNames.containsKey(currentTypeName);
-        visitTypeType(currentType);
         out.print(" ");
         visitVariableDeclarators(ctx.variableDeclarators());
-        currentType = null;
+        changeCurrentTypeName(null);
         currentTypePointer = false;
         return null;
     }
@@ -1113,14 +1145,12 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         }
 
         var fullClassName = fullClassNames.get(name);
-        var currentTypeName = currentType != null && currentType.classOrInterfaceType() != null ?
-                currentType.classOrInterfaceType().identifier(0).getText()
-                : null;
-        boolean interfaceCreation = currentTypeName != null && !name.equals(currentTypeName);
+        boolean interfaceCreation = currentTypeFullClassName != null && fullClassName != null &&
+                !fullClassName.equals(currentTypeFullClassName);
         if (interfaceCreation) {
             out.print(fullClassName);
             out.print("__to_");
-            out.print(fullClassNames.get(currentTypeName));
+            out.print(currentTypeFullClassName);
             out.print("(");
         }
         runnable.run();

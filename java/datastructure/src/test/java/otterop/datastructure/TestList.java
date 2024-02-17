@@ -21,8 +21,7 @@ public class TestList extends TestBase {
 
     @Test
     public void addRange() {
-        Generic<String> genericString = new Generic<String>();
-        String genericT = genericString.zero();
+        String genericT = new Generic<String>().zero();
         List<String> l = new List<String>();
         Array<String> toAdd = Array.newArray(5, genericT);
         toAdd.set(0, String.wrap("a"));

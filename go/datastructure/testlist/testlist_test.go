@@ -34,8 +34,7 @@ func (this *TestList) Add()  {
 }
 
 func (this *TestList) AddRange()  {
-    var genericString *generic.Generic[*string.String] = generic.NewGeneric[*string.String]()
-    var genericT *string.String = genericString.Zero()
+    var genericT *string.String = generic.NewGeneric[*string.String]().Zero()
     var l *list.List[*string.String] = list.NewList[*string.String]()
     var toAdd *array.Array[*string.String] = array.NewArray(5, genericT)
     toAdd.Set(0, string.Wrap(string.Literal("a")))

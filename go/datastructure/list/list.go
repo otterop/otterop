@@ -22,8 +22,7 @@ func NewList[T any]() *List[T] {
     this := new(List[T])
     this.size = 0
     this.capacity = 4
-    var genericT *generic.Generic[T] = generic.NewGeneric[T]()
-    this.tZero = genericT.Zero()
+    this.tZero = generic.NewGeneric[T]().Zero()
     this.array = array.NewArray(this.capacity, this.tZero)
     return this
 }
@@ -40,8 +39,7 @@ func (this *List[T]) ensureCapacity(capacity int)  {
 
 func (this *List[T]) Add(element T)  {
     this.ensureCapacity(this.size + 1)
-    var arr *array.Array[T] = this.array
-    arr.Set(this.size, element)
+    this.array.Set(this.size, element)
     this.size++
 }
 
@@ -69,8 +67,7 @@ func (this *List[T]) Insert(index int, element T)  {
     if index < this.size {
         array.Copy(this.array, index, this.array, index + 1, this.size - index)
     }
-    var arr *array.Array[T] = this.array
-    arr.Set(index, element)
+    this.array.Set(index, element)
     this.size++
 }
 
@@ -91,14 +88,12 @@ func (this *List[T]) InsertList(index int, src *List[T])  {
 
 func (this *List[T]) Get(index int) T {
     this.checkIndexOutOfBounds(index)
-    var arr *array.Array[T] = this.array
-    return arr.Get(index)
+    return this.array.Get(index)
 }
 
 func (this *List[T]) RemoveIndex(index int) T {
     this.checkIndexOutOfBounds(index)
-    var arr *array.Array[T] = this.array
-    var ret T = arr.Get(index)
+    var ret T = this.array.Get(index)
     
     if index + 1 < this.size {
         array.Copy(this.array, index + 1, this.array, index, this.size - index - 1)

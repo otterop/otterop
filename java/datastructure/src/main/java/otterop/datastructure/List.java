@@ -15,8 +15,7 @@ public class List<T> {
     public List() {
         this.size = 0;
         this.capacity = 4;
-        Generic<T> genericT = new Generic<T>();
-        this.tZero = genericT.zero();
+        this.tZero = new Generic<T>().zero();
         this.array = Array.newArray(this.capacity, this.tZero);
     }
 
@@ -31,8 +30,7 @@ public class List<T> {
 
     public void add(T element) {
         this.ensureCapacity(this.size + 1);
-        Array<T> arr = this.array;
-        arr.set(this.size, element);
+        this.array.set(this.size, element);
         this.size++;
     }
 
@@ -58,8 +56,7 @@ public class List<T> {
         if (index < this.size) {
             Array.copy(this.array, index, this.array, index + 1, this.size - index);
         }
-        Array<T> arr = this.array;
-        arr.set(index, element);
+        this.array.set(index, element);
         this.size++;
     }
 
@@ -79,14 +76,12 @@ public class List<T> {
 
     public T get(int index) {
         this.checkIndexOutOfBounds(index);
-        Array<T> arr = this.array;
-        return arr.get(index);
+        return this.array.get(index);
     }
 
     public T removeIndex(int index) {
         this.checkIndexOutOfBounds(index);
-        Array<T> arr = this.array;
-        T ret = arr.get(index);
+        T ret = this.array.get(index);
         if (index + 1 < this.size) {
             Array.copy(this.array, index + 1, this.array, index, this.size - index - 1);
         }

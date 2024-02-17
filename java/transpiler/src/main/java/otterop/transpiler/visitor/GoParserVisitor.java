@@ -55,7 +55,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static otterop.transpiler.util.CaseUtil.camelCaseToPascalCase;
-import static otterop.transpiler.util.CaseUtil.isClassName;
 
 public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
     private boolean memberStatic = false;

@@ -17,8 +17,7 @@ export class TestList extends TestBase {
     }
 
     public addRange() : void {
-        let genericString : Generic<String> = new Generic<String>();
-        let genericT : String = genericString.zero();
+        let genericT : String = new Generic<String>().zero();
         let l : List<String> = new List<String>();
         let toAdd : Array<String> = Array.newArray(5, genericT);
         toAdd.set(0, String.wrap("a"));

@@ -18,8 +18,7 @@ otterop_datastructure_List_t *otterop_datastructure_List_new() {
     otterop_datastructure_List_t *this = GC_malloc(sizeof(otterop_datastructure_List_t));
     this->size = 0;
     this->capacity = 4;
-    otterop_lang_Generic_t *generic_t = otterop_lang_Generic_new();
-    this->t_zero = otterop_lang_Generic_zero(generic_t);
+    this->t_zero = otterop_lang_Generic_zero(otterop_lang_Generic_new());
     this->array = otterop_lang_Array_new_array(this->capacity, this->t_zero);
     return this;
 }
@@ -36,8 +35,7 @@ void otterop_datastructure_List_ensure_capacity(otterop_datastructure_List_t *th
 
 void otterop_datastructure_List_add(otterop_datastructure_List_t *this, void *element) {
     otterop_datastructure_List_ensure_capacity(this, this->size + 1);
-    otterop_lang_Array_t *arr = this->array;
-    otterop_lang_Array_set(arr, this->size, element);
+    otterop_lang_Array_set(this->array, this->size, element);
     this->size++;
 }
 
@@ -65,8 +63,7 @@ void otterop_datastructure_List_insert(otterop_datastructure_List_t *this, int i
     if (index < this->size) {
         otterop_lang_Array_copy(this->array, index, this->array, index + 1, this->size - index);
     }
-    otterop_lang_Array_t *arr = this->array;
-    otterop_lang_Array_set(arr, index, element);
+    otterop_lang_Array_set(this->array, index, element);
     this->size++;
 }
 
@@ -87,14 +84,12 @@ void otterop_datastructure_List_insert_list(otterop_datastructure_List_t *this, 
 
 void *otterop_datastructure_List_get(otterop_datastructure_List_t *this, int index) {
     otterop_datastructure_List_check_index_out_of_bounds(this, index);
-    otterop_lang_Array_t *arr = this->array;
-    return otterop_lang_Array_get(arr, index);
+    return otterop_lang_Array_get(this->array, index);
 }
 
 void *otterop_datastructure_List_remove_index(otterop_datastructure_List_t *this, int index) {
     otterop_datastructure_List_check_index_out_of_bounds(this, index);
-    otterop_lang_Array_t *arr = this->array;
-    void *ret = otterop_lang_Array_get(arr, index);
+    void *ret = otterop_lang_Array_get(this->array, index);
     
     if (index + 1 < this->size) {
         otterop_lang_Array_copy(this->array, index + 1, this->array, index, this->size - index - 1);

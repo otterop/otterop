@@ -8,8 +8,7 @@ class List:
     def __init__(self):
         self._size = 0
         self._capacity = 4
-        generic_t = Generic()
-        self._t_zero = generic_t.zero()
+        self._t_zero = Generic().zero()
         self._array = Array.new_array(self._capacity, self._t_zero)
 
     def ensure_capacity(self, capacity):
@@ -21,8 +20,7 @@ class List:
 
     def add(self, element):
         self.ensure_capacity(self._size + 1)
-        arr = self._array
-        arr.set(self._size, element)
+        self._array.set(self._size, element)
         self._size += 1
 
     def add_array(self, src):
@@ -42,8 +40,7 @@ class List:
         self.ensure_capacity(self._size + 1)
         if index < self._size:
             Array.copy(self._array, index, self._array, index + 1, self._size - index)
-        arr = self._array
-        arr.set(index, element)
+        self._array.set(index, element)
         self._size += 1
 
     def insert_array(self, index, src):
@@ -59,13 +56,11 @@ class List:
 
     def get(self, index):
         self.check_index_out_of_bounds(index)
-        arr = self._array
-        return arr.get(index)
+        return self._array.get(index)
 
     def remove_index(self, index):
         self.check_index_out_of_bounds(index)
-        arr = self._array
-        ret = arr.get(index)
+        ret = self._array.get(index)
         if index + 1 < self._size:
             Array.copy(self._array, index + 1, self._array, index, self._size - index - 1)
         self._size -= 1

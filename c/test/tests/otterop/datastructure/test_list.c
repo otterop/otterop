@@ -22,8 +22,7 @@ void otterop_datastructure_TestList_add(otterop_datastructure_TestList_t *this) 
 }
 
 void otterop_datastructure_TestList_add_range(otterop_datastructure_TestList_t *this) {
-    otterop_lang_Generic_t *generic_string = otterop_lang_Generic_new();
-    otterop_lang_String_t *generic_t = otterop_lang_Generic_zero(generic_string);
+    otterop_lang_String_t *generic_t = otterop_lang_Generic_zero(otterop_lang_Generic_new());
     otterop_datastructure_List_t *l = otterop_datastructure_List_new();
     otterop_lang_Array_t *to_add = otterop_lang_Array_new_array(5, generic_t);
     otterop_lang_Array_set(to_add, 0, otterop_lang_String_wrap("a"));

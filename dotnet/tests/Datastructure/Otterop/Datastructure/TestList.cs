@@ -17,8 +17,7 @@ namespace Otterop.Datastructure
         [Otterop.Test.Test]
         public void AddRange()
         {
-            Otterop.Lang.Generic<Otterop.Lang.String> genericString = new Otterop.Lang.Generic<Otterop.Lang.String>();
-            Otterop.Lang.String genericT = genericString.Zero();
+            Otterop.Lang.String genericT = new Otterop.Lang.Generic<Otterop.Lang.String>().Zero();
             List<Otterop.Lang.String> l = new List<Otterop.Lang.String>();
             Otterop.Lang.Array<Otterop.Lang.String> toAdd = Otterop.Lang.Array.NewArray(5, genericT);
             toAdd.Set(0, Otterop.Lang.String.Wrap("a"));

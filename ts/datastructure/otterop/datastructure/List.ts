@@ -16,8 +16,7 @@ export class List<T> {
     public constructor() {
         this._size = 0;
         this._capacity = 4;
-        let genericT : Generic<T> = new Generic<T>();
-        this._tZero = genericT.zero();
+        this._tZero = new Generic<T>().zero();
         this._array = Array.newArray(this._capacity, this._tZero);
     }
 
@@ -33,8 +32,7 @@ export class List<T> {
 
     public add(element : T) : void {
         this.ensureCapacity(this._size + 1);
-        let arr : Array<T> = this._array;
-        arr.set(this._size, element);
+        this._array.set(this._size, element);
         this._size++;
     }
 
@@ -62,8 +60,7 @@ export class List<T> {
         if (index < this._size) {
             Array.copy(this._array, index, this._array, index + 1, this._size - index);
         }
-        let arr : Array<T> = this._array;
-        arr.set(index, element);
+        this._array.set(index, element);
         this._size++;
     }
 
@@ -84,14 +81,12 @@ export class List<T> {
 
     public get(index : number) : T {
         this.checkIndexOutOfBounds(index);
-        let arr : Array<T> = this._array;
-        return arr.get(index);
+        return this._array.get(index);
     }
 
     public removeIndex(index : number) : T {
         this.checkIndexOutOfBounds(index);
-        let arr : Array<T> = this._array;
-        let ret : T = arr.get(index);
+        let ret : T = this._array.get(index);
         
         if (index + 1 < this._size) {
             Array.copy(this._array, index + 1, this._array, index, this._size - index - 1);
