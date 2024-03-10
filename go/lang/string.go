@@ -1,10 +1,10 @@
 /**
  * Copyright (c) 2023 The OtterOP Authors. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
  * met:
- * 
+ *
  *    * Redistributions of source code must retain the above copyright
  * notice, this list of conditions and the following disclaimer.
  *    * Redistributions in binary form must reproduce the above
@@ -14,7 +14,7 @@
  *    * Neither the name of the copyright holder nor the names of its
  * contributors may be used to endorse or promote products derived from
  * this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -26,13 +26,52 @@
  * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
+ *
  */
- 
 
-package console
-import "fmt"
 
-func Println(val interface{}) {
-    fmt.Println(val)
+package lang
+
+import "strings"
+
+type String struct {
+    wrapped *string
+}
+
+func stringNew(wrapped *string) *String {
+    ret := new(String)
+    ret.wrapped = wrapped
+    return ret
+}
+
+func (this *String) Length() int {
+    return len(*this.wrapped)
+}
+
+func (this *String) CompareTo(other interface{}) int {
+    otherString, ok := other.(*String)
+    if !ok {
+        return 1
+    }
+    return strings.Compare(*this.wrapped, *otherString.wrapped)
+}
+
+func (this *String) String() string {
+    return *this.wrapped
+}
+
+func (this *String) Unwrap() *string {
+    return this.wrapped
+}
+
+func StringWrap(wrapped *string) *String {
+    return stringNew(wrapped)
+}
+
+func StringLiteral(wrapped string) *string {
+    return &wrapped
+}
+
+func StringWrapLiteral(wrapped string) *String {
+    return stringNew(&wrapped)
 }

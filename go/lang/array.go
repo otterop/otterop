@@ -30,10 +30,7 @@
  */
 
 
-package array;
-
-import String "github.com/otterop/otterop/go/lang/string"
-import "github.com/otterop/otterop/go/lang/panic"
+package lang;
 
 type Array[T any] struct {
     wrapped []T;
@@ -41,7 +38,7 @@ type Array[T any] struct {
     end int
 }
 
-func newArray[T any](array []T, start int, end int) *Array[T] {
+func arrayNew[T any](array []T, start int, end int) *Array[T] {
     ret := new(Array[T])
     ret.wrapped = array
     ret.start = start
@@ -66,35 +63,35 @@ func (a *Array[T]) Slice(start int, end int) *Array[T] {
     newEnd := a.start + end
     if newStart < a.start || newStart > a.end || newEnd < newStart ||
        newEnd > a.end {
-        panic.IndexOutOfBounds(String.WrapLiteral("slice arguments out of bounds"))
+        PanicIndexOutOfBounds(StringWrapLiteral("slice arguments out of bounds"))
     }
-    return newArray(a.wrapped, newStart, newEnd)
+    return arrayNew(a.wrapped, newStart, newEnd)
 }
 
-func NewArray[T any](size int, clazz T) *Array[T] {
+func ArrayNewArray[T any](size int, clazz T) *Array[T] {
     array := make([]T, size)
-    return newArray(array, 0, len(array))
+    return arrayNew(array, 0, len(array))
 }
 
-func Wrap[T any](array []T) *Array[T] {
-    return newArray(array, 0, len(array))
+func ArrayWrap[T any](array []T) *Array[T] {
+    return arrayNew(array, 0, len(array))
 }
 
-func WrapString(arg []*string) *Array[*String.String] {
-    ret := make([]*String.String, len(arg))
+func ArrayWrapString(arg []*string) *Array[*String] {
+    ret := make([]*String, len(arg))
     for i, v := range arg {
-        ret[i] = String.Wrap(v)
+        ret[i] = StringWrap(v)
     }
-    return newArray(ret, 0, len(ret))
+    return arrayNew(ret, 0, len(ret))
 }
 
 
-func Copy[T any](src *Array[T], srcPos int, dst *Array[T], dstPos int, length int) {
+func ArrayCopy[T any](src *Array[T], srcPos int, dst *Array[T], dstPos int, length int) {
     if src.start + srcPos + length > src.end {
-        panic.IndexOutOfBounds(String.WrapLiteral("source array index out of bounds"))
+        PanicIndexOutOfBounds(StringWrapLiteral("source array index out of bounds"))
     }
     if dst.start + dstPos + length > dst.end {
-        panic.IndexOutOfBounds(String.WrapLiteral("destination array index out of bounds"))
+        PanicIndexOutOfBounds(StringWrapLiteral("destination array index out of bounds"))
     }
     copy(dst.wrapped[dst.start + dstPos:dst.start + dstPos + length],
          src.wrapped[src.start + srcPos:src.start + srcPos + length])

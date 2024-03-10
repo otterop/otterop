@@ -1,19 +1,16 @@
-package error
+package lang
 
-import (
-    string "github.com/otterop/otterop/go/lang/string"
-)
 
 
 type Error struct {
     code int
-    message *string.String
+    message *String
 }
 
 
 
 
-func NewError(code int, message *string.String) *Error {
+func ErrorNew(code int, message *String) *Error {
     this := new(Error)
     this.code = code
     this.message = message
@@ -24,6 +21,6 @@ func (this *Error) Code() int {
     return this.code
 }
 
-func (this *Error) Message() *string.String {
+func (this *Error) Message() *String {
     return this.message
 }

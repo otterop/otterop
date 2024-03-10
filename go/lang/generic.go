@@ -1,8 +1,8 @@
-package generic
+package lang
 
 
 
-func NewGeneric[T any]() *Generic[T] {
+func GenericNew[T any]() *Generic[T] {
     this := new(Generic[T])
     return this
 }

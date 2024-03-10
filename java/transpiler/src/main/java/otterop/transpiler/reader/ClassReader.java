@@ -32,7 +32,9 @@
 
 package otterop.transpiler.reader;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Optional;
@@ -54,6 +56,34 @@ public class ClassReader {
             ret.add(m.getName());
         }
         return ret;
+    }
+
+    public Method findMethod(Class<?> clazz, String methodName) {
+        Method[] methods = clazz.getMethods();
+        for (Method m : methods) {
+            if (m.getName().equals(methodName))
+                return m;
+        }
+        return null;
+    }
+
+    public boolean isPublicClass(String className) {
+        return Modifier.isPublic(
+                getClass(className).get().getModifiers());
+    }
+
+    public boolean isPublicMethod(Method m) {
+        return Modifier.isPublic(m.getModifiers());
+    }
+
+    public boolean hasPublicConstructor(String className) {
+        Class<?> clazz = getClass(className).get();
+        Constructor[] constructors = clazz.getConstructors();
+        return constructors.length > 0;
+    }
+
+    public boolean isPublicMethod(String className, String methodName) {
+        return isPublicMethod(findMethod(getClass(className).get(), methodName));
     }
 
     public Collection<Method> findInheritedMethods(Class<?> clazz) {

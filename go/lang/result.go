@@ -1,4 +1,4 @@
-package result
+package lang
 
 
 
@@ -10,7 +10,7 @@ type Result[RES any, ERR any] struct {
 
 
 
-func newResult[RES any, ERR any](res RES, err ERR) *Result[RES, ERR] {
+func resultNew[RES any, ERR any](res RES, err ERR) *Result[RES, ERR] {
     this := new(Result[RES, ERR])
     this.res = res
     this.err = err
@@ -26,5 +26,5 @@ func (this *Result[RES, ERR]) Unwrap() RES {
 }
 
 func Of[RES0 any, ERR0 any](res RES0, err ERR0) *Result[RES0, ERR0] {
-    return newResult[RES0, ERR0](res, err)
+    return resultNew[RES0, ERR0](res, err)
 }

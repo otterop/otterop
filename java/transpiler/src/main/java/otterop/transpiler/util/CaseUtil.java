@@ -64,9 +64,14 @@ public class CaseUtil {
         return toSnakeCase(fromCamelCase(in));
     }
 
-    private static String toFirstUppercase(String in) {
+    public static String toFirstUppercase(String in) {
         if (in.length() == 0) return in;
         else return in.substring(0, 1).toUpperCase() + in.substring(1);
+    }
+
+    public static String toFirstLowercase(String in) {
+        if (in.length() == 0) return in;
+        else return in.substring(0, 1).toLowerCase() + in.substring(1);
     }
 
     public static List<String> fromCamelCase(String in) {

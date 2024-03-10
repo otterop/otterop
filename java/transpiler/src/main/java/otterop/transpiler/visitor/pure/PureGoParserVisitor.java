@@ -36,6 +36,7 @@ import org.antlr.v4.runtime.tree.ParseTree;
 import otterop.transpiler.antlr.JavaParser;
 import otterop.transpiler.antlr.JavaParserBaseVisitor;
 import otterop.transpiler.reader.ClassReader;
+import otterop.transpiler.util.CaseUtil;
 import otterop.transpiler.util.PrintStreamStack;
 
 import java.io.ByteArrayOutputStream;
@@ -54,14 +55,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static otterop.transpiler.util.CaseUtil.camelCaseToPascalCase;
-import static otterop.transpiler.util.CaseUtil.isClassName;
 
 public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
     private boolean memberStatic = false;
     private boolean memberPublic = false;
-    private boolean constructorPublic = false;
-    private boolean isMain = false;
-    private boolean hasMain = false;
     private boolean insideConstructor = false;
     private boolean insideMethodCall = false;
     private boolean insideTypeArgument = false;
@@ -70,22 +67,26 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
     private boolean lastTypeArray = false;
     private JavaParser.TypeTypeContext currentType = null;
     private String className = null;
-    private String fullClassName = null;
-    private String pureFullClassName = null;
-    private String packageName = null;
-    private String purePackageName = null;
+    private String classIdentifier = null;
+    private String otteropClassIdentifier = null;
     private String javaFullPackageName = null;
     private String fullPackageName = null;
+    private String packageIdentifier = null;
+    private String otteropPackageIdentifier = null;
     private int indents = 0;
-    private int skipNewlines = 0;
     private static String INDENT = "    ";
     private static String THIS = "this";
     private Set<String> imports = new LinkedHashSet<>();
-    private Map<String,String> modules = new LinkedHashMap<>();
+    private Map<String,String> classIdentifiers = new LinkedHashMap<>();
+    private Map<String,String> classIdentifiersPublic = new LinkedHashMap<>();
+    private Map<String,String> otteropClassIdentifiers = new LinkedHashMap<>();
+    private Map<String,String> otteropClassIdentifiersPublic = new LinkedHashMap<>();
+    private Map<String,String> packageIdentifiers = new LinkedHashMap<>();
+    private Map<String,String> packageIdentifierFullNames = new LinkedHashMap<>();
     private Map<String,String> unusedImports = new LinkedHashMap<>();
     private Map<String,String> fromImports = new LinkedHashMap<>();
+    private Map<String,String> pureImports = new LinkedHashMap<>();
     private Map<String,String> javaFullClassNames = new LinkedHashMap<>();
-    private Set<String> staticImports = new LinkedHashSet<>();
     private OutputStream outStream = new ByteArrayOutputStream();
     private Set<String> publicMethods = new LinkedHashSet<>();
     private Set<String> staticMethods = new LinkedHashSet<>();
@@ -102,14 +103,12 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
     private Set<String> currentMethodTypeParameters = new HashSet<>();
     private ClassReader classReader;
     private Map<String,String> unwrappedClassName = new LinkedHashMap<>();
-    private Map<String,String> classPackage = new LinkedHashMap<>();
-    private Map<String,String> pureClassNames = new LinkedHashMap<>();
-    private Map<String,String> fullClassNames = new LinkedHashMap<>();
 
     public PureGoParserVisitor(ClassReader classReader, Map<String,String> importDomainMapping) {
         this.classReader = classReader;
         this.importDomainMapping = new HashMap<>(importDomainMapping);
-        this.unwrappedClassName.put("*otteropstring.String", "*string");
+        this.unwrappedClassName.put("otteroplang.String", "string");
+        this.unwrappedClassName.put("otteroplang.Array", "[]");
     }
 
     private void detectMethods(JavaParser.ClassDeclarationContext ctx) {
@@ -153,9 +152,7 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print(INDENT.repeat(indents));
         out.print("type ");
         className = ctx.identifier().getText();
-        packageName = "otterop" + className.toLowerCase();
-        purePackageName = className.toLowerCase();
-        this.visitIdentifier(ctx.identifier());
+        out.print(ctx.identifier().getText());
         out.print(" interface ");
         out.print("{\n");
         indents++;
@@ -173,15 +170,17 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
 
     private void wrapMethod() {
         out.print(INDENT.repeat(indents));
-        out.print("func Wrap(otterop ");
-        out.print(fullClassName);
-        out.print(") ");
-        out.print(pureFullClassName);
+        out.print("func ");
+        out.print(className);
+        out.print("Wrap(otterop *");
+        out.print(otteropClassIdentifier);
+        out.print(") *");
+        out.print(classIdentifier);
         out.print(" {\n");
         indents++;
         out.print(INDENT.repeat(indents));
         out.print("ret := new(");
-        out.print(className);
+        out.print(classIdentifier);
         out.print(")\n");
         out.print(INDENT.repeat(indents));
         out.print("ret.otterop = otterop\n");
@@ -195,10 +194,10 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
     private void unwrapMethod() {
         out.print(INDENT.repeat(indents));
         out.print("func ");
-        out.print("(" + THIS + " *" + className);
+        out.print("(" + THIS + " *" + classIdentifier);
         out.print(") ");
-        out.print("Unwrap() ");
-        out.print(fullClassName);
+        out.print("Unwrap() *");
+        out.print(otteropClassIdentifier);
         out.print(" {\n");
         indents++;
         out.print(INDENT.repeat(indents));
@@ -213,26 +212,20 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
         detectMethods(ctx);
         out.print("type ");
         className = ctx.identifier().getText();
+        classIdentifier = className;
+        otteropClassIdentifier = otteropPackageIdentifier + "." + className;
         javaFullClassNames.put(className, javaFullPackageName + "." + className);
-        packageName = "otterop" + className.toLowerCase();
-        purePackageName = className.toLowerCase();
-        fullClassName = "*" + packageName + "." + className;
-        pureFullClassName = "*" + className;
-        pureClassNames.put(className, pureFullClassName);
-        fullClassNames.put(className, fullClassName);
-        classPackage.put(pureFullClassName, purePackageName);
-        classPackage.put(fullClassName, packageName);
+        putClassIdentifier(packageIdentifier, javaFullPackageName, className);
 
-        var importString = "otterop" + purePackageName + " \"" + fullPackageName + "/" + purePackageName + "\"";
+        var importString = otteropPackageIdentifier + " \"" + fullPackageName + "\"";
         imports.add(importString);
-        this.visitIdentifier(ctx.identifier());
+        out.print(className);
         this.classTypeParametersContext = ctx.typeParameters();
         printTypeParameters(this.classTypeParametersContext, true, false);
         out.print(" struct {\n");
         indents++;
         out.print(INDENT.repeat(indents));
-        out.print("otterop *" + packageName + ".");
-        out.println(className);
+        out.print("otterop *" + otteropClassIdentifier + "\n");
         indents--;
         out.println("}\n\n");
         wrapMethod();
@@ -306,10 +299,9 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
 
         out.print("\n\nfunc ");
         var name = ctx.identifier().getText();
-        if (memberPublic && !isMain) name = camelCaseToPascalCase(name);
-        constructorPublic = true;
-        out.print("New");
+        if (memberPublic) name = camelCaseToPascalCase(name);
         out.print(name);
+        out.print("New");
         printTypeParameters(this.classTypeParametersContext, false, false);
         visitFormalParameters(ctx.formalParameters());
         out.print(" *" + className);
@@ -322,8 +314,7 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print(className);
         out.print(")\n");
         out.print(INDENT.repeat(indents));
-        out.print("ret.otterop = " + packageName + ".New");
-        out.print(className);
+        out.print("ret.otterop = " + otteropClassIdentifier + "New");
         insideMethodCall = true;
         visitFormalParameters(ctx.formalParameters());
         insideMethodCall = false;
@@ -359,17 +350,22 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
     }
 
     private String wrapArgName(String clazz, String argName) {
-        if (pureFullClassName.equals(clazz)) {
-            return "Wrap(" + argName + ")";
+        if (className.equals(clazz)) {
+            return clazz + "Wrap(" + argName + ")";
         }
 
-        var importName = classPackage.get(clazz);
-        unusedImports.remove(importName);
-        return importName + ".Wrap(" + argName + ")";
+        var classIdentifier = classIdentifiers.get(clazz);
+        var otteropClassIdentifier = otteropClassIdentifiersPublic.get(clazz);
+        if (unwrappedClassName.containsKey(otteropClassIdentifier)) {
+            classIdentifier = otteropClassIdentifier;
+        }
+        unusedImports.remove(clazz);
+        return classIdentifier + "Wrap(" + argName + ")";
     }
 
     private String mapArgument(String argName, String mappedClass) {
-        if (unwrappedClassName.containsKey(mappedClass)) {
+        var otteropClassIdentifier = otteropClassIdentifiersPublic.get(mappedClass);
+        if (unwrappedClassName.containsKey(otteropClassIdentifier)) {
             return wrapArgName(mappedClass, argName);
         } else {
             return argName + ".Unwrap()";
@@ -396,8 +392,8 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
                     out.print("var ");
                     out.print(mappedArrayName);
                     out.print(" = ");
-                    out.print("make([]");
-                    out.print(mappedClass);
+                    out.print("make([]*");
+                    out.print(otteropClassIdentifiersPublic.get(mappedClass));
                     out.print(", len(");
                     out.print(paramName);
                     out.print("))");
@@ -418,8 +414,8 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
                     out.print(INDENT.repeat(indents));
                     out.print("var ");
                     out.print(entry.getValue());
-                    out.print(" = otteroparray.Wrap(");
-                    unusedImports.remove("otteroparray");
+                    out.print(" = otteroplang.ArrayWrap(");
+                    unusedImports.remove("Array");
                     out.print(mappedArrayName);
                     out.print(");\n");
                 } else {
@@ -457,11 +453,11 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
                 } else {
                     returnTypeString = returnType.typeArguments().get(0).typeArgument(0).typeType().getText();
                 }
-                returnTypePure = pureClassNames.get(returnTypeString);
+                returnTypePure = classIdentifiersPublic.get(returnTypeString);
             }
         }
         if (returnTypeString != null) {
-            returnTypeString = fullClassNames.get(returnTypeString);
+            returnTypeString = otteropClassIdentifiersPublic.get(returnTypeString);
         }
 
         mappedArguments.clear();
@@ -499,7 +495,7 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
                     out.print(INDENT.repeat(indents));
                     out.print("ret := retOtterop\n");
                 } else {
-                    if (returnTypePure.equals(pureClassNames.get(className))) {
+                    if (returnTypePure.equals(className)) {
                         out.print(INDENT.repeat(indents));
                         out.print("if retOtterop == this.otterop { return this }\n");
                     }
@@ -512,7 +508,7 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
                 }
             } else {
                 out.print(INDENT.repeat(indents));
-                out.print("ret := make([]");
+                out.print("ret := make([]*");
                 out.print(returnTypePure);
                 out.print(", retOtterop.Size())\n");
                 out.print(INDENT.repeat(indents));
@@ -520,7 +516,7 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
                 indents++;
                 out.print(INDENT.repeat(indents));
                 out.print("retI := retOtterop.Get(i)\n");
-                if (returnTypePure.equals(pureClassNames.get(className))) {
+                if (returnTypePure.equals(className)) {
                     out.print(INDENT.repeat(indents));
                     out.print("if retI == this.otterop {\n");
                     indents++;
@@ -546,14 +542,13 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
         indents--;
         out.print("}\n\n");
 
-        this.isMain = false;
         variableType.clear();
         return null;
     }
 
     @Override
     public Void visitFormalParameters(JavaParser.FormalParametersContext ctx) {
-        if (isMain || ctx.formalParameterList() == null) {
+        if (ctx.formalParameterList() == null) {
             out.print("()");
         } else {
             out.print("(");
@@ -609,11 +604,7 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
     public Void visitBlock(JavaParser.BlockContext ctx) {
         out.print(" {\n");
         indents++;
-        if (isMain) {
-            imports.add("\"os\"");
-            out.print(INDENT.repeat(indents) + "args := os.Args[1:]\n");
-            isMain = false;
-        } else if (insideConstructor) {
+        if (insideConstructor) {
             out.print(INDENT.repeat(indents) + "this := new(");
             out.print(className);
             printTypeArguments(classTypeParametersContext);
@@ -738,60 +729,31 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
         return null;
     }
 
-    private void addClassToCurrentPackageImports(String className, String fileName) {
-        if (fileName == null) fileName = className.toLowerCase();
-        modules.put(className, fileName);
-        fromImports.put(fileName, "\"" + this.fullPackageName + "/" + fileName + "\"");
+    private boolean checkCurrentPackageImports(String className) {
+        if (CaseUtil.isClassName(className) && !this.className.equals(className)) {
+            if (!fromImports.containsKey(className)) {
+                putClassIdentifier(packageIdentifier, javaFullPackageName, className);
+                javaFullClassNames.put(className, javaFullPackageName + "." + className);
+                return true;
+            } else {
+                unusedImports.remove(className);
+            }
+        }
+        return false;
+    }
+
+    private String getClassIdentifier(String className) {
+        var classIdentifier = classIdentifiers.get(className);
+
+        var javaFullClassName = javaFullClassNames.get(className);
+        if (this.classReader.isPublicClass(javaFullClassName)) {
+            classIdentifier = classIdentifiersPublic.get(className);
+        }
+        return classIdentifier;
     }
 
     @Override
     public Void visitExpression(JavaParser.ExpressionContext ctx) {
-        if (ctx.prefix != null) {
-            var prefixText = ctx.prefix.getText();
-            out.print(prefixText);
-        }
-        if (ctx.bop != null) {
-            boolean localMethodCall = false;
-            if (ctx.methodCall() != null && ctx.expression(0) != null) {
-                var name = ctx.expression(0).getText();
-                var fileName = name.toLowerCase();
-                if (THIS.equals(name) || className.equals(name)) {
-                    localMethodCall = true;
-                    if (THIS.equals(name)) out.print("this.");
-                    visitMethodCall(ctx.methodCall());
-                } else if (isClassName(name) && !fromImports.containsKey(fileName) ) {
-                    addClassToCurrentPackageImports(name, fileName);
-                }
-            }
-            if (!localMethodCall) {
-                var name = ctx.expression(0).getText();
-                var bop = ctx.bop.getText();
-                var isDot = bop.equals(".");
-                if (!isDot || !className.equals(name)) {
-                    if (ctx.identifier() != null) {
-                        out.print(name.toLowerCase());
-                    } else {
-                        visitExpression(ctx.expression(0));
-                    }
-                    if (!isDot) bop = " " + bop + " ";
-                    out.print(bop);
-                }
-                if (ctx.expression(1) != null) visitExpression(ctx.expression(1));
-                else if (ctx.methodCall() != null) visitMethodCall(ctx.methodCall());
-                else if (ctx.identifier() != null) visitIdentifier(ctx.identifier());
-            }
-        } else if (ctx.RPAREN() != null) {
-            visitExpression(ctx.expression(0));
-            out.print(".(");
-            visitTypeType(ctx.typeType(0));
-            out.print(")");
-        } else {
-            super.visitExpression(ctx);
-        }
-        if (ctx.postfix != null) {
-            var postfixText = ctx.postfix.getText();
-            out.print(postfixText);
-        }
         return null;
     }
 
@@ -808,6 +770,36 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
         return new AbstractMap.SimpleEntry(packageName, replacement);
     }
 
+    private void putClassIdentifier(String packageIdentifier, String packageIdentifierFullName,
+                                    String className) {
+        packageIdentifierFullNames.put(packageIdentifier, packageIdentifierFullName);
+        packageIdentifiers.put(className, packageIdentifier);
+
+        String classIdentifier, classIdentifierPublic,
+            otteropClassIdentifier, otteropClassIdentifierPublic;
+        if (this.packageIdentifier.equals(packageIdentifier)) {
+            classIdentifier = CaseUtil.toFirstLowercase(className);
+            classIdentifierPublic = className;
+            otteropClassIdentifier = otteropPackageIdentifier + "." + CaseUtil.toFirstLowercase(className);
+            otteropClassIdentifierPublic = otteropPackageIdentifier + "." + className;
+        } else {
+            classIdentifier = packageIdentifier + "." + className;
+            classIdentifierPublic = classIdentifier;
+            otteropClassIdentifier = "otterop" + classIdentifier;
+            otteropClassIdentifierPublic = "otterop" + classIdentifierPublic;
+            if (unwrappedClassName.containsKey(otteropClassIdentifier)) {
+                classIdentifier = unwrappedClassName.get(otteropClassIdentifier);
+                classIdentifierPublic = classIdentifier;
+                otteropClassIdentifiers.put(classIdentifier, otteropClassIdentifier);
+                otteropClassIdentifiersPublic.put(classIdentifier, otteropClassIdentifier);
+            }
+        }
+        classIdentifiers.put(className, classIdentifier);
+        otteropClassIdentifiers.put(className, otteropClassIdentifier);
+        classIdentifiersPublic.put(className, classIdentifierPublic);
+        otteropClassIdentifiersPublic.put(className, otteropClassIdentifierPublic);
+    }
+
     @Override
     public Void visitImportDeclaration(JavaParser.ImportDeclarationContext ctx) {
         var qualifiedName = ctx.qualifiedName();
@@ -816,83 +808,65 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
                 identifier -> identifier.getText()
         ).collect(Collectors.toList());
 
-        var packageName = String.join(".", identifiers);
-        javaFullClassNames.put(identifiers.get(identifiers.size() - 1), packageName);
-        var packageReplacement = replaceBasePackage(packageName);
-        packageName = packageReplacement.getKey();
-        var replacement = packageReplacement.getValue();
-        identifiers = List.of(packageName.split("\\."));
-
         int classNameIdx = identifiers.size() - (isStatic ?  2 : 1);
-        String className = identifiers.get(classNameIdx);
+        var className = identifiers.get(classNameIdx);
+        var lastPackagePart = identifiers.get(classNameIdx - 1);
+        var classIdentifiers = identifiers.subList(0, classNameIdx + 1).stream()
+                .collect(Collectors.toList());
+        var javaFullClassName = String.join(".", classIdentifiers);
+        var javaFullPackageName = identifiers.subList(0, classNameIdx).stream()
+                .collect(Collectors.joining("."));
+        javaFullClassNames.put(className, javaFullClassName);
+        var packageReplacement = replaceBasePackage(javaFullPackageName);
+        var packageName = packageReplacement.getKey();
+        var replacement = packageReplacement.getValue();
+        var packageIdentifiers = List.of(packageName.split("\\."));
+
         var packageStr = String.join("/",
-                identifiers.subList(0, classNameIdx).stream()
+                packageIdentifiers.stream()
                         .collect(Collectors.toList())
         );
         if (!replacement.isEmpty()) {
             packageStr = replacement + "/" + packageStr;
         }
-        var fileName = className.toLowerCase();
-        modules.put(className, fileName);
-        var otteropImport = "otterop" + fileName;
-        var importName = fileName;
-        var goClassName = "*" + otteropImport + "." + className;
-        var goPureClassName = "*" + importName + "." + className;
-        var importStatement = otteropImport + " \"" + packageStr + "/"+ fileName + "\"";
-        var pureImportStatement = importName + " \"" + packageStr + "/"+ fileName + "/pure\"";
-        fromImports.put(otteropImport, importStatement);
-        fromImports.put(importName, pureImportStatement);
-        if (isStatic) {
-            var methodName = camelCaseToPascalCase(identifiers.get(classNameIdx + 1));
-            var staticImportStatement = "var " + methodName + " = " + fileName + "." + methodName;
-            staticImports.add(staticImportStatement);
-        } else {
-            unusedImports.put(otteropImport, importStatement);
-            unusedImports.put(importName, pureImportStatement);
+
+        this.putClassIdentifier(lastPackagePart, javaFullPackageName, className);
+        lastPackagePart = this.packageIdentifiers.get(className);
+        var otteropLastPackagePart = "otterop" + lastPackagePart;
+
+        var importStatement = otteropLastPackagePart + " \"" + packageStr + "\"";
+        var pureImportStatement = lastPackagePart + " \"" + packageStr + "/pure\"";
+
+        if (isStatic)
+            return null;
+
+        if (!this.javaFullPackageName.equals(javaFullPackageName) &&
+            !unwrappedClassName.containsKey(otteropClassIdentifiersPublic.get(className))) {
+            pureImports.put(className, pureImportStatement);
         }
-        classPackage.put(goClassName, otteropImport);
-        classPackage.put(goPureClassName, importName);
-        pureClassNames.put(className, goPureClassName);
-        fullClassNames.put(className, goClassName);
-        if (unwrappedClassName.containsKey(goClassName)) {
-            pureClassNames.put(className, unwrappedClassName.get(goClassName));
-        } else {
-            pureClassNames.put(className, goPureClassName);
-        }
+        fromImports.put(className, importStatement);
+        unusedImports.put(className, importStatement);
+
         return null;
     }
 
     @Override
     public Void visitBlockStatement(JavaParser.BlockStatementContext ctx) {
-        out.print(INDENT.repeat(indents));
-        super.visitBlockStatement(ctx);
-        if (skipNewlines > 0) skipNewlines--;
-        else out.print("\n");
         return null;
     }
 
     @Override
     public Void visitLiteral(JavaParser.LiteralContext ctx) {
-        if (ctx.NULL_LITERAL() != null) out.print("nil");
-        else out.print(ctx.getText());
-        super.visitLiteral(ctx);
         return null;
     }
 
     @Override
     public Void visitIdentifier(JavaParser.IdentifierContext ctx) {
-        var text = ctx.getText();
-        if (modules.containsKey(text)) text = modules.get(text);
-        out.print(text);
         return null;
     }
 
     @Override
     public Void visitPrimary(JavaParser.PrimaryContext ctx) {
-        if (ctx.THIS() != null)  out.print("this");
-        if (ctx.LPAREN() != null) out.print('(');
-        super.visitPrimary(ctx);
-        if (ctx.RPAREN() != null) out.print(')');
         return null;
     }
 
@@ -918,28 +892,6 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitCreator(JavaParser.CreatorContext ctx) {
-        var createdName = ctx.createdName().identifier(0).getText();
-        var currentClassCreated = className.equals(createdName);
-        var currentCreatorPublic = !currentClassCreated || constructorPublic;
-        if (!currentClassCreated) {
-            var filename = createdName.toLowerCase();
-            if (!fromImports.containsKey(filename)) {
-                addClassToCurrentPackageImports(createdName, null);
-            } else {
-                usedImport(filename);
-            }
-            out.print(createdName.toLowerCase() + ".");
-        }
-        if (currentCreatorPublic)
-            out.print("New");
-        else
-            out.print("new");
-        out.print(createdName);
-        var typeArguments = ctx.createdName().typeArgumentsOrDiamond();
-        if (!typeArguments.isEmpty()) {
-            printTypeArguments(List.of(typeArguments.get(0).typeArguments()));
-        }
-        visitClassCreatorRest(ctx.classCreatorRest());
         return null;
     }
 
@@ -963,7 +915,6 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
             out.print("any");
         } else if (currentTypeParameters.contains(identifier) ||
                    currentMethodTypeParameters.contains(identifier)) {
-            if (!insideTypeArgument) out.print("*");
             out.print(identifier);
         } else if ("Array".equals(identifier)) {
             out.print("[]");
@@ -971,25 +922,18 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
             lastTypeArray = true;
         } else if ("String".equals(identifier) || "java.lang.String".equals(identifier)) {
             out.print("*string");
-            lastTypeWrapped = "*otteropstring.String";
+            lastTypeWrapped = "string";
         } else {
-            var fileName = identifier.toLowerCase();
-            usedImport(fileName);
-            var isInterface = classReader.getClass(javaFullClassNames.get(identifier))
+            var className = identifier;
+            checkCurrentPackageImports(className);
+            var isInterface = classReader.getClass(javaFullClassNames.get(className))
                     .orElseThrow(() ->
-                            new RuntimeException("cannot find class " + identifier))
+                            new RuntimeException("cannot find class " + className))
                     .isInterface();
             if (!isInterface) out.print("*");
-            if (!identifier.equals(className)) {
-                out.print(fileName);
-                out.print(".");
-                lastTypeWrapped = fullClassNames.get(identifier);
-            } else {
-                lastTypeWrapped = fullClassName;
-            }
-
-            out.print(identifier);
+            out.print(getClassIdentifier(className));
             printTypeArguments(ctx.typeArguments());
+            lastTypeWrapped = className;
         }
         return null;
     }
@@ -1007,9 +951,12 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
     @Override
     public Void visitPackageDeclaration(JavaParser.PackageDeclarationContext ctx) {
         var identifiers = ctx.qualifiedName().identifier();
-        this.javaFullPackageName = identifiers.stream().map(
+        var identifiersString = identifiers.stream().map(
                 identifier -> identifier.getText()
-        ).collect(Collectors.joining("."));
+        ).collect(Collectors.toList());
+        this.packageIdentifier = identifiersString.get(identifiersString.size() - 1);
+        this.otteropPackageIdentifier = "otterop" + identifiersString.get(identifiersString.size() - 1);
+        this.javaFullPackageName = identifiersString.stream().collect(Collectors.joining("."));
         var packageReplacement = this.replaceBasePackage(this.javaFullPackageName);
         this.fullPackageName = packageReplacement.getValue();
         if (!packageReplacement.getKey().isEmpty())
@@ -1021,24 +968,25 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
     public void printTo(PrintStream ps) {
         ps.print("package pure\n\n");
 
-        for (String fileName : unusedImports.keySet()) {
-            fromImports.remove(fileName);
+        for (String className : unusedImports.keySet()) {
+            fromImports.remove(className);
+            pureImports.remove(className);
         }
         var total = imports.size() + fromImports.size();
         if (total > 0) {
             ps.print("import (\n");
             indents++;
-            for (String importStatement : imports) {
+            for (String importStatement : new LinkedHashSet<>(imports)) {
                 ps.println(INDENT.repeat(indents) + importStatement);
             }
-            for (String importStatement : fromImports.values()) {
+            for (String importStatement : new LinkedHashSet<>(fromImports.values())) {
+                ps.println(INDENT.repeat(indents) + importStatement);
+            }
+            for (String importStatement : new LinkedHashSet<>(pureImports.values())) {
                 ps.println(INDENT.repeat(indents) + importStatement);
             }
             indents--;
             ps.print(")\n");
-        }
-        for (String staticImport : staticImports) {
-            ps.println(INDENT.repeat(indents) + staticImport);
         }
         ps.println("");
         ps.print(outStream.toString());

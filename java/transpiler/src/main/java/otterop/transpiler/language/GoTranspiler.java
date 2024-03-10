@@ -66,8 +66,8 @@ public class GoTranspiler extends AbstractTranspiler{
 
     private String getCodePath(String[] clazzParts, boolean pure, boolean isTest) {
         String clazzName = clazzParts[clazzParts.length - 1].toLowerCase();
-        int classPartsLen = !pure ? clazzParts.length + 1 : clazzParts.length + 2;
-        int startClazzName = !pure ? classPartsLen - 2 : classPartsLen - 3;
+        int classPartsLen = !pure ? clazzParts.length : clazzParts.length + 1;
+        int startClazzName = !pure ? classPartsLen - 1 : classPartsLen - 2;
         int endClassName = classPartsLen - 1;
         clazzParts = Arrays.copyOf(clazzParts, classPartsLen);
         clazzParts[startClazzName] = clazzName;
@@ -75,7 +75,7 @@ public class GoTranspiler extends AbstractTranspiler{
             clazzParts[i] = changePackageCase(clazzParts[i]);
         }
         if (pure)
-            clazzParts[startClazzName + 1] = "pure";
+            clazzParts[startClazzName] = "pure";
         if (isTest)
             clazzName = clazzName + "_test";
         clazzParts[endClassName] = clazzName.replaceAll("$", ".go");

@@ -1,7 +1,7 @@
-package testbase
+package test
 
 import (
-    string "github.com/otterop/otterop/go/lang/string"
+    lang "github.com/otterop/otterop/go/lang"
     "testing"
 )
 
@@ -12,7 +12,7 @@ type TestBase struct {
 
 
 
-func NewTestBase() *TestBase {
+func TestBaseNew() *TestBase {
     this := new(TestBase)
     return this
 }
@@ -21,7 +21,7 @@ func (this *TestBase) SetGoTestingT(t *testing.T) {
     this.t = t
 }
 
-func (this *TestBase) AssertTrue(value bool, message *string.String)  {
+func (this *TestBase) AssertTrue(value bool, message *lang.String)  {
     if !value {
         this.t.Error(message.Unwrap())
     }

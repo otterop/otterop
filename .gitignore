@@ -8,6 +8,7 @@ out
 obj
 bin
 *.js
+!jest.config.js
 *.egg-info
 CMakeFiles
 CMakeCache.txt
