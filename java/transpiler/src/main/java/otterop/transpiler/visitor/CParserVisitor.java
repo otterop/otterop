@@ -90,6 +90,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     private boolean currentTypePointer = false;
     private String currentInstanceName;
     private Set<String> includes = new LinkedHashSet<>();
+    private Set<String> predeclarations = new LinkedHashSet<>();
     private OutputStream outStream = new ByteArrayOutputStream();
     private Set<String> publicMethods = new LinkedHashSet<>();
     private Set<String> staticMethods = new LinkedHashSet<>();
@@ -752,12 +753,25 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
                 out.print(" else if (");
                 visitParExpression(ctx.statement(1).parExpression());
                 out.print(")");
-                super.visitStatement(ctx.statement(1).statement(0));
+                checkSingleLineStatement(ctx.statement(1).statement(0));
                 checkElseStatement(ctx.statement(1));
             } else {
                 out.print(" else");
-                super.visitStatement(ctx.statement(1));
+                checkSingleLineStatement(ctx.statement(1));
             }
+        }
+    }
+
+    private void checkSingleLineStatement(JavaParser.StatementContext ctx) {
+        if (ctx.SEMI() != null) {
+            out.println();
+            indents++;
+            out.print(INDENT.repeat(indents));
+        }
+        visitStatement(ctx);
+        if (ctx.SEMI() != null) {
+            out.println();
+            indents--;
         }
     }
 
@@ -770,7 +784,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
             if(ctx.WHILE() != null) out.print("while (");
             super.visit(ctx.parExpression());
             out.print(")");
-            super.visitStatement(ctx.statement(0));
+            checkSingleLineStatement(ctx.statement(0));
             checkElseStatement(ctx);
         } else if (ctx.FOR() != null) {
             var forControl = ctx.forControl();
@@ -784,7 +798,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
                 visitChildren(forControl.forUpdate);
             }
             out.print(")");
-            visitStatement(ctx.statement(0));
+            checkSingleLineStatement(ctx.statement(0));
         } else {
             if (ctx.RETURN() != null) {
                 out.print("return ");
@@ -846,6 +860,12 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
             methodName = ctx.identifier().getText();
             if (first && methodNameFull.containsKey(methodName))
                 methodName = methodNameFull.get(methodName);
+            else if (first) {
+                currentInstanceName = THIS;
+                out.print(fullClassName);
+                out.print("_");
+                methodName = camelCaseToSnakeCase(methodName);
+            }
             else
                 methodName = camelCaseToSnakeCase(methodName);
         }
@@ -997,11 +1017,16 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
                 .collect(Collectors.joining("."));
 
         var includeStatement = "#include <" + includeStr + "/" + fileName + ".h>";
+        var add = false;
         if ((header || !headerFullClassNames.containsKey(className))
                 && !excludeImports(javaFullClassName))
-            includes.add(includeStatement);
+            add = true;
         if (!header && this.className != null && this.className.equals(className))
+            add = true;
+        if (add) {
             includes.add(includeStatement);
+            predeclarations.add("typedef struct " + fullClassName + "_s " + fullClassName + "_t;");
+        }
         fullClassNames.put(className, fullClassName);
         javaFullClassNames.put(className, javaFullClassName);
     }
@@ -1080,6 +1105,11 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         if (ctx.NULL_LITERAL() != null) {
             includes.add("#include <stdlib.h>");
             out.print("NULL");
+        } else if (ctx.BOOL_LITERAL() != null) {
+            if ("true".equals(ctx.BOOL_LITERAL().getText()))
+                out.print("1");
+            else
+                out.print("0");
         }
         else out.print(ctx.getText());
         super.visitLiteral(ctx);
@@ -1291,8 +1321,14 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         if (!isHeader() && mustPrintDefaultConstructor()) {
             includes.add("#include <gc.h>");
         }
-        for (String importStatement : includes) {
-            ps.println(INDENT.repeat(indents) + importStatement);
+        for (String includeStatement : includes) {
+            ps.println(includeStatement);
+        }
+
+        if (!predeclarations.isEmpty())
+            ps.println();
+        for (String predeclaration : predeclarations) {
+            ps.println(predeclaration);
         }
 
         ps.println("");

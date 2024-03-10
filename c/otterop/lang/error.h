@@ -2,6 +2,8 @@
 #define __otterop_lang_Error
 #include <otterop/lang/string.h>
 
+typedef struct otterop_lang_String_s otterop_lang_String_t;
+
 typedef struct otterop_lang_Error_s otterop_lang_Error_t;
 
 

@@ -1,6 +1,8 @@
 #include <otterop/datastructure/list.h>
 #include <gc.h>
 
+typedef struct otterop_datastructure_List_s otterop_datastructure_List_t;
+
 typedef struct otterop_datastructure_List_s {
     otterop_lang_Array_t *array;
     int capacity;

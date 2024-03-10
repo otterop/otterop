@@ -1,0 +1,61 @@
+#ifndef __otterop_datastructure_LinkedList
+#define __otterop_datastructure_LinkedList
+#include <otterop/lang/generic.h>
+#include <otterop/lang/panic.h>
+#include <otterop/lang/string.h>
+#include <otterop/datastructure/linked_list_node.h>
+
+typedef struct otterop_lang_Generic_s otterop_lang_Generic_t;
+typedef struct otterop_lang_Panic_s otterop_lang_Panic_t;
+typedef struct otterop_lang_String_s otterop_lang_String_t;
+typedef struct otterop_datastructure_LinkedListNode_s otterop_datastructure_LinkedListNode_t;
+
+typedef struct otterop_datastructure_LinkedList_s otterop_datastructure_LinkedList_t;
+
+
+
+
+otterop_datastructure_LinkedList_t *otterop_datastructure_LinkedList_new();
+
+otterop_datastructure_LinkedListNode_t *otterop_datastructure_LinkedList_add_before(otterop_datastructure_LinkedList_t *this, otterop_datastructure_LinkedListNode_t *node, void *value);
+
+
+void otterop_datastructure_LinkedList_add_node_before(otterop_datastructure_LinkedList_t *this, otterop_datastructure_LinkedListNode_t *node, otterop_datastructure_LinkedListNode_t *new_node);
+
+
+otterop_datastructure_LinkedListNode_t *otterop_datastructure_LinkedList_add_after(otterop_datastructure_LinkedList_t *this, otterop_datastructure_LinkedListNode_t *node, void *value);
+
+
+void otterop_datastructure_LinkedList_add_node_after(otterop_datastructure_LinkedList_t *this, otterop_datastructure_LinkedListNode_t *node, otterop_datastructure_LinkedListNode_t *new_node);
+
+
+otterop_datastructure_LinkedListNode_t *otterop_datastructure_LinkedList_add_first(otterop_datastructure_LinkedList_t *this, void *value);
+
+
+void otterop_datastructure_LinkedList_add_node_first(otterop_datastructure_LinkedList_t *this, otterop_datastructure_LinkedListNode_t *new_node);
+
+
+otterop_datastructure_LinkedListNode_t *otterop_datastructure_LinkedList_add_last(otterop_datastructure_LinkedList_t *this, void *value);
+
+
+void otterop_datastructure_LinkedList_add_node_last(otterop_datastructure_LinkedList_t *this, otterop_datastructure_LinkedListNode_t *new_node);
+
+
+void otterop_datastructure_LinkedList_clear(otterop_datastructure_LinkedList_t *this);
+
+
+void otterop_datastructure_LinkedList_remove_first(otterop_datastructure_LinkedList_t *this);
+
+
+void otterop_datastructure_LinkedList_remove_last(otterop_datastructure_LinkedList_t *this);
+
+
+int otterop_datastructure_LinkedList_remove(otterop_datastructure_LinkedList_t *this, void *value);
+
+
+void otterop_datastructure_LinkedList_remove_node(otterop_datastructure_LinkedList_t *this, otterop_datastructure_LinkedListNode_t *node);
+
+
+int otterop_datastructure_LinkedList_size(otterop_datastructure_LinkedList_t *this);
+
+#endif

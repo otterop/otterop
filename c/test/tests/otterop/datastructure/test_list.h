@@ -5,6 +5,11 @@
 #include <otterop/lang/string.h>
 #include <otterop/test/test_base.h>
 
+typedef struct otterop_lang_Array_s otterop_lang_Array_t;
+typedef struct otterop_lang_Generic_s otterop_lang_Generic_t;
+typedef struct otterop_lang_String_s otterop_lang_String_t;
+typedef struct otterop_test_TestBase_s otterop_test_TestBase_t;
+
 typedef struct otterop_datastructure_TestList_s otterop_datastructure_TestList_t;
 
 

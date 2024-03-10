@@ -3,4 +3,6 @@
 !otterop/lang/Result.java
 !otterop/lang/Generic.java
 !otterop/datastructure/List.java
+!otterop/datastructure/LinkedList.java
+!otterop/datastructure/LinkedListNode.java
 !otterop/**/Test*.java

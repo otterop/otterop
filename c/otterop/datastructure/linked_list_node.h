@@ -1,0 +1,25 @@
+#ifndef __otterop_datastructure_LinkedListNode
+#define __otterop_datastructure_LinkedListNode
+#include <otterop/datastructure/linked_list.h>
+
+typedef struct otterop_datastructure_LinkedList_s otterop_datastructure_LinkedList_t;
+
+typedef struct otterop_datastructure_LinkedListNode_s otterop_datastructure_LinkedListNode_t;
+
+
+
+
+otterop_datastructure_LinkedListNode_t *otterop_datastructure_LinkedListNode_new(void *value);
+
+otterop_datastructure_LinkedList_t *otterop_datastructure_LinkedListNode_list(otterop_datastructure_LinkedListNode_t *this);
+
+
+otterop_datastructure_LinkedListNode_t *otterop_datastructure_LinkedListNode_prev(otterop_datastructure_LinkedListNode_t *this);
+
+
+otterop_datastructure_LinkedListNode_t *otterop_datastructure_LinkedListNode_next(otterop_datastructure_LinkedListNode_t *this);
+
+
+void *otterop_datastructure_LinkedListNode_value(otterop_datastructure_LinkedListNode_t *this);
+
+#endif

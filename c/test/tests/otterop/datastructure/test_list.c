@@ -4,6 +4,9 @@
 #include <otterop/datastructure/list.h>
 #include <gc.h>
 
+typedef struct otterop_datastructure_TestList_s otterop_datastructure_TestList_t;
+typedef struct otterop_datastructure_List_s otterop_datastructure_List_t;
+
 typedef struct otterop_datastructure_TestList_s {
     otterop_test_TestBase_t *_super;
 } otterop_datastructure_TestList_t;

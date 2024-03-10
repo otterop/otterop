@@ -89,6 +89,7 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
     private String currentVariablePrefix = null;
     private String currentInstanceName;
     private Set<String> includes = new LinkedHashSet<>();
+    private Set<String> predeclarations = new LinkedHashSet<>();
     private OutputStream outStream = new ByteArrayOutputStream();
     private Set<String> publicMethods = new LinkedHashSet<>();
     private Set<String> staticMethods = new LinkedHashSet<>();
@@ -1270,10 +1271,17 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
         var javaFullClassName = identifiers.stream()
                 .collect(Collectors.joining("."));
         var includeStatement = "#include <" + includeStr + "/" + fileName + ".h>";
+        var add = false;
         if ((header || !headerFullClassNames.containsKey(className))
-                && !excludeImports(javaFullClassName)) includes.add(includeStatement);
+                && !excludeImports(javaFullClassName))
+            add = true;
         if (!header && this.className != null && this.className.equals(className))
+            add = true;
+
+        if (add) {
             includes.add(includeStatement);
+            predeclarations.add("typedef struct " + fullClassName + "_s " + fullClassName + "_t;");
+        }
         if (isPure)
             return;
 
@@ -1539,9 +1547,16 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
             ps.println("#ifndef __" + pureFullClassName);
             ps.println("#define __" + pureFullClassName);
         }
-        for (String importStatement : includes) {
-            ps.println(INDENT.repeat(indents) + importStatement);
+        for (String includeStatement : includes) {
+            ps.println(INDENT.repeat(indents) + includeStatement);
         }
+
+        if (!predeclarations.isEmpty())
+            ps.println();
+        for (String predeclaration : predeclarations) {
+            ps.println(predeclaration);
+        }
+
         ps.println("");
         ps.print(outStream.toString());
         if (hasMain) {

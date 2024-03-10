@@ -1,6 +1,8 @@
 #include <otterop/lang/result.h>
 #include <gc.h>
 
+typedef struct otterop_lang_Result_s otterop_lang_Result_t;
+
 typedef struct otterop_lang_Result_s {
     void *res;
     void *err;
