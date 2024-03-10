@@ -15,7 +15,8 @@ public class List<T> {
     public List() {
         this.size = 0;
         this.capacity = 4;
-        this.tZero = new Generic<T>().zero();
+        Generic<T> genericT = new Generic<T>();
+        this.tZero = genericT.zero();
         this.array = Array.newArray(this.capacity, this.tZero);
     }
 

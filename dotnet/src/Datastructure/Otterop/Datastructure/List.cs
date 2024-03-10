@@ -10,7 +10,8 @@ namespace Otterop.Datastructure
         {
             this.size = 0;
             this.capacity = 4;
-            this.tZero = new Otterop.Lang.Generic<T>().Zero();
+            Otterop.Lang.Generic<T> genericT = new Otterop.Lang.Generic<T>();
+            this.tZero = genericT.Zero();
             this.array = Otterop.Lang.Array.NewArray(this.capacity, this.tZero);
         }
 

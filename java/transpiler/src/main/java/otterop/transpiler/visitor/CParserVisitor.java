@@ -1128,9 +1128,10 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitLocalVariableDeclaration(JavaParser.LocalVariableDeclarationContext ctx) {
-        visitTypeType(ctx.typeType());
-        changeCurrentTypeName(typeName(ctx.typeType()));
+        String typeName = typeName(ctx.typeType());
         currentTypePointer = fullClassNames.containsKey(currentTypeName);
+        visitTypeType(ctx.typeType());
+        changeCurrentTypeName(typeName);
         out.print(" ");
         visitVariableDeclarators(ctx.variableDeclarators());
         changeCurrentTypeName(null);

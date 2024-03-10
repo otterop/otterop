@@ -16,7 +16,8 @@ export class List<T> {
     public constructor() {
         this._size = 0;
         this._capacity = 4;
-        this._tZero = new Generic<T>().zero();
+        let genericT : Generic<T> = new Generic<T>();
+        this._tZero = genericT.zero();
         this._array = Array.newArray(this._capacity, this._tZero);
     }
 

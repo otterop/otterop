@@ -16,9 +16,10 @@ class TestList(TestBase):
         self.assert_true(l.size() == 5, String.wrap("Size should be 5"))
 
     def add_range(self):
-        generic_t = Generic().zero()
+        generic_t = Generic()
+        generic_t_zero = generic_t.zero()
         l = List()
-        to_add = Array.new_array(5, generic_t)
+        to_add = Array.new_array(5, generic_t_zero)
         to_add.set(0, String.wrap("a"))
         to_add.set(1, String.wrap("b"))
         to_add.set(2, String.wrap("c"))

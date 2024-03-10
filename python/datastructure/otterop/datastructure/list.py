@@ -8,7 +8,8 @@ class List:
     def __init__(self):
         self._size = 0
         self._capacity = 4
-        self._t_zero = Generic().zero()
+        generic_t = Generic()
+        self._t_zero = generic_t.zero()
         self._array = Array.new_array(self._capacity, self._t_zero)
 
     def ensure_capacity(self, capacity):

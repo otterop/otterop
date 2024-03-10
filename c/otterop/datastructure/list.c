@@ -18,7 +18,8 @@ otterop_datastructure_List_t *otterop_datastructure_List_new() {
     otterop_datastructure_List_t *this = GC_malloc(sizeof(otterop_datastructure_List_t));
     this->size = 0;
     this->capacity = 4;
-    this->t_zero = otterop_lang_Generic_zero(otterop_lang_Generic_new());
+    otterop_lang_Generic_t *generic_t = otterop_lang_Generic_new();
+    this->t_zero = otterop_lang_Generic_zero(generic_t);
     this->array = otterop_lang_Array_new_array(this->capacity, this->t_zero);
     return this;
 }

@@ -56,6 +56,7 @@ build-java: transpile
 
 build-c:
 	@(cd c && \
+	make && \
 	make test)
 
 build-python:
