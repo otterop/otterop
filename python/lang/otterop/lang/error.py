@@ -1,4 +1,4 @@
-from otterop.lang.string import String
+from otterop.lang.string import String as _String
 
 class Error:
         

@@ -1,5 +1,6 @@
 target_sources(otterop_lang
   PUBLIC
+  otterop/lang/oop_object.c
   otterop/lang/string.c
   otterop/lang/array.c
   otterop/lang/panic.c

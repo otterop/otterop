@@ -35,6 +35,7 @@ package otterop.transpiler.visitor;
 import otterop.transpiler.Otterop;
 import otterop.transpiler.antlr.JavaParser;
 import otterop.transpiler.antlr.JavaParserBaseVisitor;
+import otterop.transpiler.reader.ClassReader;
 import otterop.transpiler.util.CaseUtil;
 
 import java.io.ByteArrayOutputStream;
@@ -58,26 +59,35 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
     private int indents = 0;
     private int skipNewlines = 0;
     private static String INDENT = "    ";
+    private static String THIS = "this";
     private String className;
     private String currentPythonPackage;
+    private String javaFullPackageName;
     private Set<String> imports = new LinkedHashSet<>();
     private Set<String> fromImports = new LinkedHashSet<>();
-    private Set<String> staticImports = new LinkedHashSet<>();
+    private Map<String,String> staticImports = new LinkedHashMap<>();
     private final Set<String> importedClasses = new LinkedHashSet<>();
     private OutputStream outStream = new ByteArrayOutputStream();
-    private Map<String,String> javaFullClassName = new LinkedHashMap<>();
+    private Map<String,String> javaFullClassNames = new LinkedHashMap<>();
     private Map<String, JavaParser.TypeTypeContext> variableType = new LinkedHashMap<>();
     private JavaParser.TypeTypeContext currentType;
     private Set<String> attributePrivate = new LinkedHashSet<>();
     private PrintStream out = new PrintStream(outStream);
     private boolean makePure = false;
     private boolean isTestMethod = false;
+    private boolean classPublic = false;
     private List<JavaParser.MethodDeclarationContext> testMethods = new LinkedList<>();
+    private ClassReader classReader;
+
+    public PythonParserVisitor(ClassReader classReader) {
+        this.classReader = classReader;
+    }
 
     @Override
     public Void visitInterfaceDeclaration(JavaParser.InterfaceDeclarationContext ctx) {
         out.print("class ");
         className = ctx.identifier().getText();
+        javaFullClassNames.put(className, javaFullPackageName + "." + className);
         out.print(className);
         out.println(":");
         indents++;
@@ -90,7 +100,7 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
     @Override
     public Void visitAnnotation(JavaParser.AnnotationContext ctx) {
         var annotationName = ctx.qualifiedName().identifier().get(0).getText();
-        var fullAnnotationName = javaFullClassName.get(annotationName);
+        var fullAnnotationName = javaFullClassNames.get(annotationName);
         makePure |= Otterop.WRAPPED_CLASS.equals(fullAnnotationName);
         boolean isTestAnnotation = Otterop.TEST_ANNOTATION.equals(fullAnnotationName);
         if (isTestAnnotation)
@@ -99,9 +109,18 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
     }
 
     @Override
+    public Void visitClassOrInterfaceModifier(JavaParser.ClassOrInterfaceModifierContext ctx) {
+        if (ctx.getParent() instanceof JavaParser.TypeDeclarationContext)
+            this.classPublic = ctx.PUBLIC() != null;
+        super.visitClassOrInterfaceModifier(ctx);
+        return null;
+    }
+
+    @Override
     public Void visitClassDeclaration(JavaParser.ClassDeclarationContext ctx) {
         out.print("class ");
         className = ctx.identifier().getText();
+        javaFullClassNames.put(className, javaFullPackageName + "." + className);
         importedClasses.add(className);
         out.print(className);
         if (ctx.EXTENDS() != null) {
@@ -139,6 +158,21 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
         return super.visitClassBodyDeclaration(ctx);
     }
 
+    private boolean isMethodInternal(String variableName, String methodName) {
+        var variableType = this.variableType.get(variableName);
+        String className = null;
+        if (variableType != null && variableType.classOrInterfaceType() != null) {
+            className = variableType.classOrInterfaceType().identifier(0).getText();
+        } else {
+            className = this.className;
+        }
+        if (className != null) {
+            var javaFullClassName = javaFullClassNames.get(className);
+            return !this.classReader.isPublicMethod(javaFullClassName, methodName);
+        }
+        return false;
+    }
+
     @Override
     public Void visitMethodDeclaration(JavaParser.MethodDeclarationContext ctx) {
         if (isTestMethod)
@@ -153,10 +187,14 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
         var name = camelCaseToSnakeCase(ctx.identifier().getText());
         if (name.equals("main")) hasMain = true;
 
+        if (!memberPublic)
+            out.print("_");
         out.print(name);
         visitFormalParameters(ctx.formalParameters());
         visitMethodBody(ctx.methodBody());
         variableType.clear();
+        memberPublic = false;
+        memberStatic = false;
         return null;
     }
 
@@ -206,17 +244,29 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
         return null;
     }
 
+    private void checkSingleLineStatement(JavaParser.StatementContext ctx) {
+        if (ctx.SEMI() != null) {
+            indents++;
+            out.print(INDENT.repeat(indents));
+        }
+        visitStatement(ctx);
+        if (ctx.SEMI() != null) {
+            out.println();
+            indents--;
+        }
+    }
+
     private void checkElseStatement(JavaParser.StatementContext ctx) {
         if (ctx.ELSE() != null) {
             if (ctx.statement(1).IF() != null) {
                 out.print(INDENT.repeat(indents) + "elif ");
                 visitParExpression(ctx.statement(1).parExpression());
                 out.print(":\n");
-                visitStatement(ctx.statement(1).statement(0));
+                checkSingleLineStatement(ctx.statement(1).statement(0));
                 checkElseStatement(ctx.statement(1));
             } else {
                 out.print(INDENT.repeat(indents) + "else:\n");
-                visitStatement(ctx.statement(1));
+                checkSingleLineStatement(ctx.statement(1));
             }
         }
     }
@@ -228,7 +278,7 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
             if(ctx.WHILE() != null) out.print("while ");
             super.visit(ctx.parExpression());
             out.print(":\n");
-            visitStatement(ctx.statement(0));
+            checkSingleLineStatement(ctx.statement(0));
             checkElseStatement(ctx);
             skipNewlines++;
         } else if (ctx.FOR() != null) {
@@ -242,7 +292,7 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
             else
                 out.print("True");
             out.print(":\n");
-            visitStatement(ctx.statement(0));
+            checkSingleLineStatement(ctx.statement(0));
             if (forControl.forUpdate != null) {
                 indents++;
                 out.print(INDENT.repeat(indents));
@@ -291,7 +341,37 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
         if (ctx.SUPER() != null) {
             out.print("super().__init__");
         } else {
-            visitIdentifier(ctx.identifier());
+            var methodName = ctx.identifier().getText();
+            var methodInternal = false;
+            var staticImport = staticImports.containsKey(methodName);
+            var isFirst = ctx.getParent().getChild(0) == ctx;
+            var calledOn = ctx.getParent().getChild(0).getText();
+            var calledOnClass = !isFirst && CaseUtil.isClassName(calledOn);
+            var currentClass = calledOn.equals(className);
+            var isThis = calledOn.equals(THIS);
+            var hasVariable = variableType.containsKey(calledOn);
+
+            if (calledOnClass) {
+                var javaFullClassName = javaFullClassNames.get(calledOn);
+                var isPublic = classReader.isPublicMethod(javaFullClassName, methodName);
+                if (!isPublic)
+                    out.print("_");
+            }
+
+            if (isFirst && !staticImport) {
+                calledOn = THIS;
+                out.print("self.");
+            }
+            var isLocal = currentClass || isThis || isFirst;
+            if (!staticImport && (isLocal || hasVariable)) {
+                methodInternal = this.isMethodInternal(calledOn, methodName);
+            }
+            if (methodInternal)
+                out.print("_");
+            if (staticImport)
+                out.print(staticImports.get(methodName));
+            else
+                visitIdentifier(ctx.identifier());
         }
         out.print("(");
         visitExpressionList(ctx.expressionList());
@@ -326,9 +406,15 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
     private void checkCurrentPackageImports(String name) {
         if (CaseUtil.isClassName(name) && !className.equals(name) &&
                 !importedClasses.contains(name)) {
-            var importStatement = "from " + currentPythonPackage + "." + camelCaseToSnakeCase(name) + " import "+ name;
+            var javaFullClassName = javaFullPackageName + "." + name;
+            var pythonPackage = camelCaseToSnakeCase(name);
+            if (!classReader.isPublicClass(javaFullClassName)) {
+                pythonPackage = "_" + pythonPackage;
+            }
+            var importStatement = "from " + currentPythonPackage + "." + pythonPackage + " import "+ name + " as _"+ name;
             fromImports.add(importStatement);
             importedClasses.add(name);
+            javaFullClassNames.put(name, javaFullPackageName + "." + name);
         }
     }
 
@@ -356,11 +442,12 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
             if (!bop.equals(".")) bop = " " + bop + " ";
             out.print(bop);
             if (ctx.expression(1) != null) visitExpression(ctx.expression(1));
-            else if (ctx.methodCall() != null) visitMethodCall(ctx.methodCall());
+            else if (ctx.methodCall() != null)
+                visitMethodCall(ctx.methodCall());
             else if (ctx.identifier() != null) {
                 if (bop.equals(".")
                         && (attributePrivate.contains(ctx.identifier().getText())
-                            || "this".equals(name))) {
+                            || THIS.equals(name))) {
                     out.print("_");
                 }
                 visitIdentifier(ctx.identifier());
@@ -406,17 +493,19 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
         var javaFullClassName = identifiers.subList(0, classNameIdx + 1).stream()
                 .map(identifier -> identifier.getText())
                 .collect(Collectors.joining("."));
-        this.javaFullClassName.put(className, javaFullClassName);
+        this.javaFullClassNames.put(className, javaFullClassName);
 
         if (!excludeImports(javaFullClassName)) {
-            var importStatement = "from " + pythonPackage + " import " + className;
+            if (!classReader.isPublicClass(javaFullClassName)) {
+                pythonPackage = "_" + pythonPackage;
+            }
+            var importStatement = "from " + pythonPackage + " import " + className + " as _" + className;
             importedClasses.add(className);
             fromImports.add(importStatement);
             if (isStatic) {
                 var methodName = identifiers.get(classNameIdx + 1).getText();
                 var methodNameSnake = camelCaseToSnakeCase(methodName);
-                var staticImportStatement = methodNameSnake + " = " + className + "." + methodNameSnake;
-                staticImports.add(staticImportStatement);
+                staticImports.put(methodName, className + "." + methodNameSnake);
             }
         }
         return null;
@@ -434,6 +523,8 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
     @Override
     public Void visitLiteral(JavaParser.LiteralContext ctx) {
         if (ctx.NULL_LITERAL() != null) out.print("None");
+        else if (ctx.BOOL_LITERAL() != null)
+            out.print(ctx.BOOL_LITERAL().getText().equals("true") ? "True": "False");
         else out.print(ctx.getText());
         super.visitLiteral(ctx);
         return null;
@@ -443,7 +534,7 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
     public Void visitIdentifier(JavaParser.IdentifierContext ctx) {
         var ctxText = ctx.getText();
         var skipSnakeCase = importedClasses.contains(ctxText);
-        if (skipSnakeCase) out.print(ctxText);
+        if (skipSnakeCase) out.print("_" + ctxText);
         else out.print(camelCaseToSnakeCase(ctxText));
         return null;
     }
@@ -481,7 +572,10 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
     public Void visitCreator(JavaParser.CreatorContext ctx) {
         var className = ctx.createdName().identifier(0).getText();
         checkCurrentPackageImports(className);
-        out.print(className);
+        if (className.equals(this.className))
+            out.print(className);
+        else
+            out.print("_" + className);
         visitClassCreatorRest(ctx.classCreatorRest());
         return null;
     }
@@ -498,9 +592,12 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitPackageDeclaration(JavaParser.PackageDeclarationContext ctx) {
-        currentPythonPackage = pythonPackage(ctx.qualifiedName().identifier().stream().map(
+        var identifiers = ctx.qualifiedName().identifier();
+        var identifiersString = identifiers.stream().map(
                 identifier -> identifier.getText()
-        ).collect(Collectors.toList()));
+        ).collect(Collectors.toList());
+        currentPythonPackage = pythonPackage(identifiersString);
+        this.javaFullPackageName = identifiersString.stream().collect(Collectors.joining("."));
         return null;
     }
 
@@ -512,15 +609,16 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
         return !testMethods.isEmpty();
     }
 
+    public boolean classPublic() {
+        return this.classPublic;
+    }
+
     public void printTo(PrintStream ps) {
         for (String importStatement : imports) {
             ps.println(importStatement);
         }
         for (String importStatement : fromImports) {
             ps.println(importStatement);
-        }
-        for (String staticImport : staticImports) {
-            ps.println(staticImport);
         }
         ps.println("");
         ps.print(outStream.toString());

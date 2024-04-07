@@ -1,4 +1,4 @@
-#include <otterop/lang/result.h>
+#include <otterop/lang/int/result.h>
 #include <gc.h>
 
 typedef struct otterop_lang_Result_s otterop_lang_Result_t;

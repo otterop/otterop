@@ -1,7 +1,7 @@
 #include "unity.h"
 #include "unity_fixture.h"
 #include <otterop/datastructure/test_list.h>
-#include <otterop/datastructure/list.h>
+#include <otterop/datastructure/int/list.h>
 #include <gc.h>
 
 typedef struct otterop_datastructure_TestList_s otterop_datastructure_TestList_t;

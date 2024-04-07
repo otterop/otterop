@@ -1,82 +1,82 @@
-from otterop.lang.array import Array
-from otterop.lang.generic import Generic
-from otterop.lang.panic import Panic
-from otterop.lang.string import String
+from otterop.lang.array import Array as _Array
+from otterop.lang.generic import Generic as _Generic
+from otterop.lang.panic import Panic as _Panic
+from otterop.lang.string import String as _String
 
 class List:
                 
     def __init__(self):
         self._size = 0
         self._capacity = 4
-        generic_t = Generic()
+        generic_t = _Generic()
         self._t_zero = generic_t.zero()
-        self._array = Array.new_array(self._capacity, self._t_zero)
+        self._array = _Array.new_array(self._capacity, self._t_zero)
 
-    def ensure_capacity(self, capacity):
+    def _ensure_capacity(self, capacity):
         if self._capacity < capacity:
             self._capacity = self._capacity * 2
-            new_array = Array.new_array(self._capacity, self._t_zero)
-            Array.copy(self._array, 0, new_array, 0, self._size)
+            new_array = _Array.new_array(self._capacity, self._t_zero)
+            _Array.copy(self._array, 0, new_array, 0, self._size)
             self._array = new_array
 
     def add(self, element):
-        self.ensure_capacity(self._size + 1)
+        self._ensure_capacity(self._size + 1)
         self._array.set(self._size, element)
         self._size += 1
 
     def add_array(self, src):
-        self.ensure_capacity(self._size + src.size())
-        Array.copy(src, 0, self._array, self._size, src.size())
+        self._ensure_capacity(self._size + src.size())
+        _Array.copy(src, 0, self._array, self._size, src.size())
         self._size += src.size()
 
     def add_list(self, src):
         self.add_array(src.array)
 
-    def check_index_out_of_bounds(self, index):
+    def _check_index_out_of_bounds(self, index):
         if index < 0 or index > self._size:
-            Panic.index_out_of_bounds(String.wrap("index is outside list bounds"))
+            _Panic.index_out_of_bounds(_String.wrap("index is outside list bounds"))
 
     def insert(self, index, element):
-        self.check_index_out_of_bounds(index)
-        self.ensure_capacity(self._size + 1)
+        self._check_index_out_of_bounds(index)
+        self._ensure_capacity(self._size + 1)
         if index < self._size:
-            Array.copy(self._array, index, self._array, index + 1, self._size - index)
+            _Array.copy(self._array, index, self._array, index + 1, self._size - index)
         self._array.set(index, element)
         self._size += 1
 
     def insert_array(self, index, src):
-        self.check_index_out_of_bounds(index)
-        self.ensure_capacity(self._size + src.size())
+        self._check_index_out_of_bounds(index)
+        self._ensure_capacity(self._size + src.size())
         if index < self._size:
-            Array.copy(self._array, index, self._array, index + src.size(), self._size - index)
-        Array.copy(src, 0, self._array, index, src.size())
+            _Array.copy(self._array, index, self._array, index + src.size(), self._size - index)
+        _Array.copy(src, 0, self._array, index, src.size())
         self._size += src.size()
 
     def insert_list(self, index, src):
         self.insert_array(index, src.array)
 
     def get(self, index):
-        self.check_index_out_of_bounds(index)
+        self._check_index_out_of_bounds(index)
         return self._array.get(index)
 
     def remove_index(self, index):
-        self.check_index_out_of_bounds(index)
+        self._check_index_out_of_bounds(index)
         ret = self._array.get(index)
         if index + 1 < self._size:
-            Array.copy(self._array, index + 1, self._array, index, self._size - index - 1)
+            _Array.copy(self._array, index + 1, self._array, index, self._size - index - 1)
         self._size -= 1
         return ret
 
     def remove_range(self, index, count):
-        self.check_index_out_of_bounds(index)
+        self._check_index_out_of_bounds(index)
         if index + count > self._size:
             count = self._size - index
         ret = List()
-        removed = Array.new_array(count, self._t_zero)
-        Array.copy(self._array, index, removed, 0, count)
+        removed = _Array.new_array(count, self._t_zero)
+        _Array.copy(self._array, index, removed, 0, count)
         ret.add_array(removed)
         if index + count < self._size:
-            Array.copy(self._array, index + count, self._array, index, self._size - index - count)
+            _Array.copy(self._array, index + count, self._array, index, self._size - index - count)
         self._size = self._size - count
         return ret
 

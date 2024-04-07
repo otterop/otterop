@@ -55,6 +55,7 @@ import static otterop.transpiler.util.FileUtil.withPrintStream;
 public class CTranspiler extends AbstractTranspiler {
 
     private String mainClass;
+    private String basePackage;
     private String testMainClass;
     private List<String> sources = Collections.synchronizedList(new LinkedList<>());
     private List<String> testSources = Collections.synchronizedList(new LinkedList<>());
@@ -66,6 +67,7 @@ public class CTranspiler extends AbstractTranspiler {
     private enum FileType {
         SOURCE,
         HEADER,
+        HEADER_INTERNAL,
         CMAKELISTS
     }
 
@@ -75,6 +77,7 @@ public class CTranspiler extends AbstractTranspiler {
         super(config.c().outPath(),
                 config.c().testOutPath(),
                 fileWriter, executorService, classReader, config);
+        this.basePackage = config.basePackage();
         packageParts = config.basePackage().split("\\.");
         this.targetType = config.targetType();
         this.ignoreFile().addPattern("CMakeLists.manual.txt");
@@ -88,6 +91,7 @@ public class CTranspiler extends AbstractTranspiler {
                 replacement = ".c";
                 break;
             case HEADER:
+            case HEADER_INTERNAL:
                 replacement = ".h";
                 break;
             case CMAKELISTS:
@@ -101,9 +105,16 @@ public class CTranspiler extends AbstractTranspiler {
                 .replaceAll("$", replacement);
 
         String codePath;
-        if (!pure)
-            codePath = String.join(File.separator, clazzParts);
-        else {
+        if (!pure) {
+            if (fileType == FileType.HEADER_INTERNAL) {
+                String[] clazzPartsInt = Arrays.copyOf(clazzParts, clazzParts.length + 1);
+                clazzPartsInt[clazzPartsInt.length - 1] = clazzPartsInt[clazzPartsInt.length - 2];
+                clazzPartsInt[clazzPartsInt.length - 2] = "int";
+                codePath = String.join(File.separator, clazzPartsInt);
+            } else {
+                codePath = String.join(File.separator, clazzParts);
+            }
+        } else {
             String[] clazzPartsPure = Arrays.copyOf(clazzParts, clazzParts.length + 1);
             clazzPartsPure[clazzPartsPure.length - 1] = clazzPartsPure[clazzPartsPure.length - 2];
             clazzPartsPure[clazzPartsPure.length - 2] = "pure";
@@ -224,20 +235,46 @@ public class CTranspiler extends AbstractTranspiler {
         return this.executorService().submit(() -> {
             var sourceCodePath = getCodePath(clazzParts, FileType.SOURCE, false);
             var headerCodePath = getCodePath(clazzParts, FileType.HEADER, false);
+            var headerInternalCodePath = getCodePath(clazzParts, FileType.HEADER_INTERNAL, false);
             String sourcePath = getPath(sourceCodePath, isTest);
             String headerPath = getPath(headerCodePath, isTest);
+            String headerInternalPath = getPath(headerInternalCodePath, isTest);
 
             if (ignoreFile().ignores(sourceCodePath)) {
                 System.out.println("C ignored: " + sourceCodePath);
                 return null;
             }
 
-            CParserVisitor headerVisitor = new CParserVisitor(classReader(), true, null,
-                    importDomainMapping);
+            CParserVisitor headerVisitor = new CParserVisitor(classReader(),
+                    true,
+                    false,
+                    null,
+                    importDomainMapping,
+                    basePackage);
             headerVisitor.visit(compilationUnitContext.get());
-            headerVisitor.printTo(fileWriter().getPrintStream(headerPath));
-            CParserVisitor sourceVisitor = new CParserVisitor(classReader(), false, headerVisitor,
-                    importDomainMapping);
+            if (headerVisitor.isClassPublic())
+                headerVisitor.printTo(fileWriter().getPrintStream(headerPath));
+
+            CParserVisitor headerInternalVisitor = null;
+            if (!isTest) {
+                headerInternalVisitor = new CParserVisitor(classReader(),
+                        true,
+                        true,
+                        null,
+                        importDomainMapping,
+                        basePackage);
+                headerInternalVisitor.visit(compilationUnitContext.get());
+                headerInternalVisitor.printTo(fileWriter().getPrintStream(headerInternalPath));
+            } else {
+                headerInternalVisitor = headerVisitor;
+            }
+
+            CParserVisitor sourceVisitor = new CParserVisitor(classReader(),
+                    false,
+                    false,
+                    headerInternalVisitor,
+                    importDomainMapping,
+                    basePackage);
             sourceVisitor.visit(compilationUnitContext.get());
             sourceVisitor.printTo(fileWriter().getPrintStream(sourcePath));
             if (!sourceVisitor.hasMain())

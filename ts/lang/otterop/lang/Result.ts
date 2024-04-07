@@ -1,21 +1,21 @@
 
 export class Result<RES, ERR> {
 
-    private _res : RES;
+    #res : RES;
 
-    private _err : ERR;
+    #err : ERR;
 
     private constructor(res : RES, err : ERR) {
-        this._res = res;
-        this._err = err;
+        this.#res = res;
+        this.#err = err;
     }
 
     public err() : ERR {
-        return this._err;
+        return this.#err;
     }
 
     public unwrap() : RES {
-        return this._res;
+        return this.#res;
     }
 
     public static of<RES0, ERR0>(res : RES0, err : ERR0) : Result<RES0, ERR0> {

@@ -66,6 +66,8 @@ import static otterop.transpiler.util.CaseUtil.isClassName;
 public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     private boolean memberStatic = false;
     private boolean memberPublic = false;
+    private boolean memberPrivate = false;
+    private boolean memberInternal = false;
     private boolean isMain = false;
     private boolean hasMain = false;
     private boolean insideConstructor = false;
@@ -73,6 +75,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     private boolean insideFormalParameters = false;
     private boolean insideStaticField = false;
     private String className = null;
+    private String basePackage = null;
     private String fullClassName = null;
     private String fullClassNameType = null;
     private String superClassName = null;
@@ -93,6 +96,8 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     private Set<String> predeclarations = new LinkedHashSet<>();
     private OutputStream outStream = new ByteArrayOutputStream();
     private Set<String> publicMethods = new LinkedHashSet<>();
+    private Set<String> privateMethods = new LinkedHashSet<>();
+    private Set<String> internalMethods = new LinkedHashSet<>();
     private Set<String> staticMethods = new LinkedHashSet<>();
     private List<JavaParser.FieldDeclarationContext> fields = new LinkedList<>();
     private List<JavaParser.MethodDeclarationContext> methods = new LinkedList<>();
@@ -104,6 +109,8 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     private boolean interfaceImplementationThis = false;
     private boolean printParameterNames = true;
     private boolean constructorPublic;
+    private boolean constructorPrivate;
+    private boolean constructorInternal;
     private JavaParser.ConstructorDeclarationContext constructor;
     private Map<String,String> fullClassNames = new LinkedHashMap<>();
     private Map<String,String> javaFullClassNames = new LinkedHashMap<>();
@@ -114,10 +121,13 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     private PrintStreamStack out = new PrintStreamStack(outStream);
     private Map<String,String> importDomainMapping;
     private boolean header = false;
+    private boolean internalHeader = false;
     private boolean makePure = false;
     private boolean isTestMethod = false;
     private boolean isInterface = false;
     private boolean hasConstructor = false;
+    private boolean isTestClass = false;
+    private boolean classPublic = false;
     private Set<String> currentTypeParameters = new HashSet<>();
     private Set<String> currentMethodTypeParameters = new HashSet<>();
     private JavaParser.TypeParametersContext methodTypeParametersContext;
@@ -126,11 +136,18 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     private List<JavaParser.MethodDeclarationContext> testMethods = new LinkedList<>();
     private CClassVisitor classVisitor;
 
-    public CParserVisitor(ClassReader classReader, boolean header, CParserVisitor headerVisitor,
-                          Map<String,String> importDomainMapping) {
+    public CParserVisitor(ClassReader classReader,
+                          boolean header,
+                          boolean internalHeader,
+                          CParserVisitor headerVisitor,
+                          Map<String,String> importDomainMapping,
+                          String basePackage) {
         this.header = header;
+        this.internalHeader = internalHeader;
+        this.basePackage = basePackage;
         if (headerVisitor != null) {
             headerFullClassNames = headerVisitor.getFullClassNames();
+            this.isTestClass = headerVisitor.testClass();
         }
         this.classReader = classReader;
         this.classVisitor = new CClassVisitor(this);
@@ -140,6 +157,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     private void detectMethods(ParserRuleContext ctx) {
         List<ParseTree> children = new ArrayList<>(ctx.children);
         boolean methodPublic = false;
+        boolean methodPrivate = false;
         boolean methodStatic = false;
         while (children.size() > 0) {
             boolean skipChildren = false;
@@ -150,6 +168,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
             if (child instanceof JavaParser.ClassOrInterfaceModifierContext) {
                 JavaParser.ClassOrInterfaceModifierContext modifierChild = (JavaParser.ClassOrInterfaceModifierContext) child;
                 if (!methodPublic) methodPublic = modifierChild.PUBLIC() != null;
+                if (!methodPrivate) methodPrivate = modifierChild.PRIVATE() != null;
                 if (!methodStatic) methodStatic = modifierChild.STATIC() != null;
             }
             if (child instanceof JavaParser.InterfaceCommonBodyDeclarationContext) {
@@ -158,6 +177,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
                 var name = declarationChild.identifier().getText();
                 publicMethods.add(name);
                 methodPublic = false;
+                methodPrivate = false;
                 methodStatic = false;
             }
             if (child instanceof JavaParser.MethodDeclarationContext) {
@@ -166,12 +186,17 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
                 methods.add(declarationChild);
                 methodsMap.put(name, declarationChild);
                 if (methodPublic) publicMethods.add(name);
+                else if (methodPrivate) privateMethods.add(name);
+                else internalMethods.add(name);
                 if (methodStatic) staticMethods.add(name);
                 methodPublic = false;
+                methodPrivate = false;
                 methodStatic = false;
             }
             if (child instanceof JavaParser.ConstructorDeclarationContext) {
                 if (methodPublic) constructorPublic = true;
+                else if (methodPrivate) constructorPrivate = true;
+                else constructorInternal = true;
                 constructor = (JavaParser.ConstructorDeclarationContext) child;
             }
             if (child instanceof JavaParser.GenericMethodDeclarationContext) {
@@ -180,9 +205,17 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
                 genericMethods.add(declarationChild);
                 genericMethodsMap.put(name, declarationChild);
                 if (methodPublic) publicMethods.add(name);
+                else if (methodPrivate) privateMethods.add(name);
+                else internalMethods.add(name);
                 if (methodStatic) staticMethods.add(name);
                 methodPublic = false;
+                methodPrivate = false;
                 methodStatic = false;
+                skipChildren = true;
+            }
+            if (child instanceof JavaParser.AnnotationContext) {
+                JavaParser.AnnotationContext annotationChild = (JavaParser.AnnotationContext) child;
+                this.visitAnnotation(annotationChild);
                 skipChildren = true;
             }
             if (child instanceof JavaParser.FieldDeclarationContext) {
@@ -190,6 +223,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
                 var name = declarationChild.variableDeclarators().variableDeclarator(0).variableDeclaratorId().getText();
                 if (methodPublic && methodStatic) headerStaticFields.put(name, declarationChild);
                 methodPublic = false;
+                methodPrivate = false;
                 methodStatic = false;
                 skipChildren = true;
             }
@@ -328,9 +362,19 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         var fullAnnotationName = javaFullClassNames.get(annotationName);
         makePure |= Otterop.WRAPPED_CLASS.equals(fullAnnotationName);
         boolean isTestAnnotation = Otterop.TEST_ANNOTATION.equals(fullAnnotationName);
-        if (isTestAnnotation)
+        if (isTestAnnotation) {
             this.isTestMethod = true;
+            this.isTestClass = true;
+        }
         return null;
+    }
+
+    @Override
+    public Void visitClassOrInterfaceModifier(JavaParser.ClassOrInterfaceModifierContext ctx) {
+        if (ctx.getParent() instanceof JavaParser.TypeDeclarationContext) {
+            this.classPublic = ctx.PUBLIC() != null;
+        }
+        return super.visitClassOrInterfaceModifier(ctx);
     }
 
     @Override
@@ -401,8 +445,12 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
             insideMemberDeclaration = true;
             var methodName = method.identifier().getText();
             memberPublic = publicMethods.contains(methodName);
+            memberPrivate = privateMethods.contains(methodName);
+            memberInternal = internalMethods.contains(methodName);
             memberStatic = staticMethods.contains(methodName);
-            if (header && memberPublic || !header && !memberPublic)
+            if (header && memberPublic ||
+                header && memberInternal && internalHeader ||
+                !header && memberPrivate)
                 visitMethodDeclaration(method);
             insideMemberDeclaration = false;
         }
@@ -410,8 +458,12 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
             insideMemberDeclaration = true;
             var methodName = method.methodDeclaration().identifier().getText();
             memberPublic = publicMethods.contains(methodName);
+            memberPrivate = privateMethods.contains(methodName);
+            memberInternal = internalMethods.contains(methodName);
             memberStatic = staticMethods.contains(methodName);
-            if (header && memberPublic || !header && !memberPublic)
+            if (header && memberPublic ||
+                header && memberInternal && internalHeader ||
+                !header && memberPrivate)
                 visitGenericMethodDeclaration(method);
             insideMemberDeclaration = false;
         }
@@ -439,7 +491,9 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitConstructorDeclaration(JavaParser.ConstructorDeclarationContext ctx) {
-        if (header && !constructorPublic)
+        if (header && constructorPrivate)
+            return null;
+        if (header && constructorInternal && !internalHeader)
             return null;
         hasConstructor = true;
         insideConstructor = true;
@@ -459,6 +513,8 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     public Void visitClassBodyDeclaration(JavaParser.ClassBodyDeclarationContext ctx) {
         this.memberStatic = false;
         this.memberPublic = false;
+        this.memberPrivate = false;
+        this.memberInternal = false;
         this.isTestMethod = false;
         return super.visitClassBodyDeclaration(ctx);
     }
@@ -710,6 +766,8 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
             memberStatic = true;
         if (ctx.getText().equals("public"))
             memberPublic = true;
+        if (ctx.getText().equals("private"))
+            memberPrivate = true;
         super.visitModifier(ctx);
         return null;
     }
@@ -1015,8 +1073,12 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         var fullClassName = javaFullClassNameToC(identifiers);
         var javaFullClassName = identifiers.stream()
                 .collect(Collectors.joining("."));
+        var samePackage = javaFullClassName.startsWith(basePackage + ".");
 
-        var includeStatement = "#include <" + includeStr + "/" + fileName + ".h>";
+        var includeStatement = "#include <" + includeStr + "/" + fileName;
+        if (samePackage && (!isTestClass || !this.className.equals(className)))
+            includeStatement = "#include <" + includeStr + "/int/" + fileName;
+        includeStatement += ".h>";
         var add = false;
         if ((header || !headerFullClassNames.containsKey(className))
                 && !excludeImports(javaFullClassName))
@@ -1311,10 +1373,16 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
 
     public void printTo(PrintStream ps) {
         if (header) {
-            ps.println("#ifndef __" + fullClassName);
-            ps.println("#define __" + fullClassName);
+            ps.print("#ifndef __" + fullClassName);
+            if (internalHeader)
+                ps.print("_int");
+            ps.println();
+            ps.print("#define __" + fullClassName);
+            if (internalHeader)
+                ps.print("_int");
+            ps.println();
         }
-        if (!testMethods.isEmpty()) {
+        if (!header && !testMethods.isEmpty()) {
             ps.println("#include \"unity.h\"");
             ps.println("#include \"unity_fixture.h\"");
         }
@@ -1336,7 +1404,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
 
         printDefaultConstructor(ps);
 
-        if (!testMethods.isEmpty()) {
+        if (!header && !testMethods.isEmpty()) {
             ps.print("\nTEST_GROUP(");
             ps.print(fullClassName);
             ps.println(");");
@@ -1428,6 +1496,10 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
 
     public boolean isInterface() {
         return this.isInterface;
+    }
+
+    public boolean isClassPublic() {
+        return this.classPublic;
     }
 
     public boolean hasMain(){

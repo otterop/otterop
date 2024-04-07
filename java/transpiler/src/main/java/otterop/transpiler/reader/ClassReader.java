@@ -59,10 +59,14 @@ public class ClassReader {
     }
 
     public Method findMethod(Class<?> clazz, String methodName) {
-        Method[] methods = clazz.getMethods();
-        for (Method m : methods) {
-            if (m.getName().equals(methodName))
-                return m;
+        Class<?> currentClazz = clazz;
+        while (currentClazz != null) {
+            Method[] methods = currentClazz.getDeclaredMethods();
+            for (Method m : methods) {
+                if (m.getName().equals(methodName))
+                    return m;
+            }
+            currentClazz = clazz.getSuperclass();
         }
         return null;
     }

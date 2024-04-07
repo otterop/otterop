@@ -1,4 +1,4 @@
-#include <otterop/datastructure/list.h>
+#include <otterop/datastructure/int/list.h>
 #include <gc.h>
 
 typedef struct otterop_datastructure_List_s otterop_datastructure_List_t;

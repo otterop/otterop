@@ -1,13 +1,13 @@
 #ifndef __otterop_datastructure_LinkedList
 #define __otterop_datastructure_LinkedList
-#include <otterop/lang/generic.h>
 #include <otterop/lang/panic.h>
 #include <otterop/lang/string.h>
-#include <otterop/datastructure/linked_list_node.h>
+#include <otterop/lang/oop_object.h>
+#include <otterop/datastructure/int/linked_list_node.h>
 
-typedef struct otterop_lang_Generic_s otterop_lang_Generic_t;
 typedef struct otterop_lang_Panic_s otterop_lang_Panic_t;
 typedef struct otterop_lang_String_s otterop_lang_String_t;
+typedef struct otterop_lang_OOPObject_s otterop_lang_OOPObject_t;
 typedef struct otterop_datastructure_LinkedListNode_s otterop_datastructure_LinkedListNode_t;
 
 typedef struct otterop_datastructure_LinkedList_s otterop_datastructure_LinkedList_t;

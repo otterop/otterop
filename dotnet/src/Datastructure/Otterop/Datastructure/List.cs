@@ -15,7 +15,7 @@ namespace Otterop.Datastructure
             this.array = Otterop.Lang.Array.NewArray(this.capacity, this.tZero);
         }
 
-        void EnsureCapacity(int capacity)
+        private void EnsureCapacity(int capacity)
         {
             if (this.capacity < capacity)
             {
@@ -46,7 +46,7 @@ namespace Otterop.Datastructure
             AddArray(src.array);
         }
 
-        void CheckIndexOutOfBounds(int index)
+        private void CheckIndexOutOfBounds(int index)
         {
             if (index < 0 || index > this.size)
             {

@@ -1,4 +1,4 @@
-#include <otterop/lang/generic.h>
+#include <otterop/lang/int/generic.h>
 #include <stdlib.h>
 #include <gc.h>
 

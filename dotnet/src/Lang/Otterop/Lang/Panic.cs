@@ -7,6 +7,11 @@ namespace Otterop.Lang
             throw new IndexOutOfRangeException(message.unwrap());
         }
 
+        public static void InvalidOperation(String message)
+        {
+            throw new InvalidOperationException(message.unwrap());
+        }
+
     }
 
 }

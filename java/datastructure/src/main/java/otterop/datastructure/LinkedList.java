@@ -1,8 +1,8 @@
 package otterop.datastructure;
 
-import otterop.lang.Generic;
 import otterop.lang.Panic;
 import otterop.lang.String;
+import static otterop.lang.OOPObject.is;
 
 public class LinkedList<T> {
 
@@ -14,6 +14,9 @@ public class LinkedList<T> {
         this.head = null;
         this.tail = null;
         this.size = 0;
+        TestInternal t = new TestInternal();
+        t.testMethod();
+        TestInternal.testMethod2();
     }
 
     public LinkedListNode<T> addBefore(LinkedListNode<T> node, T value) {
@@ -124,7 +127,7 @@ public class LinkedList<T> {
     public boolean remove(T value) {
         LinkedListNode<T> curr = this.head;
         while (curr != null) {
-            if (curr.value() == value) {
+            if (is(curr.value(), value)) {
                 this.removeNode(curr);
                 return true;
             }

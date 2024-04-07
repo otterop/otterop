@@ -25,6 +25,6 @@ func (this *Result[RES, ERR]) Unwrap() RES {
     return this.res
 }
 
-func Of[RES0 any, ERR0 any](res RES0, err ERR0) *Result[RES0, ERR0] {
+func ResultOf[RES0 any, ERR0 any](res RES0, err ERR0) *Result[RES0, ERR0] {
     return resultNew[RES0, ERR0](res, err)
 }

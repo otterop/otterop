@@ -5,117 +5,117 @@ import { String } from '@otterop/lang/String';
 
 export class List<T> {
 
-    private _array : Array<T>;
+    #array : Array<T>;
 
-    private _capacity : number;
+    #capacity : number;
 
-    private _size : number;
+    #size : number;
 
-    private _tZero : T;
+    #tZero : T;
 
     public constructor() {
-        this._size = 0;
-        this._capacity = 4;
+        this.#size = 0;
+        this.#capacity = 4;
         let genericT : Generic<T> = new Generic<T>();
-        this._tZero = genericT.zero();
-        this._array = Array.newArray(this._capacity, this._tZero);
+        this.#tZero = genericT.zero();
+        this.#array = Array.newArray(this.#capacity, this.#tZero);
     }
 
-    ensureCapacity(capacity : number) : void {
+    #ensureCapacity(capacity : number) : void {
         
-        if (this._capacity < capacity) {
-            this._capacity = this._capacity * 2;
-            let newArray : Array<T> = Array.newArray(this._capacity, this._tZero);
-            Array.copy(this._array, 0, newArray, 0, this._size);
-            this._array = newArray;
+        if (this.#capacity < capacity) {
+            this.#capacity = this.#capacity * 2;
+            let newArray : Array<T> = Array.newArray(this.#capacity, this.#tZero);
+            Array.copy(this.#array, 0, newArray, 0, this.#size);
+            this.#array = newArray;
         }
     }
 
     public add(element : T) : void {
-        this.ensureCapacity(this._size + 1);
-        this._array.set(this._size, element);
-        this._size++;
+        this.#ensureCapacity(this.#size + 1);
+        this.#array.set(this.#size, element);
+        this.#size++;
     }
 
     public addArray(src : Array<T>) : void {
-        this.ensureCapacity(this._size + src.size());
-        Array.copy(src, 0, this._array, this._size, src.size());
-        this._size += src.size();
+        this.#ensureCapacity(this.#size + src.size());
+        Array.copy(src, 0, this.#array, this.#size, src.size());
+        this.#size += src.size();
     }
 
     public addList(src : List<T>) : void {
-        this.addArray(src._array);
+        this.addArray(src.#array);
     }
 
-    checkIndexOutOfBounds(index : number) : void {
+    #checkIndexOutOfBounds(index : number) : void {
         
-        if (index < 0 || index > this._size) {
+        if (index < 0 || index > this.#size) {
             Panic.indexOutOfBounds(String.wrap("index is outside list bounds"));
         }
     }
 
     public insert(index : number, element : T) : void {
-        this.checkIndexOutOfBounds(index);
-        this.ensureCapacity(this._size + 1);
+        this.#checkIndexOutOfBounds(index);
+        this.#ensureCapacity(this.#size + 1);
         
-        if (index < this._size) {
-            Array.copy(this._array, index, this._array, index + 1, this._size - index);
+        if (index < this.#size) {
+            Array.copy(this.#array, index, this.#array, index + 1, this.#size - index);
         }
-        this._array.set(index, element);
-        this._size++;
+        this.#array.set(index, element);
+        this.#size++;
     }
 
     public insertArray(index : number, src : Array<T>) : void {
-        this.checkIndexOutOfBounds(index);
-        this.ensureCapacity(this._size + src.size());
+        this.#checkIndexOutOfBounds(index);
+        this.#ensureCapacity(this.#size + src.size());
         
-        if (index < this._size) {
-            Array.copy(this._array, index, this._array, index + src.size(), this._size - index);
+        if (index < this.#size) {
+            Array.copy(this.#array, index, this.#array, index + src.size(), this.#size - index);
         }
-        Array.copy(src, 0, this._array, index, src.size());
-        this._size += src.size();
+        Array.copy(src, 0, this.#array, index, src.size());
+        this.#size += src.size();
     }
 
     public insertList(index : number, src : List<T>) : void {
-        this.insertArray(index, src._array);
+        this.insertArray(index, src.#array);
     }
 
     public get(index : number) : T {
-        this.checkIndexOutOfBounds(index);
-        return this._array.get(index);
+        this.#checkIndexOutOfBounds(index);
+        return this.#array.get(index);
     }
 
     public removeIndex(index : number) : T {
-        this.checkIndexOutOfBounds(index);
-        let ret : T = this._array.get(index);
+        this.#checkIndexOutOfBounds(index);
+        let ret : T = this.#array.get(index);
         
-        if (index + 1 < this._size) {
-            Array.copy(this._array, index + 1, this._array, index, this._size - index - 1);
+        if (index + 1 < this.#size) {
+            Array.copy(this.#array, index + 1, this.#array, index, this.#size - index - 1);
         }
-        this._size--;
+        this.#size--;
         return ret;
     }
 
     public removeRange(index : number, count : number) : List<T> {
-        this.checkIndexOutOfBounds(index);
+        this.#checkIndexOutOfBounds(index);
         
-        if (index + count > this._size) {
-            count = this._size - index;
+        if (index + count > this.#size) {
+            count = this.#size - index;
         }
         let ret : List<T> = new List<T>();
-        let removed : Array<T> = Array.newArray(count, this._tZero);
-        Array.copy(this._array, index, removed, 0, count);
+        let removed : Array<T> = Array.newArray(count, this.#tZero);
+        Array.copy(this.#array, index, removed, 0, count);
         ret.addArray(removed);
         
-        if (index + count < this._size) {
-            Array.copy(this._array, index + count, this._array, index, this._size - index - count);
+        if (index + count < this.#size) {
+            Array.copy(this.#array, index + count, this.#array, index, this.#size - index - count);
         }
-        this._size = this._size - count;
+        this.#size = this.#size - count;
         return ret;
     }
 
     public size() : number {
-        return this._size;
+        return this.#size;
     }
 }
 

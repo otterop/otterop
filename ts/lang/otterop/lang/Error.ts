@@ -2,21 +2,21 @@ import { String } from './String';
 
 export class Error {
 
-    private _code : number;
+    #code : number;
 
-    private _message : String;
+    #message : String;
 
     public constructor(code : number, message : String) {
-        this._code = code;
-        this._message = message;
+        this.#code = code;
+        this.#message = message;
     }
 
     public code() : number {
-        return this._code;
+        return this.#code;
     }
 
     public message() : String {
-        return this._message;
+        return this.#message;
     }
 }
 

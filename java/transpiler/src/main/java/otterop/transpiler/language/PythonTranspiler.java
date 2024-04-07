@@ -54,11 +54,14 @@ public class PythonTranspiler extends AbstractTranspiler {
                 fileWriter, executorService, classReader, config);
     }
 
-    private String getCodePath(String[] clazzParts, boolean pure, boolean isTest) {
+    private String getCodePath(String[] clazzParts, boolean pure, boolean isTest, boolean isInternal) {
         int len = !pure ? clazzParts.length : clazzParts.length + 1;
         String[] newClassParts = Arrays.copyOf(clazzParts, len);
         newClassParts[newClassParts.length - 1] = CaseUtil.camelCaseToSnakeCase(clazzParts[clazzParts.length - 1])
                 .replaceAll("$", ".py");
+        if (isInternal) {
+            newClassParts[newClassParts.length - 1] = "_" + newClassParts[newClassParts.length - 1];
+        }
 
         if (isTest && !newClassParts[newClassParts.length - 1].startsWith("test_")) {
             newClassParts[newClassParts.length - 1] = "test_" + newClassParts[newClassParts.length - 1];
@@ -76,7 +79,7 @@ public class PythonTranspiler extends AbstractTranspiler {
                                JavaParser.CompilationUnitContext compilationUnitContext,
                                boolean isTest) throws IOException {
         if (visitor.makePure()) {
-            var codePath = getCodePath(clazzParts, true, false);
+            var codePath = getCodePath(clazzParts, true, false, false);
             var outCodePath = getPath(codePath, isTest);
             var pureVisitor = new PurePythonParserVisitor();
             pureVisitor.visit(compilationUnitContext);
@@ -89,7 +92,7 @@ public class PythonTranspiler extends AbstractTranspiler {
                                   Future<JavaParser.CompilationUnitContext> compilationUnitContext,
                                   boolean isTest) {
         return this.executorService().submit(() -> {
-            var codePath = getCodePath(clazzParts, false, false);
+            var codePath = getCodePath(clazzParts, false, false, false);
             String outCodePath = getPath(codePath, isTest);
 
             if (ignoreFile().ignores(codePath)) {
@@ -97,11 +100,11 @@ public class PythonTranspiler extends AbstractTranspiler {
                 return null;
             }
 
-            PythonParserVisitor visitor = new PythonParserVisitor();
+            PythonParserVisitor visitor = new PythonParserVisitor(classReader());
             visitor.visit(compilationUnitContext.get());
 
             if (isTest && visitor.testClass()) {
-                var testCodePath= getCodePath(clazzParts, false, true);
+                var testCodePath= getCodePath(clazzParts, false, true, false);
                 if (!testCodePath.equals(codePath)) {
                     outCodePath = getPath(testCodePath, true);
                     if (ignoreFile().ignores(testCodePath)) {
@@ -109,6 +112,9 @@ public class PythonTranspiler extends AbstractTranspiler {
                         return null;
                     }
                 }
+            } else if (!isTest && !visitor.classPublic()) {
+                codePath = getCodePath(clazzParts, false, false, true);
+                outCodePath = getPath(codePath, isTest);
             }
 
             visitor.printTo(fileWriter().getPrintStream(outCodePath));

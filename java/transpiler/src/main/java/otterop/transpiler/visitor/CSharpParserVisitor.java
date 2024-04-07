@@ -51,6 +51,7 @@ import static otterop.transpiler.util.CaseUtil.camelCaseToPascalCase;
 public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
     private boolean memberStatic = false;
     private boolean memberPublic = false;
+    private boolean memberPrivate = false;
     private boolean classPublic = false;
     private boolean isGenericClass = false;
     private boolean insideConstructor = false;
@@ -228,8 +229,10 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print(INDENT.repeat(indents));
         if (memberPublic) {
             out.print("public ");
-        } else {
+        } else if (memberPrivate) {
             out.print("private ");
+        } else {
+            out.print("internal ");
         }
         var name = ctx.identifier().getText();
         name = camelCaseToPascalCase(name);
@@ -324,6 +327,10 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print(INDENT.repeat(indents));
         if (memberPublic) {
             out.print("public ");
+        } else if (memberPrivate) {
+            out.print("private ");
+        } else {
+            out.print("internal ");
         }
         if (isNewMethod) {
             out.print("new ");
@@ -345,6 +352,8 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         } else
             visitMethodBody(ctx.methodBody());
         this.isNewMethod = false;
+        this.memberPrivate = false;
+        this.memberPublic = isInterface;
         out.print("\n");
         return null;
     }
@@ -382,8 +391,14 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
     public Void visitModifier(JavaParser.ModifierContext ctx) {
         if (ctx.getText().equals("static"))
             memberStatic = true;
-        if (ctx.getText().equals("public"))
-            memberPublic = true;
+        else if (ctx.getText().equals("public")) {
+                memberPublic = true;
+                memberPrivate = false;
+        } else if (ctx.getText().equals("private")) {
+                memberPublic = false;
+                memberPrivate = true;
+        }
+
         super.visitModifier(ctx);
         return null;
     }
@@ -408,13 +423,26 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
                 out.print("else if (");
                 visitParExpression(ctx.statement(1).parExpression());
                 out.print(")");
-                super.visitStatement(ctx.statement(1).statement(0));
+                checkSingleLineStatement(ctx.statement(1).statement(0));
                 checkElseStatement(ctx.statement(1));
             } else {
                 out.print(INDENT.repeat(indents));
                 out.print("else");
-                super.visitStatement(ctx.statement(1));
+                checkSingleLineStatement(ctx.statement(1));
             }
+        }
+    }
+
+    private void checkSingleLineStatement(JavaParser.StatementContext ctx) {
+        if (ctx.SEMI() != null) {
+            out.println();
+            indents++;
+            out.print(INDENT.repeat(indents));
+        }
+        visitStatement(ctx);
+        if (ctx.SEMI() != null) {
+            out.println();
+            indents--;
         }
     }
 
@@ -425,7 +453,7 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
             if(ctx.WHILE() != null) out.print("while (");
             super.visit(ctx.parExpression());
             out.print(")");
-            super.visitStatement(ctx.statement(0));
+            checkSingleLineStatement(ctx.statement(0));
             checkElseStatement(ctx);
         } else if (ctx.FOR() != null) {
             var forControl = ctx.forControl();
@@ -439,7 +467,7 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
                 visitChildren(forControl.forUpdate);
             }
             out.print(")");
-            visitStatement(ctx.statement(0));
+            checkSingleLineStatement(ctx.statement(0));
         } else {
             if (ctx.RETURN() != null) {
                 out.print("return ");
@@ -469,8 +497,11 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print(INDENT.repeat(indents));
         if (memberPublic)
             out.print("public ");
-        else
+        else if (memberPrivate)
             out.print("private ");
+        else
+            out.print("internal ");
+
         if (memberStatic)
             out.print("static ");
 
@@ -478,6 +509,8 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print(" ");
         visitVariableDeclarators(ctx.variableDeclarators());
         out.print(";\n");
+        this.memberPrivate = false;
+        this.memberPublic = false;
         return null;
     }
 

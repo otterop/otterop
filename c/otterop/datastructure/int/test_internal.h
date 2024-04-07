@@ -1,0 +1,16 @@
+#ifndef __otterop_datastructure_TestInternal_int
+#define __otterop_datastructure_TestInternal_int
+
+typedef struct otterop_datastructure_TestInternal_s otterop_datastructure_TestInternal_t;
+
+
+
+
+void otterop_datastructure_TestInternal_test_method(otterop_datastructure_TestInternal_t *this);
+
+
+void otterop_datastructure_TestInternal_test_method2();
+
+
+otterop_datastructure_TestInternal_t* otterop_datastructure_TestInternal_new();
+#endif
