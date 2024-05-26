@@ -70,7 +70,7 @@ public class Array
     }
 }
 
-public class Array<T> : Array
+public class Array<T> : Array, Otterop.Lang.OOPIterable<T>, IEnumerable<T>
 {
     internal T[] wrapped;
 
@@ -108,5 +108,20 @@ public class Array<T> : Array
     public int Size()
     {
         return end - start;
+    }
+
+    public Otterop.Lang.OOPIterator<T> OOPIterator()
+    {
+        return new ArrayIterator<T>(this);
+    }
+
+    public IEnumerator<T> GetEnumerator()
+    {
+        return Otterop.Lang.PureIterator.NewIterator(OOPIterator());
+    }
+
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+    {
+        return GetEnumerator();
     }
 }

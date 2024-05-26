@@ -5,7 +5,7 @@ class ArrayIterator<T> implements OOPIterator<T> {
     private Array<T> array;
     private int i;
 
-    public ArrayIterator(Array<T> array) {
+    ArrayIterator(Array<T> array) {
         this.array = array;
         this.i = 0;
     }

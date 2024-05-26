@@ -31,6 +31,7 @@
 
 #include "array.h"
 #include <otterop/lang/panic.h>
+#include <otterop/lang/int/array_iterator.h>
 
 typedef struct otterop_lang_Array_s {
     void **wrapped;
@@ -94,4 +95,14 @@ otterop_lang_Array_t *otterop_lang_Array_slice(otterop_lang_Array_t *this, int s
 
 int otterop_lang_Array_size(otterop_lang_Array_t *this) {
     return this->end - this->start;
+}
+
+otterop_lang_OOPIterator_t *otterop_lang_Array_oop_iterator(otterop_lang_Array_t *this) {
+    return otterop_lang_ArrayIterator__to_otterop_lang_OOPIterator(otterop_lang_ArrayIterator_new(this));
+}
+
+otterop_lang_OOPIterable_t
+*otterop_lang_Array__to_otterop_lang_OOPIterable(otterop_lang_Array_t *this) {
+    return otterop_lang_OOPIterable_new(this,
+        (otterop_lang_OOPIterator_t * (*)(void *)) otterop_lang_Array_oop_iterator);
 }

@@ -29,8 +29,10 @@
 #
 
 
-from otterop.lang.string import String
-from otterop.lang.panic import Panic
+from otterop.lang.string import String as _String
+from otterop.lang.panic import Panic as _Panic
+from otterop.lang.pure_iterator import PureIterator as _PureIterator
+from otterop.lang._array_iterator import ArrayIterator as _ArrayIterator
 
 class Array:
     def __init__(self, list, start, end):
@@ -58,6 +60,12 @@ class Array:
     def unwrap(self):
         return self._wrapped
 
+    def oop_iterator(self):
+        return _ArrayIterator(self)
+
+    def __iter__(self):
+        return _PureIterator.new_iterator(self.oop_iterator())
+
     @staticmethod
     def new_array(size, clazz):
         return Array([None] * size, 0, size)
@@ -65,9 +73,9 @@ class Array:
     @staticmethod
     def copy(src, src_pos, dst, dst_pos, length):
         if src._start + src_pos + length > src._end:
-            Panic.index_out_of_bounds("source index out of bounds")
+            _Panic.index_out_of_bounds("source index out of bounds")
         if dst._start + dst_pos + length > dst._end:
-            Panic.index_out_of_bounds("destination index out of bounds")
+            _Panic.index_out_of_bounds("destination index out of bounds")
         dst._wrapped[dst._start + dst_pos:dst._start + dst_pos + length] = src._wrapped[src._start + src_pos:src._start + src_pos + length]
 
     @staticmethod
@@ -76,5 +84,5 @@ class Array:
 
     @staticmethod
     def wrap_string(list):
-        list = [ String.wrap(s) for s in list ]
+        list = [ _String.wrap(s) for s in list ]
         return Array.wrap(list)

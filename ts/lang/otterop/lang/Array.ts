@@ -32,7 +32,11 @@
 
 import { String } from './String';
 import { Panic } from './Panic';
-class ArrayOtterOP<T> {
+import { OOPIterable } from './OOPIterable';
+import { OOPIterator } from './OOPIterator';
+import { ArrayIterator } from './ArrayIterator';
+import { PureIterator } from './PureIterator';
+class ArrayOtterOP<T> implements OOPIterable<T>, Iterable<T>{
     private wrapped : T[];
     private start : number;
     private end : number;
@@ -87,6 +91,14 @@ class ArrayOtterOP<T> {
             Panic.indexOutOfBounds(String.wrap("destination index out of bounds"));
         dst.wrapped = dst.wrapped.slice(dst.start, dst.start + dstPos).concat(src.wrapped.slice(src.start + srcPos, src.start + srcPos + length))
             .concat(dst.wrapped.slice(dst.start + dstPos + length));
+    }
+
+    public OOPIterator(): OOPIterator<T> {
+        return new ArrayIterator(this);
+    }
+
+    [Symbol.iterator](): Iterator<T, any, undefined> {
+        return PureIterator.newIterator(this.OOPIterator());
     }
 }
 

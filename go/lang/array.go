@@ -96,3 +96,7 @@ func ArrayCopy[T any](src *Array[T], srcPos int, dst *Array[T], dstPos int, leng
     copy(dst.wrapped[dst.start + dstPos:dst.start + dstPos + length],
          src.wrapped[src.start + srcPos:src.start + srcPos + length])
 }
+
+func (this *Array[T]) OOPIterator() OOPIterator[T] {
+    return arrayIteratorNew[T](this)
+}

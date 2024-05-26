@@ -4,3 +4,4 @@
 !generic.*
 !oop_iterable.*
 !oop_iterator.*
+!array_iterator.*

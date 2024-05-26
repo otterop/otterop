@@ -4,6 +4,7 @@
 !otterop/lang/Generic.java
 !otterop/lang/OOPIterable.java
 !otterop/lang/OOPIterator.java
+!otterop/lang/ArrayIterator.java
 !otterop/datastructure/List.java
 !otterop/datastructure/ListIterator.java
 !otterop/datastructure/LinkedList.java
