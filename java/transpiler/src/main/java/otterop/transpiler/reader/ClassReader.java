@@ -76,6 +76,10 @@ public class ClassReader {
                 getClass(className).get().getModifiers());
     }
 
+    public boolean isInterface(String className) {
+        return getClass(className).get().isInterface();
+    }
+
     public boolean isPublicMethod(Method m) {
         return Modifier.isPublic(m.getModifiers());
     }
@@ -95,7 +99,8 @@ public class ClassReader {
         var ret = new ArrayList<Method>(methods.length);
         for (Method m : methods) {
             var declaringClass = m.getDeclaringClass();
-            if (declaringClass.equals(clazz) || declaringClass.equals(Object.class))
+            if (declaringClass.equals(clazz) || declaringClass.equals(Object.class)
+                || declaringClass.equals(Iterable.class))
                 continue;
             ret.add(m);
         }

@@ -2,12 +2,18 @@
 #define __otterop_datastructure_List_int
 #include <otterop/lang/array.h>
 #include <otterop/lang/generic.h>
+#include <otterop/lang/oop_iterable.h>
+#include <otterop/lang/oop_iterator.h>
 #include <otterop/lang/panic.h>
+#include <otterop/lang/pure_iterator.h>
 #include <otterop/lang/string.h>
 
 typedef struct otterop_lang_Array_s otterop_lang_Array_t;
 typedef struct otterop_lang_Generic_s otterop_lang_Generic_t;
+typedef struct otterop_lang_OOPIterable_s otterop_lang_OOPIterable_t;
+typedef struct otterop_lang_OOPIterator_s otterop_lang_OOPIterator_t;
 typedef struct otterop_lang_Panic_s otterop_lang_Panic_t;
+typedef struct otterop_lang_PureIterator_s otterop_lang_PureIterator_t;
 typedef struct otterop_lang_String_s otterop_lang_String_t;
 
 typedef struct otterop_datastructure_List_s otterop_datastructure_List_t;
@@ -48,5 +54,13 @@ otterop_datastructure_List_t *otterop_datastructure_List_remove_range(otterop_da
 
 
 int otterop_datastructure_List_size(otterop_datastructure_List_t *this);
+
+
+otterop_lang_OOPIterator_t *otterop_datastructure_List_oop_iterator(otterop_datastructure_List_t *this);
+
+
+otterop_lang_OOPIterable_t
+*otterop_datastructure_List__to_otterop_lang_OOPIterable(otterop_datastructure_List_t *this);
+
 
 #endif

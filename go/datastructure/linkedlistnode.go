@@ -14,6 +14,8 @@ type LinkedListNode[T any] struct {
 
 func LinkedListNodeNew[T any](value T) *LinkedListNode[T] {
     this := new(LinkedListNode[T])
+    this.prev = nil
+    this.next = nil
     this.value = value
     return this
 }

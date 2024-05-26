@@ -50,6 +50,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static otterop.transpiler.util.CaseUtil.camelCaseToSnakeCase;
+import static otterop.transpiler.util.CaseUtil.isClassName;
 
 public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
     private boolean memberStatic = false;
@@ -163,6 +164,7 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
         String className = null;
         if (variableType != null && variableType.classOrInterfaceType() != null) {
             className = variableType.classOrInterfaceType().identifier(0).getText();
+            checkCurrentPackageImportsAndAdd(className, false);
         } else {
             className = this.className;
         }
@@ -184,11 +186,17 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
         } else {
             out.print(INDENT.repeat(indents) + "def ");
         }
-        var name = camelCaseToSnakeCase(ctx.identifier().getText());
-        if (name.equals("main")) hasMain = true;
 
-        if (!memberPublic)
-            out.print("_");
+        var name = ctx.identifier().getText();
+        if (name.equals("iterator")) {
+            name = "__iter__";
+        } else {
+            name = camelCaseToSnakeCase(name);
+            if (name.equals("main")) hasMain = true;
+
+            if (!memberPublic || "is".equals(name))
+                out.print("_");
+        }
         out.print(name);
         visitFormalParameters(ctx.formalParameters());
         visitMethodBody(ctx.methodBody());
@@ -283,21 +291,32 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
             skipNewlines++;
         } else if (ctx.FOR() != null) {
             var forControl = ctx.forControl();
-            visitChildren(forControl.forInit());
-            out.print("\n");
-            out.print(INDENT.repeat(indents));
-            out.print("while ");
-            if (forControl.expression() != null)
-                visitExpression(forControl.expression());
-            else
-                out.print("True");
-            out.print(":\n");
-            checkSingleLineStatement(ctx.statement(0));
-            if (forControl.forUpdate != null) {
-                indents++;
+            if (ctx.forControl().enhancedForControl() != null) {
+                out.print("for ");
+                var enhancedForControl = forControl.enhancedForControl();
+                visitVariableDeclaratorId(enhancedForControl.variableDeclaratorId());
+                out.print(" in ");
+                visitExpression(enhancedForControl.expression());
+                out.print(":\n");
+                checkSingleLineStatement(ctx.statement(0));
+            } else {
+                visitChildren(forControl.forInit());
+                out.print("\n");
                 out.print(INDENT.repeat(indents));
-                visitChildren(forControl.forUpdate);
-                indents--;
+                out.print("while ");
+                if (forControl.expression() != null)
+                    visitExpression(forControl.expression());
+                else
+                    out.print("True");
+
+                out.print(":\n");
+                checkSingleLineStatement(ctx.statement(0));
+                if (forControl.forUpdate != null) {
+                    indents++;
+                    out.print(INDENT.repeat(indents));
+                    visitChildren(forControl.forUpdate);
+                    indents--;
+                }
             }
         } else {
             if (ctx.RETURN() != null) {
@@ -370,8 +389,9 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
                 out.print("_");
             if (staticImport)
                 out.print(staticImports.get(methodName));
-            else
-                visitIdentifier(ctx.identifier());
+            else {
+                out.print(camelCaseToSnakeCase(methodName));
+            }
         }
         out.print("(");
         visitExpressionList(ctx.expressionList());
@@ -404,18 +424,32 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
     }
 
     private void checkCurrentPackageImports(String name) {
+        checkCurrentPackageImportsAndAdd(name, true);
+    }
+
+    private void checkCurrentPackageImportsAndAdd(String name, boolean add) {
         if (CaseUtil.isClassName(name) && !className.equals(name) &&
                 !importedClasses.contains(name)) {
+            if ("Iterator".equals(name))
+                return;
+
             var javaFullClassName = javaFullPackageName + "." + name;
-            var pythonPackage = camelCaseToSnakeCase(name);
-            if (!classReader.isPublicClass(javaFullClassName)) {
-                pythonPackage = "_" + pythonPackage;
-            }
-            var importStatement = "from " + currentPythonPackage + "." + pythonPackage + " import "+ name + " as _"+ name;
-            fromImports.add(importStatement);
-            importedClasses.add(name);
             javaFullClassNames.put(name, javaFullPackageName + "." + name);
+            if (add) {
+                var pythonPackage = camelCaseToSnakeCase(name);
+                if (!classReader.isPublicClass(javaFullClassName)) {
+                    pythonPackage = "_" + pythonPackage;
+                }
+                var importStatement = "from " + currentPythonPackage + "." + pythonPackage + " import " + name + " as _" + name;
+                fromImports.add(importStatement);
+                importedClasses.add(name);
+            }
         }
+    }
+
+    private boolean isPrivateAttribute(String attributeOf, String attribute) {
+        return !isClassName(attributeOf) || (attributeOf.equals(className) &&
+                attributePrivate.contains(attribute));
     }
 
     @Override
@@ -441,13 +475,13 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
 
             if (!bop.equals(".")) bop = " " + bop + " ";
             out.print(bop);
-            if (ctx.expression(1) != null) visitExpression(ctx.expression(1));
-            else if (ctx.methodCall() != null)
+            if (ctx.expression(1) != null) {
+                visitExpression(ctx.expression(1));
+            } else if (ctx.methodCall() != null)
                 visitMethodCall(ctx.methodCall());
             else if (ctx.identifier() != null) {
                 if (bop.equals(".")
-                        && (attributePrivate.contains(ctx.identifier().getText())
-                            || THIS.equals(name))) {
+                        && isPrivateAttribute(name, ctx.identifier().getText())) {
                     out.print("_");
                 }
                 visitIdentifier(ctx.identifier());
@@ -495,6 +529,9 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
                 .collect(Collectors.joining("."));
         this.javaFullClassNames.put(className, javaFullClassName);
 
+        if (this.classReader.isInterface(javaFullClassName))
+            return null;
+
         if (!excludeImports(javaFullClassName)) {
             if (!classReader.isPublicClass(javaFullClassName)) {
                 pythonPackage = "_" + pythonPackage;
@@ -505,6 +542,8 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
             if (isStatic) {
                 var methodName = identifiers.get(classNameIdx + 1).getText();
                 var methodNameSnake = camelCaseToSnakeCase(methodName);
+                if ("is".equals(methodNameSnake))
+                    methodNameSnake = "_is";
                 staticImports.put(methodName, className + "." + methodNameSnake);
             }
         }

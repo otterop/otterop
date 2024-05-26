@@ -2,10 +2,15 @@ package otterop.datastructure;
 
 import otterop.lang.Array;
 import otterop.lang.Generic;
+import otterop.lang.OOPIterable;
+import otterop.lang.OOPIterator;
 import otterop.lang.Panic;
+import otterop.lang.PureIterator;
 import otterop.lang.String;
 
-public class List<T> {
+import java.util.Iterator;
+
+public class List<T> implements OOPIterable<T>, Iterable<T> {
 
     private Array<T> array;
     private int capacity;
@@ -110,5 +115,13 @@ public class List<T> {
 
     public int size() {
         return this.size;
+    }
+
+    public OOPIterator<T> OOPIterator() {
+        return new ListIterator<T>(this);
+    }
+
+    public Iterator<T> iterator() {
+        return PureIterator.newIterator(this.OOPIterator());
     }
 }

@@ -1,11 +1,17 @@
 #ifndef __otterop_datastructure_LinkedList_int
 #define __otterop_datastructure_LinkedList_int
+#include <otterop/lang/oop_iterable.h>
+#include <otterop/lang/oop_iterator.h>
 #include <otterop/lang/panic.h>
+#include <otterop/lang/pure_iterator.h>
 #include <otterop/lang/string.h>
 #include <otterop/lang/oop_object.h>
 #include <otterop/datastructure/int/linked_list_node.h>
 
+typedef struct otterop_lang_OOPIterable_s otterop_lang_OOPIterable_t;
+typedef struct otterop_lang_OOPIterator_s otterop_lang_OOPIterator_t;
 typedef struct otterop_lang_Panic_s otterop_lang_Panic_t;
+typedef struct otterop_lang_PureIterator_s otterop_lang_PureIterator_t;
 typedef struct otterop_lang_String_s otterop_lang_String_t;
 typedef struct otterop_lang_OOPObject_s otterop_lang_OOPObject_t;
 typedef struct otterop_datastructure_LinkedListNode_s otterop_datastructure_LinkedListNode_t;
@@ -57,5 +63,19 @@ void otterop_datastructure_LinkedList_remove_node(otterop_datastructure_LinkedLi
 
 
 int otterop_datastructure_LinkedList_size(otterop_datastructure_LinkedList_t *this);
+
+
+otterop_datastructure_LinkedListNode_t *otterop_datastructure_LinkedList_first(otterop_datastructure_LinkedList_t *this);
+
+
+otterop_datastructure_LinkedListNode_t *otterop_datastructure_LinkedList_last(otterop_datastructure_LinkedList_t *this);
+
+
+otterop_lang_OOPIterator_t *otterop_datastructure_LinkedList_oop_iterator(otterop_datastructure_LinkedList_t *this);
+
+
+otterop_lang_OOPIterable_t
+*otterop_datastructure_LinkedList__to_otterop_lang_OOPIterable(otterop_datastructure_LinkedList_t *this);
+
 
 #endif

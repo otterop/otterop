@@ -39,6 +39,7 @@ import otterop.transpiler.antlr.JavaParser;
 import otterop.transpiler.antlr.JavaParserBaseVisitor;
 import otterop.transpiler.reader.ClassReader;
 import otterop.transpiler.util.CaseUtil;
+import otterop.transpiler.util.MapStack;
 import otterop.transpiler.util.PrintStreamStack;
 import otterop.transpiler.visitor.clazz.CClassVisitor;
 
@@ -74,6 +75,8 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     private boolean insideMemberDeclaration = false;
     private boolean insideFormalParameters = false;
     private boolean insideStaticField = false;
+    private boolean insideReturnType = false;
+    private boolean isIterableMethod = false;
     private String className = null;
     private String basePackage = null;
     private String fullClassName = null;
@@ -90,6 +93,8 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     private String javaPackagePrefix = null;
     private String currentTypeName = null;
     private String currentTypeFullClassName = null;
+    private String returnTypeFullClassName = null;
+    private String enhancedForControlVariable = null;
     private boolean currentTypePointer = false;
     private String currentInstanceName;
     private Set<String> includes = new LinkedHashSet<>();
@@ -117,7 +122,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     private Map<String,String> methodNameFull = new LinkedHashMap<>();
     private Set<String> arrayArgs = new LinkedHashSet<>();
     private Map<String, String> fieldVariableType = new LinkedHashMap<>();
-    private Map<String, String> variableType = new LinkedHashMap<>();
+    private MapStack<String, String> variableType = new MapStack<>();
     private PrintStreamStack out = new PrintStreamStack(outStream);
     private Map<String,String> importDomainMapping;
     private boolean header = false;
@@ -300,9 +305,11 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     private void implementInterfaces(List<JavaParser.TypeTypeContext> typeTypes) {
         for (JavaParser.TypeTypeContext typeType : typeTypes) {
             if (!typeType.classOrInterfaceType().isEmpty()) {
-                var className = typeType.classOrInterfaceType().getText();
+                var className = typeType.classOrInterfaceType().identifier(0).getText();
                 var javaFullClassName = this.javaFullClassNames.getOrDefault(className, className);
                 if (!javaFullClassName.contains(".")) {
+                    if ("Iterable".equals(className))
+                        continue;
                     javaFullClassName = javaPackagePrefix + "." + javaFullClassName;
                 }
                 var interfaceFullClassName = Arrays.stream(javaFullClassName.split("\\."))
@@ -346,7 +353,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
                     out.print(") ");
                     out.print(fullClassName);
                     out.print("_");
-                    out.print(method);
+                    out.print(camelCaseToSnakeCase(method));
                 }
                 indents--;
                 out.print(");\n");
@@ -568,9 +575,11 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print("this->");
         out.print(methodName);
         out.print("(this->implementation");
-        for(var arg: ctx.formalParameters().formalParameterList().formalParameter()) {
-            out.print(", ");
-            visitVariableDeclaratorId(arg.variableDeclaratorId());
+        if (ctx.formalParameters().formalParameterList() != null) {
+            for (var arg : ctx.formalParameters().formalParameterList().formalParameter()) {
+                out.print(", ");
+                visitVariableDeclaratorId(arg.variableDeclaratorId());
+            }
         }
         out.print(");\n");
         indents--;
@@ -618,7 +627,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     public Void visitInterfaceCommonBodyDeclaration(JavaParser.InterfaceCommonBodyDeclarationContext ctx) {
         visitTypeParameters(methodTypeParametersContext, false, true);
         currentTypePointer = false;
-        variableType.clear();
+        variableType.newContext();
         arrayArgs.clear();
         out.print("\n\n");
         if (ctx.typeTypeOrVoid().VOID() != null) out.print("void");
@@ -635,7 +644,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         if (insideMemberDeclaration) out.print(";\n");
         else interfaceMethodImplementation(ctx, name);
         arrayArgs.clear();
-        variableType.clear();
+        variableType.endContext();
         return null;
     }
 
@@ -664,20 +673,37 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     public Void visitMethodDeclaration(JavaParser.MethodDeclarationContext ctx) {
         if (isTestMethod)
             testMethods.add(ctx);
-        visitTypeParameters(methodTypeParametersContext, false, true);
+
         currentTypePointer = false;
-        variableType.clear();
+        variableType.newContext();
         arrayArgs.clear();
-        out.print("\n\n");
+        returnTypeFullClassName = null;
+
+        out.startCapture();
         if (ctx.typeTypeOrVoid().VOID() != null) out.print("void");
-        else visitTypeTypeOrVoid(ctx.typeTypeOrVoid());
+        else {
+            insideReturnType = true;
+            visitTypeTypeOrVoid(ctx.typeTypeOrVoid());
+            insideReturnType = false;
+        }
+        String typeTypeString = out.endCapture();
+
+        if (isIterableMethod) {
+            isIterableMethod = false;
+            return null;
+        }
+
+        out.print("\n\n");
+        visitTypeParameters(methodTypeParametersContext, false, true);
+        out.print(typeTypeString);
         visitMethodName(ctx.identifier().getText(), false);
         visitFormalParameters(ctx.formalParameters());
         if (insideMemberDeclaration) out.print(";\n");
         else visitMethodBody(ctx.methodBody());
         this.isMain = false;
         arrayArgs.clear();
-        variableType.clear();
+        variableType.endContext();
+        returnTypeFullClassName = null;
         return null;
     }
 
@@ -788,7 +814,15 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     @Override
     public Void visitBlock(JavaParser.BlockContext ctx) {
         out.print(" {\n");
+        variableType.newContext();
         indents++;
+        if (enhancedForControlVariable != null) {
+            out.print(INDENT.repeat(indents));
+            out.print(enhancedForControlVariable);
+            out.println(";");
+            this.enhancedForControlVariable = null;
+        }
+
         var insideConstructorFirst = this.insideConstructor;
         this.insideConstructor = false;
         if (insideConstructorFirst) {
@@ -799,6 +833,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
             out.print(INDENT.repeat(indents));
             out.print("return this;\n");
         }
+        variableType.endContext();
         indents--;
         out.print(INDENT.repeat(indents));
         out.print("}");
@@ -830,6 +865,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         if (ctx.SEMI() != null) {
             out.println();
             indents--;
+            out.print(INDENT.repeat(indents));
         }
     }
 
@@ -846,25 +882,65 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
             checkElseStatement(ctx);
         } else if (ctx.FOR() != null) {
             var forControl = ctx.forControl();
-            out.print("for (");
-            visitChildren(forControl.forInit());
-            out.print("; ");
-            if (forControl.expression() != null)
-                visitExpression(forControl.expression());
-            out.print("; ");
-            if (forControl.forUpdate != null) {
-                visitChildren(forControl.forUpdate);
+            variableType.newContext();
+            if (forControl.enhancedForControl() != null) {
+                JavaParser.EnhancedForControlContext enhancedForControlContext = forControl.enhancedForControl();
+                out.startCapture();
+                visitExpression(enhancedForControlContext.expression());
+                String iterableVariableName = out.endCapture();
+                String iteratorVariableName = "__it_" + iterableVariableName;
+
+                out.startCapture();
+                visitTypeType(enhancedForControlContext.typeType());
+                String elementVariableType = enhancedForControlContext.typeType().classOrInterfaceType().getText();
+                out.print(" ");
+
+                visitVariableDeclaratorId(enhancedForControlContext.variableDeclaratorId());
+                String variableName = enhancedForControlContext.variableDeclaratorId().getText();
+
+                out.print(" = otterop_lang_OOPIterator_next(");
+                out.print(iteratorVariableName);
+                out.print(")");
+                enhancedForControlVariable = out.endCapture();
+
+                variableType.put(variableName, elementVariableType);
+
+                out.print("otterop_lang_OOPIterator_t *");
+
+                out.print(iteratorVariableName + " = ");
+                String iterableClassName =
+                        variableType.get(enhancedForControlContext.expression().getText());
+                out.print(fullClassNames.get(iterableClassName));
+                out.print("_oop_iterator(");
+                out.print(iterableVariableName);
+                out.print(");\n");
+                out.print(INDENT.repeat(indents));
+                out.print("for (; otterop_lang_OOPIterator_has_next(");
+                out.print(iteratorVariableName + ");)");
+            } else {
+                out.print("for (");
+                visitChildren(forControl.forInit());
+                out.print("; ");
+                if (forControl.expression() != null)
+                    visitExpression(forControl.expression());
+                out.print("; ");
+                if (forControl.forUpdate != null) {
+                    visitChildren(forControl.forUpdate);
+                }
+                out.print(")");
             }
-            out.print(")");
             checkSingleLineStatement(ctx.statement(0));
+            variableType.endContext();
         } else {
             if (ctx.RETURN() != null) {
+                this.currentTypeFullClassName = this.returnTypeFullClassName;
                 out.print("return ");
             }
             super.visitStatement(ctx);
             if (ctx.SEMI() != null) {
                 out.print(";");
             }
+            this.currentTypeFullClassName = null;
         }
         return null;
     }
@@ -1052,7 +1128,8 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
 
     private boolean excludeImports(String javaFullClassName) {
         return Otterop.WRAPPED_CLASS.equals(javaFullClassName) ||
-               Otterop.TEST_ANNOTATION.equals(javaFullClassName);
+               Otterop.TEST_ANNOTATION.equals(javaFullClassName) ||
+               Otterop.ITERATOR.equals(javaFullClassName);
     }
 
     private String javaFullClassNameToC(List<String> identifiers) {
@@ -1270,6 +1347,8 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         } else if ("Object".equals(className)) {
             currentTypePointer = true;
             out.print("void");
+        } else if (Otterop.ITERATOR.equals(javaFullClassNames.get(className))) {
+            this.isIterableMethod = true;
         } else if ("java.lang.String".equals(className)) {
             currentTypePointer = true;
             out.print("char");
@@ -1280,9 +1359,13 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
             currentTypePointer = true;
             out.print("void");
         } else {
-            currentTypePointer = true;
             checkCurrentPackageImports(className);
-            out.print(fullClassNames.get(className) + "_t");
+            String fullClassName = fullClassNames.get(className);
+            if (this.insideReturnType) {
+                this.returnTypeFullClassName = fullClassName;
+            }
+            currentTypePointer = true;
+            out.print(fullClassName + "_t");
         }
     }
 

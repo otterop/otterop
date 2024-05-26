@@ -1,5 +1,6 @@
 #include <otterop/datastructure/int/linked_list_node.h>
 #include <gc.h>
+#include <stdlib.h>
 
 typedef struct otterop_datastructure_LinkedListNode_s otterop_datastructure_LinkedListNode_t;
 
@@ -15,6 +16,8 @@ typedef struct otterop_datastructure_LinkedListNode_s {
 
 otterop_datastructure_LinkedListNode_t *otterop_datastructure_LinkedListNode_new(void *value) {
     otterop_datastructure_LinkedListNode_t *this = GC_malloc(sizeof(otterop_datastructure_LinkedListNode_t));
+    this->prev = NULL;
+    this->next = NULL;
     this->value = value;
     return this;
 }

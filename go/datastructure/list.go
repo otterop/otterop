@@ -121,3 +121,7 @@ func (this *List[T]) RemoveRange(index int, count int) *List[T] {
 func (this *List[T]) Size() int {
     return this.size
 }
+
+func (this *List[T]) OOPIterator() lang.OOPIterator[T] {
+    return listIteratorNew[T](this)
+}

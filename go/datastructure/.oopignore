@@ -1,4 +1,5 @@
 **
 !list.go
+!listiterator.go
 !linkedlist*.go
 !**test*.go

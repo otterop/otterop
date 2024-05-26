@@ -1,0 +1,26 @@
+#ifndef __otterop_datastructure_LinkedListIterator_int
+#define __otterop_datastructure_LinkedListIterator_int
+#include <otterop/lang/oop_iterator.h>
+#include <otterop/datastructure/int/linked_list.h>
+
+typedef struct otterop_lang_OOPIterator_s otterop_lang_OOPIterator_t;
+typedef struct otterop_datastructure_LinkedList_s otterop_datastructure_LinkedList_t;
+
+typedef struct otterop_datastructure_LinkedListIterator_s otterop_datastructure_LinkedListIterator_t;
+
+
+
+
+otterop_datastructure_LinkedListIterator_t *otterop_datastructure_LinkedListIterator_new(otterop_datastructure_LinkedList_t *linked_list);
+
+int otterop_datastructure_LinkedListIterator_has_next(otterop_datastructure_LinkedListIterator_t *this);
+
+
+void *otterop_datastructure_LinkedListIterator_next(otterop_datastructure_LinkedListIterator_t *this);
+
+
+otterop_lang_OOPIterator_t
+*otterop_datastructure_LinkedListIterator__to_otterop_lang_OOPIterator(otterop_datastructure_LinkedListIterator_t *this);
+
+
+#endif

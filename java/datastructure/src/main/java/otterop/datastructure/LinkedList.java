@@ -1,10 +1,16 @@
 package otterop.datastructure;
 
+import otterop.lang.OOPIterable;
+import otterop.lang.OOPIterator;
 import otterop.lang.Panic;
+import otterop.lang.PureIterator;
 import otterop.lang.String;
+
+import java.util.Iterator;
+
 import static otterop.lang.OOPObject.is;
 
-public class LinkedList<T> {
+public class LinkedList<T> implements OOPIterable<T>, Iterable<T> {
 
     private LinkedListNode<T> head;
     private LinkedListNode<T> tail;
@@ -14,9 +20,6 @@ public class LinkedList<T> {
         this.head = null;
         this.tail = null;
         this.size = 0;
-        TestInternal t = new TestInternal();
-        t.testMethod();
-        TestInternal.testMethod2();
     }
 
     public LinkedListNode<T> addBefore(LinkedListNode<T> node, T value) {
@@ -40,9 +43,10 @@ public class LinkedList<T> {
         LinkedListNode<T> prevNode = node.prev();
         if (prevNode == null)
             newNode.list().head = newNode;
+        else
+            prevNode.setNext(newNode);
         newNode.setPrev(prevNode);
         newNode.setNext(node);
-        prevNode.setNext(newNode);
         node.setPrev(newNode);
         this.size++;
     }
@@ -60,9 +64,10 @@ public class LinkedList<T> {
         LinkedListNode<T> nextNode = node.next();
         if (nextNode == null)
             newNode.list().tail = newNode;
+        else
+            nextNode.setPrev(newNode);
         newNode.setNext(nextNode);
         newNode.setPrev(node);
-        nextNode.setPrev(newNode);
         node.setNext(newNode);
         this.size++;
     }
@@ -79,6 +84,7 @@ public class LinkedList<T> {
                 nodeOfDifferentList();
             this.head = newNode;
             this.tail = newNode;
+            this.size++;
         } else {
             this.addNodeBefore(this.head, newNode);
         }
@@ -97,6 +103,7 @@ public class LinkedList<T> {
                 nodeOfDifferentList();
             this.head = newNode;
             this.tail = newNode;
+            this.size++;
         } else {
             this.addNodeAfter(this.tail, newNode);
         }
@@ -158,5 +165,21 @@ public class LinkedList<T> {
 
     public int size() {
         return this.size;
+    }
+
+    public LinkedListNode<T> first() {
+        return this.head;
+    }
+
+    public LinkedListNode<T> last() {
+        return this.tail;
+    }
+
+    public OOPIterator<T> OOPIterator() {
+        return new LinkedListIterator<T>(this);
+    }
+
+    public Iterator<T> iterator() {
+        return PureIterator.newIterator(this.OOPIterator());
     }
 }

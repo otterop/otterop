@@ -1,7 +1,9 @@
 from otterop.lang.array import Array as _Array
 from otterop.lang.generic import Generic as _Generic
 from otterop.lang.panic import Panic as _Panic
+from otterop.lang.pure_iterator import PureIterator as _PureIterator
 from otterop.lang.string import String as _String
+from otterop.datastructure._list_iterator import ListIterator as _ListIterator
 
 class List:
                 
@@ -30,7 +32,7 @@ class List:
         self._size += src.size()
 
     def add_list(self, src):
-        self.add_array(src.array)
+        self.add_array(src._array)
 
     def _check_index_out_of_bounds(self, index):
         if index < 0 or index > self._size:
@@ -53,7 +55,7 @@ class List:
         self._size += src.size()
 
     def insert_list(self, index, src):
-        self.insert_array(index, src.array)
+        self.insert_array(index, src._array)
 
     def get(self, index):
         self._check_index_out_of_bounds(index)
@@ -82,3 +84,9 @@ class List:
 
     def size(self):
         return self._size
+
+    def oop_iterator(self):
+        return _ListIterator(self)
+
+    def __iter__(self):
+        return _PureIterator.new_iterator(self.oop_iterator())

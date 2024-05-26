@@ -19,9 +19,6 @@ func LinkedListNew[T any]() *LinkedList[T] {
     this.head = nil
     this.tail = nil
     this.size = 0
-    var t *testInternal = testInternalNew()
-    t.testMethod()
-    testInternalTestMethod2()
     return this
 }
 
@@ -45,16 +42,15 @@ func (this *LinkedList[T]) AddNodeBefore(node *LinkedListNode[T], newNode *Linke
     if node.List() != newNode.List() || node.List() != this {
         this.nodeOfDifferentList()
     }
-
     var prevNode *LinkedListNode[T] = node.Prev()
     
     if prevNode == nil {
         newNode.List().head = newNode
+    } else  {
+        prevNode.setNext(newNode)
     }
-
     newNode.setPrev(prevNode)
     newNode.setNext(node)
-    prevNode.setNext(newNode)
     node.setPrev(newNode)
     this.size++
 }
@@ -71,16 +67,15 @@ func (this *LinkedList[T]) AddNodeAfter(node *LinkedListNode[T], newNode *Linked
     if node.List() != newNode.List() || node.List() != this {
         this.nodeOfDifferentList()
     }
-
     var nextNode *LinkedListNode[T] = node.Next()
     
     if nextNode == nil {
         newNode.List().tail = newNode
+    } else  {
+        nextNode.setPrev(newNode)
     }
-
     newNode.setNext(nextNode)
     newNode.setPrev(node)
-    nextNode.setPrev(newNode)
     node.setNext(newNode)
     this.size++
 }
@@ -99,9 +94,9 @@ func (this *LinkedList[T]) AddNodeFirst(newNode *LinkedListNode[T])  {
         if newNode.List() != this {
             this.nodeOfDifferentList()
         }
-
         this.head = newNode
         this.tail = newNode
+        this.size++
     } else  {
         this.AddNodeBefore(this.head, newNode)
     }
@@ -121,9 +116,9 @@ func (this *LinkedList[T]) AddNodeLast(newNode *LinkedListNode[T])  {
         if newNode.List() != this {
             this.nodeOfDifferentList()
         }
-
         this.head = newNode
         this.tail = newNode
+        this.size++
     } else  {
         this.AddNodeAfter(this.tail, newNode)
     }
@@ -172,7 +167,6 @@ func (this *LinkedList[T]) RemoveNode(node *LinkedListNode[T])  {
     if node.List() != this {
         lang.PanicInvalidOperation(lang.StringWrap(lang.StringLiteral("node of different list")))
     }
-
     var prev *LinkedListNode[T] = node.Prev()
     var next *LinkedListNode[T] = node.Next()
     
@@ -194,4 +188,16 @@ func (this *LinkedList[T]) RemoveNode(node *LinkedListNode[T])  {
 
 func (this *LinkedList[T]) Size() int {
     return this.size
+}
+
+func (this *LinkedList[T]) First() *LinkedListNode[T] {
+    return this.head
+}
+
+func (this *LinkedList[T]) Last() *LinkedListNode[T] {
+    return this.tail
+}
+
+func (this *LinkedList[T]) OOPIterator() lang.OOPIterator[T] {
+    return linkedListIteratorNew[T](this)
 }

@@ -11,6 +11,8 @@ export class LinkedListNode<T> {
     #value : T;
 
     public constructor(value : T) {
+        this.#prev = null;
+        this.#next = null;
         this.#value = value;
     }
 

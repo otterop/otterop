@@ -1,6 +1,6 @@
 namespace Otterop.Datastructure
 {
-    public class List<T>
+    public class List<T> : Otterop.Lang.OOPIterable<T>, IEnumerable<T>
     {
         private Otterop.Lang.Array<T> array;
         private int capacity;
@@ -131,6 +131,20 @@ namespace Otterop.Datastructure
             return this.size;
         }
 
+        public Otterop.Lang.OOPIterator<T> OOPIterator()
+        {
+            return new ListIterator<T>(this);
+        }
+
+        public IEnumerator<T> GetEnumerator()
+        {
+            return Otterop.Lang.PureIterator.NewIterator(OOPIterator());
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
     }
 
 }

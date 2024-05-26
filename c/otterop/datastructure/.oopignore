@@ -2,4 +2,6 @@
 !list.*
 !linked_list.*
 !linked_list_node.*
+!linked_list_iterator.*
+!list_iterator.*
 !test**

@@ -81,6 +81,8 @@ public class Otterop {
 
     public static final String WRAPPED_CLASS = "otterop.lang.MakePure";
     public static final String TEST_ANNOTATION = "otterop.test.Test";
+    public static final String ITERATOR = "java.util.Iterator";
+    public static final String ITERABLE = "java.util.Iterable";
     public static final Pattern PURE_CLASSES = Pattern.compile("^.*\\/pure\\/[^\\/\\.]*\\.java$");
 
     private String[] pathToClassParts(String path) {

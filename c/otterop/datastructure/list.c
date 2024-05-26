@@ -1,7 +1,9 @@
 #include <otterop/datastructure/int/list.h>
 #include <gc.h>
+#include <otterop/datastructure/int/list_iterator.h>
 
 typedef struct otterop_datastructure_List_s otterop_datastructure_List_t;
+typedef struct otterop_datastructure_ListIterator_s otterop_datastructure_ListIterator_t;
 
 typedef struct otterop_datastructure_List_s {
     otterop_lang_Array_t *array;
@@ -122,3 +124,15 @@ otterop_datastructure_List_t *otterop_datastructure_List_remove_range(otterop_da
 int otterop_datastructure_List_size(otterop_datastructure_List_t *this) {
     return this->size;
 }
+
+otterop_lang_OOPIterator_t *otterop_datastructure_List_oop_iterator(otterop_datastructure_List_t *this) {
+    return otterop_datastructure_ListIterator__to_otterop_lang_OOPIterator(otterop_datastructure_ListIterator_new(this));
+}
+
+otterop_lang_OOPIterable_t
+*otterop_datastructure_List__to_otterop_lang_OOPIterable(otterop_datastructure_List_t *this) {
+    return otterop_lang_OOPIterable_new(this,
+        (otterop_lang_OOPIterator_t * (*)(void *)) otterop_datastructure_List_oop_iterator);
+}
+
+

@@ -101,7 +101,9 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print("export interface ");
         className = ctx.identifier().getText();
         this.visitIdentifier(ctx.identifier());
-        out.print("{\n");
+        this.classTypeParametersContext = ctx.typeParameters();
+        printTypeParameters(this.classTypeParametersContext, true, false);
+        out.print(" {\n");
         indents++;
         visitInterfaceBody(ctx.interfaceBody());
         indents--;
@@ -149,10 +151,10 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
             out.print(" implements ");
             boolean first = true;
             for (var type : ctx.typeList().get(0).typeType()) {
-                visitTypeType(type);
                 if (!first)
                     out.print(", ");
                 first = false;
+                visitTypeType(type);
             }
         }
         out.print(" {\n");
@@ -209,8 +211,11 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print(INDENT.repeat(indents));
         if (memberPublic) {
             out.print("public ");
-        } else {
+        } else if (memberPrivate) {
             out.print("private ");
+        } else {
+            out.println("/** @internal */");
+            out.print(INDENT.repeat(indents));
         }
         out.print("constructor");
         visitFormalParameters(ctx.formalParameters());
@@ -252,25 +257,31 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
             testMethods.add(ctx);
         variableType.clear();
         out.print("\n");
-        if (!memberPublic && !memberPrivate) {
-            out.print(INDENT.repeat(indents));
-            out.println("/** @internal */");
-        }
-        out.print(INDENT.repeat(indents));
         var name = ctx.identifier().getText();
-        if (memberPublic) {
-            out.print("public ");
-            if (memberStatic) {
-                out.print("static ");
+        var isIteratorMethod = "iterator".equals(name);
+
+        out.print(INDENT.repeat(indents));
+        if (!isIteratorMethod) {
+            if (!memberPublic && !memberPrivate) {
+                out.println("/** @internal */");
+                out.print(INDENT.repeat(indents));
+            }
+            if (memberPublic) {
+                out.print("public ");
+                if (memberStatic) {
+                    out.print("static ");
+                }
+            } else {
+                if (memberStatic) {
+                    out.print("static ");
+                }
+                if (memberPrivate) {
+                    out.print("#");
+                    methodPrivate.add(name);
+                }
             }
         } else {
-            if (memberStatic) {
-                out.print("static ");
-            }
-            if (memberPrivate) {
-                out.print("#");
-                methodPrivate.add(name);
-            }
+            name = "[Symbol.iterator]";
         }
         if ("main".equals(name)) {
             hasMain = true;
@@ -344,7 +355,7 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         return null;
     }
 
-    private void checkSingleLineStatement(JavaParser.StatementContext ctx) {
+    private boolean checkSingleLineStatement(JavaParser.StatementContext ctx) {
         if (ctx.SEMI() != null) {
             out.println();
             indents++;
@@ -354,20 +365,28 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         if (ctx.SEMI() != null) {
             out.println();
             indents--;
+            out.print(INDENT.repeat(indents));
+            return true;
         }
+        return false;
     }
 
-    private void checkElseStatement(JavaParser.StatementContext ctx) {
+    private void checkElseStatement(JavaParser.StatementContext ctx, boolean singleLine) {
         if (ctx.ELSE() != null) {
-            if (ctx.statement(1).IF() != null) {
-                out.print(" else if (");
-                visitParExpression(ctx.statement(1).parExpression());
+            JavaParser.StatementContext nextCtx = ctx.statement(1);
+            if (nextCtx.IF() != null) {
+                if (!singleLine)
+                    out.print(" ");
+                out.print("else if (");
+                visitParExpression(nextCtx.parExpression());
                 out.print(")");
-                checkSingleLineStatement(ctx.statement(1).statement(0));
-                checkElseStatement(ctx.statement(1));
+                boolean singleLineNext = checkSingleLineStatement(nextCtx.statement(0));
+                checkElseStatement(nextCtx, singleLineNext);
             } else {
-                out.print(" else");
-                checkSingleLineStatement(ctx.statement(1));
+                if (!singleLine)
+                    out.print(" ");
+                out.print("else");
+                checkSingleLineStatement(nextCtx);
             }
         }
     }
@@ -381,20 +400,29 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
             if(ctx.WHILE() != null) out.print("while (");
             super.visit(ctx.parExpression());
             out.print(")");
-            checkSingleLineStatement(ctx.statement(0));
-            checkElseStatement(ctx);
+            boolean singleLine = checkSingleLineStatement(ctx.statement(0));
+            checkElseStatement(ctx, singleLine);
         } else if (ctx.FOR() != null) {
             var forControl = ctx.forControl();
-            out.print("for (");
-            visitChildren(forControl.forInit());
-            out.print("; ");
-            if (forControl.expression() != null)
-                visitExpression(forControl.expression());
-            out.print("; ");
-            if (forControl.forUpdate != null) {
-                visitChildren(forControl.forUpdate);
+            if (forControl.enhancedForControl() != null) {
+                var enhancedForControl = forControl.enhancedForControl();
+                out.print("for (let ");
+                visitVariableDeclaratorId(enhancedForControl.variableDeclaratorId());
+                out.print(" of ");
+                visitExpression(enhancedForControl.expression());
+                out.print(")");
+            } else {
+                out.print("for (");
+                visitChildren(forControl.forInit());
+                out.print("; ");
+                if (forControl.expression() != null)
+                    visitExpression(forControl.expression());
+                out.print("; ");
+                if (forControl.forUpdate != null) {
+                    visitChildren(forControl.forUpdate);
+                }
+                out.print(")");
             }
-            out.print(")");
             checkSingleLineStatement(ctx.statement(0));
         } else {
             if (ctx.RETURN() != null) {
@@ -505,6 +533,8 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
                 !importedClasses.contains(name) &&
                 !currentTypeParameters.contains(name) &&
                 !currentMethodTypeParameters.contains(name)) {
+            if ("Iterable".equals(name) || "Iterator".equals(name))
+                return;
             imports.add("import { " + name + " } from './" + name + "';");
         }
     }
@@ -584,7 +614,9 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
 
     private boolean excludeImports(String javaFullClassName) {
         return Otterop.WRAPPED_CLASS.equals(javaFullClassName) ||
-               Otterop.TEST_ANNOTATION.equals(javaFullClassName);
+               Otterop.TEST_ANNOTATION.equals(javaFullClassName) ||
+               Otterop.ITERABLE.equals(javaFullClassName) ||
+               Otterop.ITERATOR.equals(javaFullClassName);
     }
 
     @Override
@@ -728,6 +760,10 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
                 .collect(Collectors.joining("."));
         if ("Object".equals(identifier)) {
             out.print("object");
+        } else if (Otterop.ITERABLE.equals(javaFullClassNames.get(identifier))) {
+            out.print("Iterable<");
+            visitTypeArguments(ctx.typeArguments(0));
+            out.print(">");
         } else if ("java.lang.String".equals(identifier)) {
             out.print("string");
         } else {

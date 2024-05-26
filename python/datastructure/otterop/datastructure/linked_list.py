@@ -1,8 +1,9 @@
 from otterop.lang.panic import Panic as _Panic
+from otterop.lang.pure_iterator import PureIterator as _PureIterator
 from otterop.lang.string import String as _String
 from otterop.lang.oop_object import OOPObject as _OOPObject
-from otterop.datastructure._test_internal import TestInternal as _TestInternal
 from otterop.datastructure.linked_list_node import LinkedListNode as _LinkedListNode
+from otterop.datastructure._linked_list_iterator import LinkedListIterator as _LinkedListIterator
 
 class LinkedList:
             
@@ -10,9 +11,6 @@ class LinkedList:
         self._head = None
         self._tail = None
         self._size = 0
-        t = _TestInternal()
-        t._test_method()
-        _TestInternal._test_method2()
 
     def add_before(self, node, value):
         new_node = _LinkedListNode(value)
@@ -31,10 +29,11 @@ class LinkedList:
             self._node_of_different_list()
         prev_node = node.prev()
         if prev_node == None:
-            new_node.list().head = new_node
+            new_node.list()._head = new_node
+        else:
+            prev_node._set_next(new_node)
         new_node._set_prev(prev_node)
         new_node._set_next(node)
-        prev_node._set_next(new_node)
         node._set_prev(new_node)
         self._size += 1
 
@@ -49,10 +48,11 @@ class LinkedList:
             self._node_of_different_list()
         next_node = node.next()
         if next_node == None:
-            new_node.list().tail = new_node
+            new_node.list()._tail = new_node
+        else:
+            next_node._set_prev(new_node)
         new_node._set_next(next_node)
         new_node._set_prev(node)
-        next_node._set_prev(new_node)
         node._set_next(new_node)
         self._size += 1
 
@@ -68,6 +68,7 @@ class LinkedList:
                 self._node_of_different_list()
             self._head = new_node
             self._tail = new_node
+            self._size += 1
         else:
             self.add_node_before(self._head, new_node)
 
@@ -83,6 +84,7 @@ class LinkedList:
                 self._node_of_different_list()
             self._head = new_node
             self._tail = new_node
+            self._size += 1
         else:
             self.add_node_after(self._tail, new_node)
 
@@ -106,7 +108,7 @@ class LinkedList:
     def remove(self, value):
         curr = self._head
         while curr != None:
-            if OOPObject.is(curr.value(), value):
+            if OOPObject._is(curr.value(), value):
                 self.remove_node(curr)
                 return True
             curr = curr.next()
@@ -120,14 +122,26 @@ class LinkedList:
         if prev != None:
             prev._set_next(next)
         else:
-            node.list().head = next
+            node.list()._head = next
         if next != None:
             next._set_prev(prev)
         else:
-            node.list().tail = prev
+            node.list()._tail = prev
         node._set_prev(None)
         node._set_next(None)
         self._size -= 1
 
     def size(self):
         return self._size
+
+    def first(self):
+        return self._head
+
+    def last(self):
+        return self._tail
+
+    def oop_iterator(self):
+        return _LinkedListIterator(self)
+
+    def __iter__(self):
+        return _PureIterator.new_iterator(self.oop_iterator())

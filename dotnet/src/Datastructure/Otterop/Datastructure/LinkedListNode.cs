@@ -8,6 +8,8 @@ namespace Otterop.Datastructure
         private T value;
         public LinkedListNode(T value)
         {
+            this.prev = null;
+            this.next = null;
             this.value = value;
         }
 

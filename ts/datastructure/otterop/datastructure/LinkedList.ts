@@ -1,10 +1,13 @@
+import { OOPIterable } from '@otterop/lang/OOPIterable';
+import { OOPIterator } from '@otterop/lang/OOPIterator';
 import { Panic } from '@otterop/lang/Panic';
+import { PureIterator } from '@otterop/lang/PureIterator';
 import { String } from '@otterop/lang/String';
 import { OOPObject } from '@otterop/lang/OOPObject';
 import { LinkedListNode } from './LinkedListNode';
-import { TestInternal } from './TestInternal';
+import { LinkedListIterator } from './LinkedListIterator';
 
-export class LinkedList<T> {
+export class LinkedList<T> implements OOPIterable<T>, Iterable<T> {
 
     #head : LinkedListNode<T>;
 
@@ -16,9 +19,6 @@ export class LinkedList<T> {
         this.#head = null;
         this.#tail = null;
         this.#size = 0;
-        let t : TestInternal = new TestInternal();
-        t.testMethod();
-        TestInternal.testMethod2();
     }
 
     public addBefore(node : LinkedListNode<T>, value : T) : LinkedListNode<T> {
@@ -40,15 +40,16 @@ export class LinkedList<T> {
         
         if (node.list() != newNode.list() || node.list() != this)
             this.#nodeOfDifferentList();
-
+        
         let prevNode : LinkedListNode<T> = node.prev();
         
         if (prevNode == null)
             newNode.list().#head = newNode;
-
+        else
+            prevNode.setNext(newNode);
+        
         newNode.setPrev(prevNode);
         newNode.setNext(node);
-        prevNode.setNext(newNode);
         node.setPrev(newNode);
         this.#size++;
     }
@@ -64,15 +65,16 @@ export class LinkedList<T> {
         
         if (node.list() != newNode.list() || node.list() != this)
             this.#nodeOfDifferentList();
-
+        
         let nextNode : LinkedListNode<T> = node.next();
         
         if (nextNode == null)
             newNode.list().#tail = newNode;
-
+        else
+            nextNode.setPrev(newNode);
+        
         newNode.setNext(nextNode);
         newNode.setPrev(node);
-        nextNode.setPrev(newNode);
         node.setNext(newNode);
         this.#size++;
     }
@@ -90,9 +92,10 @@ export class LinkedList<T> {
             
             if (newNode.list() != this)
                 this.#nodeOfDifferentList();
-
+            
             this.#head = newNode;
             this.#tail = newNode;
+            this.#size++;
         } else {
             this.addNodeBefore(this.#head, newNode);
         }
@@ -111,9 +114,10 @@ export class LinkedList<T> {
             
             if (newNode.list() != this)
                 this.#nodeOfDifferentList();
-
+            
             this.#head = newNode;
             this.#tail = newNode;
+            this.#size++;
         } else {
             this.addNodeAfter(this.#tail, newNode);
         }
@@ -161,7 +165,7 @@ export class LinkedList<T> {
         
         if (node.list() != this)
             Panic.invalidOperation(String.wrap("node of different list"));
-
+        
         let prev : LinkedListNode<T> = node.prev();
         let next : LinkedListNode<T> = node.next();
         
@@ -183,6 +187,22 @@ export class LinkedList<T> {
 
     public size() : number {
         return this.#size;
+    }
+
+    public first() : LinkedListNode<T> {
+        return this.#head;
+    }
+
+    public last() : LinkedListNode<T> {
+        return this.#tail;
+    }
+
+    public OOPIterator() : OOPIterator<T> {
+        return new LinkedListIterator<T>(this);
+    }
+
+    [Symbol.iterator]() : Iterator<T> {
+        return PureIterator.newIterator(this.OOPIterator());
     }
 }
 

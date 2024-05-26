@@ -2,7 +2,11 @@
 !otterop/lang/Error.java
 !otterop/lang/Result.java
 !otterop/lang/Generic.java
+!otterop/lang/OOPIterable.java
+!otterop/lang/OOPIterator.java
 !otterop/datastructure/List.java
+!otterop/datastructure/ListIterator.java
 !otterop/datastructure/LinkedList.java
 !otterop/datastructure/LinkedListNode.java
+!otterop/datastructure/LinkedListIterator.java
 !otterop/**/Test*.java

@@ -1,6 +1,6 @@
 namespace Otterop.Datastructure
 {
-    public class LinkedList<T>
+    public class LinkedList<T> : Otterop.Lang.OOPIterable<T>, IEnumerable<T>
     {
         private LinkedListNode<T> head;
         private LinkedListNode<T> tail;
@@ -10,9 +10,6 @@ namespace Otterop.Datastructure
             this.head = null;
             this.tail = null;
             this.size = 0;
-            TestInternal t = new TestInternal();
-            t.TestMethod();
-            TestInternal.TestMethod2();
         }
 
         public LinkedListNode<T> AddBefore(LinkedListNode<T> node, T value)
@@ -41,10 +38,11 @@ namespace Otterop.Datastructure
             LinkedListNode<T> prevNode = node.Prev();
             if (prevNode == null)
                 newNode.List().head = newNode;
+            else
+                prevNode.SetNext(newNode);
 
             newNode.SetPrev(prevNode);
             newNode.SetNext(node);
-            prevNode.SetNext(newNode);
             node.SetPrev(newNode);
             this.size++;
         }
@@ -65,10 +63,11 @@ namespace Otterop.Datastructure
             LinkedListNode<T> nextNode = node.Next();
             if (nextNode == null)
                 newNode.List().tail = newNode;
+            else
+                nextNode.SetPrev(newNode);
 
             newNode.SetNext(nextNode);
             newNode.SetPrev(node);
-            nextNode.SetPrev(newNode);
             node.SetNext(newNode);
             this.size++;
         }
@@ -90,6 +89,7 @@ namespace Otterop.Datastructure
 
                 this.head = newNode;
                 this.tail = newNode;
+                this.size++;
             }
             else
             {
@@ -115,6 +115,7 @@ namespace Otterop.Datastructure
 
                 this.head = newNode;
                 this.tail = newNode;
+                this.size++;
             }
             else
             {
@@ -208,6 +209,30 @@ namespace Otterop.Datastructure
             return this.size;
         }
 
+        public LinkedListNode<T> First()
+        {
+            return this.head;
+        }
+
+        public LinkedListNode<T> Last()
+        {
+            return this.tail;
+        }
+
+        public Otterop.Lang.OOPIterator<T> OOPIterator()
+        {
+            return new LinkedListIterator<T>(this);
+        }
+
+        public IEnumerator<T> GetEnumerator()
+        {
+            return Otterop.Lang.PureIterator.NewIterator(OOPIterator());
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
     }
 
 }

@@ -38,6 +38,7 @@ import otterop.transpiler.antlr.JavaParser;
 import otterop.transpiler.antlr.JavaParserBaseVisitor;
 import otterop.transpiler.reader.ClassReader;
 import otterop.transpiler.util.CaseUtil;
+import otterop.transpiler.util.PrintStreamStack;
 
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
@@ -67,7 +68,9 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
     private boolean hasMain = false;
     private boolean insideConstructor = false;
     private boolean insideTypeArgument = false;
+    private boolean isIterableMethod = false;
     private boolean insideForControl = false;
+    private String enhancedForControlVariable = null;
     private JavaParser.TypeTypeContext currentType = null;
     private String className = null;
     private String classIdentifier;
@@ -94,7 +97,7 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
     private Set<String> staticMethods = new LinkedHashSet<>();
     private Map<String, JavaParser.TypeTypeContext> variableType = new LinkedHashMap<>();
     private List<JavaParser.FieldDeclarationContext> fields = new LinkedList<>();
-    private PrintStream out = new PrintStream(outStream);
+    private PrintStreamStack out = new PrintStreamStack(outStream);
     private Map<String,String> importDomainMapping;
     private JavaParser.TypeParametersContext classTypeParametersContext;
     private JavaParser.TypeParametersContext methodTypeParametersContext;
@@ -167,7 +170,10 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
         className = ctx.identifier().getText();
         javaFullClassNames.put(className, javaFullPackageName + "." + className);
         putClassIdentifier(packageIdentifier, javaFullPackageName, className);
+        this.classIdentifier = getClassIdentifier(className);
         out.print(classIdentifier);
+        this.classTypeParametersContext = ctx.typeParameters();
+        printTypeParameters(this.classTypeParametersContext, true, false);
         out.print(" interface ");
         out.print("{\n");
         indents++;
@@ -348,6 +354,19 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
                 imports.add("\"testing\"");
             testMethods.add(ctx);
         }
+        out.startCapture();
+        printTypeParameters(this.methodTypeParametersContext, false, true);
+        String typeParametersString = out.endCapture();
+
+        out.startCapture();
+        visitTypeTypeOrVoid(ctx.typeTypeOrVoid());
+        String typeTypeString = out.endCapture();
+        if (isIterableMethod) {
+            isIterableMethod = false;
+            return null;
+        }
+
+
         variableType.clear();
         out.print("\n\nfunc ");
         if (!memberStatic) {
@@ -362,10 +381,10 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
         if (isMain) hasMain = true;
         if ((memberPublic || memberStatic) && !isMain) name = camelCaseToPascalCase(name);
         out.print(name);
-        printTypeParameters(this.methodTypeParametersContext, false, true);
+        out.print(typeParametersString);
         visitFormalParameters(ctx.formalParameters());
         out.print(" ");
-        visitTypeTypeOrVoid(ctx.typeTypeOrVoid());
+        out.print(typeTypeString);
         visitMethodBody(ctx.methodBody());
         this.isMain = false;
         variableType.clear();
@@ -421,6 +440,12 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
             printTypeArguments(classTypeParametersContext);
             out.print(")\n");
         }
+        if (enhancedForControlVariable != null) {
+            out.print(INDENT.repeat(indents));
+            out.print(enhancedForControlVariable);
+            out.println();
+            this.enhancedForControlVariable = null;
+        }
         super.visitBlock(ctx);
         if (insideConstructor) {
             out.print(INDENT.repeat(indents) + "return this\n");
@@ -449,13 +474,19 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
             out.println(" {");
             indents++;
             out.print(INDENT.repeat(indents));
+            if (enhancedForControlVariable != null) {
+                out.print(enhancedForControlVariable);
+                out.println();
+                out.print(INDENT.repeat(indents));
+                this.enhancedForControlVariable = null;
+            }
         }
         visitStatement(ctx);
         if (ctx.SEMI() != null) {
             out.println();
             indents--;
             out.print(INDENT.repeat(indents));
-            out.println("}");
+            out.print("}");
         }
     }
 
@@ -473,13 +504,26 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
             var forControl = ctx.forControl();
             out.print("for ");
             this.insideForControl = true;
-            visitChildren(forControl.forInit());
-            out.print("; ");
-            if (forControl.expression() != null)
-                visitExpression(forControl.expression());
-            out.print("; ");
-            if (forControl.forUpdate != null) {
-                visitChildren(forControl.forUpdate);
+            if (forControl.enhancedForControl() != null) {
+                var enhancedForControl = forControl.enhancedForControl();
+                out.print("it := (");
+                visitExpression(enhancedForControl.expression());
+                out.print(").OOPIterator(); ");
+                out.print("it.HasNext();");
+
+                out.startCapture();
+                visitVariableDeclaratorId(enhancedForControl.variableDeclaratorId());
+                out.print(" := it.Next()");
+                this.enhancedForControlVariable = out.endCapture();
+            } else {
+                visitChildren(forControl.forInit());
+                out.print("; ");
+                if (forControl.expression() != null)
+                    visitExpression(forControl.expression());
+                out.print("; ");
+                if (forControl.forUpdate != null) {
+                    visitChildren(forControl.forUpdate);
+                }
             }
             this.insideForControl = false;
             checkSingleLineStatement(ctx.statement(0));
@@ -866,6 +910,8 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
         var identifier = ctx.identifier(0).IDENTIFIER().getText();
         if ("Object".equals(identifier)) {
             out.print("any");
+        } else if (Otterop.ITERATOR.equals(javaFullClassNames.get(identifier))) {
+            this.isIterableMethod = true;
         } else if (currentTypeParameters.contains(identifier) ||
                    currentMethodTypeParameters.contains(identifier)) {
             out.print(identifier);

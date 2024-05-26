@@ -1,4 +1,5 @@
 **
 !list.py
+!list_iterator.py
 !linked_list*.py
 !test_*.py

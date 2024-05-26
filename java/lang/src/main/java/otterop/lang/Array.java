@@ -32,7 +32,9 @@
 
 package otterop.lang;
 
-public class Array<T> {
+import java.util.Iterator;
+
+public class Array<T> implements OOPIterable<T>, Iterable<T> {
     private final int start;
     private final int end;
     private T[] wrapped;
@@ -83,5 +85,14 @@ public class Array<T> {
         }
         return new Array<>(ret, 0, ret.length);
     }
+
+    public OOPIterator<T> OOPIterator() {
+        return new ArrayIterator<T>(this);
+    }
+
+    public Iterator<T> iterator() {
+        return PureIterator.newIterator(OOPIterator());
+    }
+
 }
 

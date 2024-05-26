@@ -2,6 +2,8 @@
 class LinkedListNode:
                 
     def __init__(self, value):
+        self._prev = None
+        self._next = None
         self._value = value
 
     def list(self):

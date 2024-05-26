@@ -1,4 +1,6 @@
 **
 !List.cs
+!ListIterator.cs
 !LinkedList*.cs
+!LinkedListIterator.cs
 !Test*.cs

@@ -58,6 +58,7 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
     private boolean isNewMethod = false;
     private boolean hasStaticMethods = false;
     private boolean insideStaticNonGeneric = false;
+    private boolean implementIEnumerator = false;
     private String className = null;
     private String namespace = null;
     private int indents = 0;
@@ -88,6 +89,11 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print("interface ");
         className = ctx.identifier().getText();
         this.visitIdentifier(ctx.identifier());
+        this.classTypeParametersContext = ctx.typeParameters();
+        if (this.classTypeParametersContext != null) {
+            isGenericClass = true;
+        }
+        printTypeParameters(this.classTypeParametersContext, true, false);
         out.print("\n");
         out.print(INDENT.repeat(indents));
         out.print("{\n");
@@ -106,6 +112,18 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         for (JavaParser.TypeTypeContext typeType : ctx.typeType()) {
             if (rest) out.print(", ");
             else rest = true;
+
+            var isIterable =
+                    typeType.classOrInterfaceType().
+                            identifier(0).getText().equals("Iterable");
+
+            if (isIterable) {
+                out.print("IEnumerable<");
+                visitTypeArguments(typeType.classOrInterfaceType().typeArguments(0));
+                out.print(">");
+                continue;
+            }
+
             visitTypeType(typeType);
         }
         return null;
@@ -341,7 +359,11 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         visitTypeTypeOrVoid(ctx.typeTypeOrVoid());
         out.print(" ");
         var name = ctx.identifier().getText();
-        name = camelCaseToPascalCase(name);
+        if (this.implementIEnumerator && "iterator".equals(name)) {
+            name = "GetEnumerator";
+        } else {
+            name = camelCaseToPascalCase(name);
+        }
         out.print(name);
         if (methodTypeParametersContext != null) {
             printTypeParameters(methodTypeParametersContext, false, true);
@@ -355,6 +377,19 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
         this.memberPrivate = false;
         this.memberPublic = isInterface;
         out.print("\n");
+        if (this.implementIEnumerator) {
+            out.print(INDENT.repeat(indents));
+            out.print("System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()\n");
+            out.print(INDENT.repeat(indents));
+            out.print("{\n");
+            indents++;
+            out.print(INDENT.repeat(indents));
+            out.print("return GetEnumerator();\n");
+            indents--;
+            out.print(INDENT.repeat(indents));
+            out.print("}\n");
+            this.implementIEnumerator = false;
+        }
         return null;
     }
 
@@ -457,14 +492,24 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
             checkElseStatement(ctx);
         } else if (ctx.FOR() != null) {
             var forControl = ctx.forControl();
-            out.print("for (");
-            visitChildren(forControl.forInit());
-            out.print("; ");
-            if (forControl.expression() != null)
-                visitExpression(forControl.expression());
-            out.print("; ");
-            if (forControl.forUpdate != null) {
-                visitChildren(forControl.forUpdate);
+            if (forControl.enhancedForControl() != null) {
+                out.print("foreach (");
+                var enhancedForControl = forControl.enhancedForControl();
+                visitTypeType(enhancedForControl.typeType());
+                out.print(" ");
+                visitVariableDeclaratorId(enhancedForControl.variableDeclaratorId());
+                out.print(" in ");
+                visitExpression(enhancedForControl.expression());
+            } else {
+                    out.print("for (");
+                    visitChildren(forControl.forInit());
+                    out.print("; ");
+                    if (forControl.expression() != null)
+                        visitExpression(forControl.expression());
+                    out.print("; ");
+                    if (forControl.forUpdate != null) {
+                        visitChildren(forControl.forUpdate);
+                    }
             }
             out.print(")");
             checkSingleLineStatement(ctx.statement(0));
@@ -725,6 +770,11 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
             out.print("object");
         } else if ("java.lang.String".equals(identifier)) {
             out.print("string");
+        } else if (Otterop.ITERATOR.equals(javaFullClassName.get(identifier))) {
+            this.implementIEnumerator = true;
+            out.print("IEnumerator<");
+            visitTypeArguments(ctx.typeArguments(0));
+            out.print(">");
         } else {
             if (fullClassName.containsKey(identifier))
                 identifier = fullClassName.get(identifier);

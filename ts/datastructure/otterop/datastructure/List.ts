@@ -1,9 +1,13 @@
 import { Array } from '@otterop/lang/Array';
 import { Generic } from '@otterop/lang/Generic';
+import { OOPIterable } from '@otterop/lang/OOPIterable';
+import { OOPIterator } from '@otterop/lang/OOPIterator';
 import { Panic } from '@otterop/lang/Panic';
+import { PureIterator } from '@otterop/lang/PureIterator';
 import { String } from '@otterop/lang/String';
+import { ListIterator } from './ListIterator';
 
-export class List<T> {
+export class List<T> implements OOPIterable<T>, Iterable<T> {
 
     #array : Array<T>;
 
@@ -116,6 +120,14 @@ export class List<T> {
 
     public size() : number {
         return this.#size;
+    }
+
+    public OOPIterator() : OOPIterator<T> {
+        return new ListIterator<T>(this);
+    }
+
+    [Symbol.iterator]() : Iterator<T> {
+        return PureIterator.newIterator(this.OOPIterator());
     }
 }
 
