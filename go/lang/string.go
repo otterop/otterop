@@ -75,3 +75,14 @@ func StringLiteral(wrapped string) *string {
 func StringWrapLiteral(wrapped string) *String {
     return stringNew(&wrapped)
 }
+
+func StringConcat(stringsIterable OOPIterable[*String]) *String {
+    var sb strings.Builder
+    it := stringsIterable.OOPIterator()
+    for it.HasNext() {
+        s := it.Next()
+        sb.WriteString(*s.Unwrap())
+    }
+    ret := sb.String()
+    return StringWrap(&ret)
+}

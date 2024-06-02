@@ -2,4 +2,5 @@
 !list.go
 !listiterator.go
 !linkedlist*.go
+!stringbuffer.go
 !**test*.go

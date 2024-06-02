@@ -3,4 +3,5 @@
 !ListIterator.cs
 !LinkedList*.cs
 !LinkedListIterator.cs
+!StringBuffer.cs
 !Test*.cs

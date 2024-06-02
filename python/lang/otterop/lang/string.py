@@ -28,15 +28,11 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-
+from io import StringIO as _StringIO
 class String:
 
     def __init__(self, _wrapped):
         self._wrapped = _wrapped
-
-    @staticmethod
-    def wrap(_wrapped):
-        return String(_wrapped)
 
     def length(self):
         return len(self._wrapped)
@@ -55,3 +51,16 @@ class String:
 
     def unwrap(self):
         return self._wrapped
+
+    @staticmethod
+    def wrap(_wrapped):
+        return String(_wrapped)
+
+    @staticmethod
+    def concat(strings):
+        it = strings.oop_iterator()
+        sb = _StringIO()
+        while it.has_next():
+            s = it.next()
+            sb.write(s.unwrap())
+        return String.wrap(sb.getvalue())

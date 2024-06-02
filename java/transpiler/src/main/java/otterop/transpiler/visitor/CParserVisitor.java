@@ -420,7 +420,9 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
                 visitTypeType(field.typeType());
                 var variableDeclaratorId = field.variableDeclarators()
                         .variableDeclarator(0).variableDeclaratorId();
-                this.fieldVariableType.put(variableDeclaratorId.getText(), typeName(field.typeType()));
+                String variableDeclaratorText = variableDeclaratorId.getText();
+                String typeName = typeName(field.typeType());
+                this.fieldVariableType.put(variableDeclaratorText, typeName);
                 out.print(" ");
                 visitVariableDeclaratorId(variableDeclaratorId);
                 out.print(";\n");
@@ -476,7 +478,11 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         }
         if (!header) {
             addToIncludes(fullClassName);
+            for (var entry : this.fieldVariableType.entrySet())
+                this.variableType.put(entry.getKey(), entry.getValue());
+            this.variableType.newContext();
             super.visitClassBody(ctx.classBody());
+            this.variableType.endContext();
         }
 
         if (ctx.IMPLEMENTS() != null) {
@@ -948,18 +954,22 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     @Override
     public Void visitVariableDeclarator(JavaParser.VariableDeclaratorContext ctx) {
         var variableName = ctx.variableDeclaratorId().getText();
-        variableType.put(variableName, currentTypeName);
         visitVariableDeclaratorId(ctx.variableDeclaratorId());
         if (!insideMemberDeclaration && ctx.variableInitializer() != null) {
             out.print(" = ");
             var variableInitializerText = ctx.variableInitializer().getText();
+            if (variableInitializerText.startsWith(THIS + "."))
+                variableInitializerText = variableInitializerText.substring(THIS.length() + 1);
             String className = null;
             if (variableType.containsKey(variableInitializerText)) {
                 className = variableType.get(variableInitializerText);
             }
+            variableType.put(variableName, currentTypeName);
             checkInterfaceCreation(className, () -> {
                 super.visitVariableInitializer(ctx.variableInitializer());
             });
+        } else {
+            variableType.put(variableName, currentTypeName);
         }
         return null;
     }

@@ -2,4 +2,5 @@
 !list.py
 !list_iterator.py
 !linked_list*.py
+!string_buffer.py
 !test_*.py

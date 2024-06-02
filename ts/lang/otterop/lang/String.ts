@@ -29,12 +29,25 @@
  *
  */
 
+import { OOPIterable } from "./OOPIterable";
+
 
 export class String {
+
     private wrapped : string;
 
     private constructor(wrapped: string) {
         this.wrapped = wrapped;
+    }
+
+    public static concat(strings: OOPIterable<String>) : String {
+        let sb = [];
+        let it = strings.OOPIterator();
+        while (it.hasNext()) {
+            let s = it.next();
+            sb.push(s.unwrap());
+        }
+        return String.wrap(sb.join(""));
     }
 
     public static wrap(wrapped: string) : String {
@@ -46,6 +59,10 @@ export class String {
         if (this.wrapped < other.wrapped) return -1;
         else if (this.wrapped > other.wrapped) return 1;
         else return 0;
+    }
+
+    public length() : number {
+        return this.wrapped.length;
     }
 
     public unwrap() : string {

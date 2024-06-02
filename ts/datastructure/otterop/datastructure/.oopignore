@@ -2,4 +2,5 @@
 !List.ts
 !ListIterator.ts
 !LinkedList*.ts
+!StringBuffer.ts
 !**Test*.ts

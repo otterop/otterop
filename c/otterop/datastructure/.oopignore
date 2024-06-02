@@ -4,4 +4,5 @@
 !linked_list_node.*
 !linked_list_iterator.*
 !list_iterator.*
+!string_buffer.*
 !test**

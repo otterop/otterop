@@ -10,4 +10,5 @@
 !otterop/datastructure/LinkedList.java
 !otterop/datastructure/LinkedListNode.java
 !otterop/datastructure/LinkedListIterator.java
+!otterop/datastructure/StringBuffer.java
 !otterop/**/Test*.java

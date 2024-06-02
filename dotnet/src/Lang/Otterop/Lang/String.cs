@@ -31,6 +31,9 @@
 
 
 namespace Otterop.Lang;
+
+using System.Text;
+
 public class String
 {
     private string Wrapped;
@@ -38,11 +41,6 @@ public class String
     private String(string wrapped)
     {
         this.Wrapped = wrapped;
-    }
-
-    public static String Wrap(string wrapped)
-    {
-        return new String(wrapped);
     }
 
     public int CompareTo(String other)
@@ -56,13 +54,32 @@ public class String
         return Wrapped;
     }
 
-    public static String wrap(string wrapped)
+    public string Unwrap()
+    {
+        return this.Wrapped;
+    }
+
+    public int Length()
+    {
+        return this.Wrapped.Length;
+    }
+
+
+    public static String Wrap(string wrapped)
     {
         return new String(wrapped);
     }
 
-    public string unwrap()
+
+    public static String Concat(OOPIterable<String> strings)
     {
-        return this.Wrapped;
+        OOPIterator<String> it = strings.OOPIterator();
+        var sb = new StringBuilder();
+        while (it.HasNext())
+        {
+            String s = it.Next();
+            sb.Append(s.Unwrap());
+        }
+        return String.Wrap(sb.ToString());
     }
 }
