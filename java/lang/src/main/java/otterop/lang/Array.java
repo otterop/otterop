@@ -34,10 +34,10 @@ package otterop.lang;
 
 import java.util.Iterator;
 
-public class Array<T> implements OOPIterable<T>, Iterable<T> {
+public class Array<T> implements OOPIterable<T> {
     private final int start;
     private final int end;
-    private T[] wrapped;
+    private final T[] wrapped;
 
     private Array(T[] array, int start, int end) {
         this.wrapped = array;

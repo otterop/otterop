@@ -7,7 +7,7 @@ import { PureIterator } from '@otterop/lang/PureIterator';
 import { String } from '@otterop/lang/String';
 import { ListIterator } from './ListIterator';
 
-export class List<T> implements OOPIterable<T>, Iterable<T> {
+export class List<T> implements OOPIterable<T> {
 
     #array : Array<T>;
 

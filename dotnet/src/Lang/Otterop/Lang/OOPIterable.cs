@@ -1,6 +1,6 @@
 namespace Otterop.Lang
 {
-    public interface OOPIterable<T>
+    public interface OOPIterable<T> : IEnumerable<T>
     {
         OOPIterator<T> OOPIterator();
     }

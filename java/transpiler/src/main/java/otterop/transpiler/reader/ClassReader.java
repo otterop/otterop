@@ -53,6 +53,8 @@ public class ClassReader {
         Method[] methods = clazz.getMethods();
         var ret = new ArrayList<String>(methods.length);
         for (Method m : methods) {
+            if (m.getDeclaringClass().equals(Iterable.class))
+                continue;
             ret.add(m.getName());
         }
         return ret;

@@ -103,6 +103,10 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         this.visitIdentifier(ctx.identifier());
         this.classTypeParametersContext = ctx.typeParameters();
         printTypeParameters(this.classTypeParametersContext, true, false);
+        if (ctx.EXTENDS() != null) {
+            out.print(" extends ");
+            visitTypeList(ctx.typeList(0));
+        }
         out.print(" {\n");
         indents++;
         visitInterfaceBody(ctx.interfaceBody());

@@ -70,7 +70,7 @@ public class Array
     }
 }
 
-public class Array<T> : Array, Otterop.Lang.OOPIterable<T>, IEnumerable<T>
+public class Array<T> : Array, Otterop.Lang.OOPIterable<T>
 {
     internal T[] wrapped;
 

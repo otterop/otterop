@@ -1,6 +1,6 @@
 namespace Otterop.Datastructure
 {
-    public class LinkedList<T> : Otterop.Lang.OOPIterable<T>, IEnumerable<T>
+    public class LinkedList<T> : Otterop.Lang.OOPIterable<T>
     {
         private LinkedListNode<T> head;
         private LinkedListNode<T> tail;

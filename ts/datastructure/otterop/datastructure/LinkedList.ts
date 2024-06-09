@@ -7,7 +7,7 @@ import { OOPObject } from '@otterop/lang/OOPObject';
 import { LinkedListNode } from './LinkedListNode';
 import { LinkedListIterator } from './LinkedListIterator';
 
-export class LinkedList<T> implements OOPIterable<T>, Iterable<T> {
+export class LinkedList<T> implements OOPIterable<T> {
 
     #head : LinkedListNode<T>;
 

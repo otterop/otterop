@@ -36,7 +36,7 @@ import { OOPIterable } from './OOPIterable';
 import { OOPIterator } from './OOPIterator';
 import { ArrayIterator } from './ArrayIterator';
 import { PureIterator } from './PureIterator';
-class ArrayOtterOP<T> implements OOPIterable<T>, Iterable<T>{
+class ArrayOtterOP<T> implements OOPIterable<T> {
     private wrapped : T[];
     private start : number;
     private end : number;

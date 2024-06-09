@@ -10,7 +10,7 @@ import java.util.Iterator;
 
 import static otterop.lang.OOPObject.is;
 
-public class LinkedList<T> implements OOPIterable<T>, Iterable<T> {
+public class LinkedList<T> implements OOPIterable<T> {
 
     private LinkedListNode<T> head;
     private LinkedListNode<T> tail;

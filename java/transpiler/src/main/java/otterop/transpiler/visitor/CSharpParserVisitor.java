@@ -94,6 +94,13 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
             isGenericClass = true;
         }
         printTypeParameters(this.classTypeParametersContext, true, false);
+
+        if (ctx.EXTENDS() != null) {
+            out.print(" : ");
+            if (ctx.EXTENDS() != null) {
+                visitTypeList(ctx.typeList(0));
+            }
+        }
         out.print("\n");
         out.print(INDENT.repeat(indents));
         out.print("{\n");
@@ -110,12 +117,14 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
     public Void visitTypeList(JavaParser.TypeListContext ctx) {
         boolean rest = false;
         for (JavaParser.TypeTypeContext typeType : ctx.typeType()) {
-            if (rest) out.print(", ");
-            else rest = true;
-
             var isIterable =
                     typeType.classOrInterfaceType().
                             identifier(0).getText().equals("Iterable");
+            if (isIterable && !isInterface)
+                continue;
+
+            if (rest) out.print(", ");
+            else rest = true;
 
             if (isIterable) {
                 out.print("IEnumerable<");

@@ -10,7 +10,7 @@ import otterop.lang.String;
 
 import java.util.Iterator;
 
-public class List<T> implements OOPIterable<T>, Iterable<T> {
+public class List<T> implements OOPIterable<T> {
 
     private Array<T> array;
     private int capacity;
