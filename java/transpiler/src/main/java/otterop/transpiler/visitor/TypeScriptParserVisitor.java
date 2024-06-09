@@ -411,6 +411,8 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
             if (forControl.enhancedForControl() != null) {
                 var enhancedForControl = forControl.enhancedForControl();
                 out.print("for (let ");
+                variableType.put(enhancedForControl.variableDeclaratorId().identifier().getText(),
+                        enhancedForControl.typeType());
                 visitVariableDeclaratorId(enhancedForControl.variableDeclaratorId());
                 out.print(" of ");
                 visitExpression(enhancedForControl.expression());
@@ -490,6 +492,11 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         var currentClass = calledOn.equals(className);
         var isThis = calledOn.equals(THIS);
         var isLocal = currentClass || isThis || isFirst;
+        var hasVariable = variableType.containsKey(calledOn);
+        if (hasVariable) {
+            isLocal |=
+                    className.equals(variableType.get(calledOn).getText());
+        }
 
         if (isFirst && !staticImport) {
             out.print("this.");

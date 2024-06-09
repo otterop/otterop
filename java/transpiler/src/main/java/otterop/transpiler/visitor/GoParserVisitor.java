@@ -124,6 +124,7 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
             ParseTree child = children.remove(0);
             if (child instanceof JavaParser.FieldDeclarationContext) {
                 fields.add((JavaParser.FieldDeclarationContext) child);
+                continue;
             }
             if (child instanceof JavaParser.AnnotationContext) {
                 JavaParser.AnnotationContext annotationContext = (JavaParser.AnnotationContext) child;
@@ -132,11 +133,19 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
                 boolean isTestAnnotation = Otterop.TEST_ANNOTATION.equals(fullAnnotationName);
                 if (isTestAnnotation)
                     this.isTestClass = true;
+                continue;
+            }
+            if (child instanceof JavaParser.ConstructorDeclarationContext) {
+                methodPublic = false;
+                methodStatic = false;
+                continue;
             }
             if (child instanceof JavaParser.ClassOrInterfaceModifierContext) {
                 JavaParser.ClassOrInterfaceModifierContext modifierChild = (JavaParser.ClassOrInterfaceModifierContext) child;
-                methodPublic = modifierChild.PUBLIC() != null;
-                methodStatic = modifierChild.STATIC() != null;
+                if (!methodPublic && modifierChild.PUBLIC() != null)
+                    methodPublic = true;
+                if (!methodStatic && modifierChild.STATIC() != null)
+                    methodStatic = true;
             }
             if (child instanceof JavaParser.MethodDeclarationContext) {
                 JavaParser.MethodDeclarationContext declarationChild = (JavaParser.MethodDeclarationContext) child;
@@ -146,6 +155,7 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
                 if (methodStatic) staticMethods.add(name);
                 methodPublic = false;
                 methodStatic = false;
+                continue;
             }
             if (child instanceof JavaParser.GenericMethodDeclarationContext) {
                 JavaParser.GenericMethodDeclarationContext declarationChild = (JavaParser.GenericMethodDeclarationContext) child;
@@ -155,6 +165,7 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
                 if (methodStatic) staticMethods.add(name);
                 methodPublic = false;
                 methodStatic = false;
+                continue;
             }
             for (int i = 0; i < child.getChildCount(); i++) {
                 children.add(child.getChild(i));
@@ -511,6 +522,8 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
                 out.print(").OOPIterator(); ");
                 out.print("it.HasNext();");
 
+                variableType.put(enhancedForControl.variableDeclaratorId().identifier().getText(),
+                        enhancedForControl.typeType());
                 out.startCapture();
                 visitVariableDeclaratorId(enhancedForControl.variableDeclaratorId());
                 out.print(" := it.Next()");
@@ -592,6 +605,8 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
             var hasVariable = variableType.containsKey(calledOn);
 
             var methodName = ctx.identifier().getText();
+            var isPublic = publicMethods.contains(methodName);
+            var notPrivate = !privateMethods.contains(methodName);
 
             if (isFirst && staticImports.containsKey(methodName)) {
                 isLocal = false;
@@ -605,14 +620,20 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
                 methodInternal = this.isMethodInternal(calledOn, ctx.identifier().getText());
             }
 
-            var changeCase =
+            var changeCase = currentClass ||
                              !isLocal && !methodInternal && !staticImport ||
-                                     isLocal && publicMethods.contains(methodName) ||
-                                     isLocal && !privateMethods.contains(methodName);
+                                     isLocal && isPublic ||
+                                     isLocal && notPrivate;
             var addThis = isFirst && isLocal;
             if (changeCase) methodName = camelCaseToPascalCase(methodName);
             if (addThis)
                 out.print("this.");
+            if (currentClass) {
+                if (isPublic)
+                    out.print(className);
+                else
+                    out.print(toFirstLowercase(className));
+            }
             out.print(methodName);
 
         }
@@ -721,9 +742,9 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
         } else if (ctx.LPAREN() != null) {
             // cast case
             out.print("(");
-            visitTypeType(ctx.typeType(0));
-            out.print(")(");
             visitExpression(ctx.expression(0));
+            out.print(").(");
+            visitTypeType(ctx.typeType(0));
             out.print(")");
         } else {
             super.visitExpression(ctx);

@@ -294,6 +294,8 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
             if (ctx.forControl().enhancedForControl() != null) {
                 out.print("for ");
                 var enhancedForControl = forControl.enhancedForControl();
+                variableType.put(enhancedForControl.variableDeclaratorId().identifier().getText(),
+                        enhancedForControl.typeType());
                 visitVariableDeclaratorId(enhancedForControl.variableDeclaratorId());
                 out.print(" in ");
                 visitExpression(enhancedForControl.expression());
@@ -573,7 +575,9 @@ public class PythonParserVisitor extends JavaParserBaseVisitor<Void> {
     public Void visitIdentifier(JavaParser.IdentifierContext ctx) {
         var ctxText = ctx.getText();
         var skipSnakeCase = importedClasses.contains(ctxText);
-        if (skipSnakeCase) out.print("_" + ctxText);
+        if (className.equals(ctxText))
+            out.print(ctxText);
+        else if (skipSnakeCase) out.print("_" + ctxText);
         else out.print(camelCaseToSnakeCase(ctxText));
         return null;
     }

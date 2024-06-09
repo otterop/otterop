@@ -34,6 +34,7 @@ public class PureJavaParserVisitor extends JavaParserBaseVisitor<Void> {
 
     public PureJavaParserVisitor() {
         this.unwrappedClassName.put("otterop.lang.String", "String");
+        this.unwrappedClassName.put("otterop.lang.OOPIterable", "Iterable");
     }
 
     @Override
@@ -116,7 +117,7 @@ public class PureJavaParserVisitor extends JavaParserBaseVisitor<Void> {
                     out.print(");\n");
                 } else {
                     out.print("var ");
-                    out.print(paramName);
+                    out.print(mappedArguments.get(paramName));
                     out.print(" = ");
                     out.print(mapArgument(entry.getKey(), mappedClass));
                     out.print(";\n");
@@ -437,7 +438,7 @@ public class PureJavaParserVisitor extends JavaParserBaseVisitor<Void> {
         var identifier = ctx.identifier().stream().map(i -> i.getText())
                 .collect(Collectors.joining("."));
         if ("Object".equals(identifier)) {
-            out.print("object");
+            out.print("Object");
         } else if ("Array".equals(identifier)) {
             visitTypeType(ctx.typeArguments().get(0).typeArgument().get(0).typeType());
             out.print("[]");
@@ -448,6 +449,11 @@ public class PureJavaParserVisitor extends JavaParserBaseVisitor<Void> {
             out.print("String");
             if (insideFormalParameters) {
                 lastTypeWrapped = "otterop.lang.String";
+            }
+        } else if ("OOPIterable".equals(identifier)) {
+            out.print("Iterable");
+            if (insideFormalParameters) {
+                lastTypeWrapped = "otterop.lang.OOPIterable";
             }
         } else {
             var pureClass = pureClassNames.get(identifier);

@@ -624,7 +624,7 @@ public class CSharpParserVisitor extends JavaParserBaseVisitor<Void> {
             // this is a cast
             out.print("(");
             visitTypeType(ctx.typeType(0));
-            out.print("?) ");
+            out.print(") ");
             visitExpression(ctx.expression(0));
         } else if (fullClassName.containsKey(ctx.getText())) {
             out.print(fullClassName.get(ctx.getText()));

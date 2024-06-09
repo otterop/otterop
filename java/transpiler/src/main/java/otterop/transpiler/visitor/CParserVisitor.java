@@ -423,6 +423,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
                 String variableDeclaratorText = variableDeclaratorId.getText();
                 String typeName = typeName(field.typeType());
                 this.fieldVariableType.put(variableDeclaratorText, typeName);
+                this.fieldVariableType.put(THIS + "." + variableDeclaratorText, typeName);
                 out.print(" ");
                 visitVariableDeclaratorId(variableDeclaratorId);
                 out.print(";\n");
@@ -894,7 +895,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
                 out.startCapture();
                 visitExpression(enhancedForControlContext.expression());
                 String iterableVariableName = out.endCapture();
-                String iteratorVariableName = "__it_" + iterableVariableName;
+                String iteratorVariableName = "__it_" + iterableVariableName.replaceAll("->", "_");
 
                 out.startCapture();
                 visitTypeType(enhancedForControlContext.typeType());
@@ -1088,7 +1089,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
                     out.print(fullSuperClassName + "_");
                 } else if (variableType.containsKey(name)) {
                     changeCurrentTypeName(variableType.get(name));
-                    currentInstanceName = camelCaseToSnakeCase(name);
+                    currentInstanceName = camelCaseToSnakeCase(name.replace(".", "->"));
                     out.print(currentTypeFullClassName + "_");
                 } else if (fullClassNames.containsKey(name)) {
                     var fullClassName = fullClassNames.get(name);
@@ -1163,7 +1164,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         var samePackage = javaFullClassName.startsWith(basePackage + ".");
 
         var includeStatement = "#include <" + includeStr + "/" + fileName;
-        if (samePackage && (!isTestClass || !this.className.equals(className)))
+        if (samePackage && (!isTestClass || !className.equals(this.className)))
             includeStatement = "#include <" + includeStr + "/int/" + fileName;
         includeStatement += ".h>";
         var add = false;

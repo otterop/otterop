@@ -4,7 +4,7 @@ namespace Otterop.Lang
     {
         public static bool Is<T>(T a, T b)
         {
-            return (object?) a == (object?) b;
+            return (object) a == (object) b;
         }
     }
 
