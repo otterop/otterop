@@ -285,8 +285,7 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
                 if (header) addToIncludes(interfaceFullClassName, true);
 
                 final String finaljavaFullClassName = javaFullClassName;
-                Class<?> interfaceClass = classReader.getClass(javaFullClassName).orElseThrow(() ->
-                    new RuntimeException("cannot find class " + finaljavaFullClassName));
+                Class<?> interfaceClass = classReader.getClass(javaFullClassName);
                 var methods = classReader.findMethods(interfaceClass);
                 out.print("\n");
                 out.print(interfaceFullClassName);

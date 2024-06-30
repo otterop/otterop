@@ -940,8 +940,6 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
             var className = identifier;
             checkCurrentPackageImports(className);
             var isInterface = classReader.getClass(javaFullClassNames.get(className))
-                    .orElseThrow(() ->
-                            new RuntimeException("cannot find class " + className))
                     .isInterface();
             if (!isInterface) out.print("*");
             out.print(getClassIdentifier(className));

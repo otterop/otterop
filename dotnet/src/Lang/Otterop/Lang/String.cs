@@ -65,9 +65,14 @@ public class String
     }
 
 
-    public static String Wrap(string wrapped)
+    public static String Wrap(string towrap)
     {
-        return new String(wrapped);
+        return new String(towrap);
+    }
+
+    public static string Unwrap(String wrapped)
+    {
+        return wrapped.Unwrap();
     }
 
 

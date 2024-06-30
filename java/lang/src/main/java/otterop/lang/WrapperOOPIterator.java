@@ -1,12 +1,15 @@
 package otterop.lang;
 
 import java.util.Iterator;
+import java.util.function.Function;
 
-public class WrapperOOPIterator<T> implements OOPIterator<T> {
-    private Iterator<T> it;
+public class WrapperOOPIterator<FROM,TO> implements OOPIterator<TO>, Iterator<TO> {
+    private Iterator<FROM> it;
+    private Function<FROM,TO> wrap;
 
-    private WrapperOOPIterator(Iterator<T> it) {
+    public WrapperOOPIterator(Iterator<FROM> it, Function<FROM,TO> wrap) {
         this.it = it;
+        this.wrap = wrap;
     }
 
     @Override
@@ -15,11 +18,7 @@ public class WrapperOOPIterator<T> implements OOPIterator<T> {
     }
 
     @Override
-    public T next() {
-        return it.next();
-    }
-
-    public static <T> OOPIterator<T> wrap(Iterator<T> it) {
-        return new WrapperOOPIterator<T>(it);
+    public TO next() {
+        return this.wrap.apply(it.next());
     }
 }

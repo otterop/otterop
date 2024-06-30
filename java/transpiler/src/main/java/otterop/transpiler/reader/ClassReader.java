@@ -41,11 +41,11 @@ import java.util.Optional;
 
 public class ClassReader {
 
-    public Optional<Class<?>> getClass(String binaryName) {
+    public Class<?> getClass(String binaryName) {
         try {
-            return Optional.of(getClass().getClassLoader().loadClass(binaryName));
+            return getClass().getClassLoader().loadClass(binaryName);
         } catch (ClassNotFoundException e) {
-            return Optional.empty();
+            throw new RuntimeException(e);
         }
     }
 
@@ -75,11 +75,11 @@ public class ClassReader {
 
     public boolean isPublicClass(String className) {
         return Modifier.isPublic(
-                getClass(className).get().getModifiers());
+                getClass(className).getModifiers());
     }
 
     public boolean isInterface(String className) {
-        return getClass(className).get().isInterface();
+        return getClass(className).isInterface();
     }
 
     public boolean isPublicMethod(Method m) {
@@ -87,13 +87,13 @@ public class ClassReader {
     }
 
     public boolean hasPublicConstructor(String className) {
-        Class<?> clazz = getClass(className).get();
+        Class<?> clazz = getClass(className);
         Constructor[] constructors = clazz.getConstructors();
         return constructors.length > 0;
     }
 
     public boolean isPublicMethod(String className, String methodName) {
-        return isPublicMethod(findMethod(getClass(className).get(), methodName));
+        return isPublicMethod(findMethod(getClass(className), methodName));
     }
 
     public Collection<Method> findInheritedMethods(Class<?> clazz) {

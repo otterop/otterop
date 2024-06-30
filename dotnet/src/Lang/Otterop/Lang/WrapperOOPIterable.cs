@@ -30,49 +30,52 @@
  */
 
 
-package otterop.lang;
+namespace Otterop.Lang;
 
-public class String implements Comparable {
-    private java.lang.String wrapped;
-
-    private String(java.lang.String wrapped) {
-        this.wrapped = wrapped;
-    }
-
-    public int length() {
-        return this.wrapped.length();
-    }
-
-    public java.lang.String toString() {
-        return wrapped;
-    }
-
-    public static String wrap(java.lang.String wrapped) {
-        if (wrapped == null) return null;
-        return new String(wrapped);
-    }
-
-    public static java.lang.String unwrap(String wrapped) {
-        return wrapped.unwrap();
-    }
-
-    @Override
-    public int compareTo(Object o) {
-        if (!(o instanceof String)) return 1;
-        return this.wrapped.compareTo(((String)o).wrapped);
-    }
-
-    public java.lang.String unwrap() {
-        return this.wrapped;
-    }
-
-    public static String concat(OOPIterable<String> strings) {
-        java.lang.StringBuffer sb = new java.lang.StringBuffer();
-        OOPIterator<String> it = strings.OOPIterator();
-        while (it.hasNext()) {
-            String s = it.next();
-            sb.append(s.unwrap());
+public class WrapperOOPIterable
+{
+    public static OOPIterable<OOP> Wrap<OOP, PURE>(IEnumerable<PURE> It, Func<PURE,OOP> Wrap, OOP OOPClass) where OOP : class where PURE : class
+    {
+        if (Wrap == null && It is WrapperOOPIterable<PURE, OOP>)
+        {
+            return (WrapperOOPIterable<PURE, OOP>) It;
         }
-        return String.wrap(sb.toString());
+        return new WrapperOOPIterable<PURE, OOP>(It, Wrap);
     }
+
+    public static IEnumerable<PURE> Unwrap<OOP, PURE>(OOPIterable<OOP> It, Func<OOP,PURE> Unwrap, PURE PureClass) where OOP : class where PURE : class
+    {
+        if (Unwrap == null) {
+            return (IEnumerable<PURE>) It;
+        }
+        return new WrapperOOPIterable<OOP, PURE>(It, Unwrap);
+    }
+}
+
+public class WrapperOOPIterable<FROM, TO> : OOPIterable<TO> where FROM : class where TO : class
+{
+    IEnumerable<FROM> it;
+    Func<FROM, TO> wrap;
+
+    internal WrapperOOPIterable(IEnumerable<FROM> it, Func<FROM, TO> wrap)
+    {
+        this.it = it;
+        this.wrap = wrap != null ? wrap : (FROM x) => x as TO;
+    }
+
+    public OOPIterator<TO> OOPIterator()
+    {
+        return new WrapperOOPIterator<FROM, TO>(this.it.GetEnumerator(), this.wrap);
+    }
+
+    public IEnumerator<TO> GetEnumerator()
+    {
+        return new WrapperOOPIterator<FROM, TO>(this.it.GetEnumerator(), this.wrap);
+    }
+
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+    {
+        return GetEnumerator();
+    }
+
 }

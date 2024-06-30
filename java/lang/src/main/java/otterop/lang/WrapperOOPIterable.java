@@ -1,26 +1,39 @@
 package otterop.lang;
 
 import java.util.Iterator;
+import java.util.function.Function;
 
-public class WrapperOOPIterable<T> implements OOPIterable<T> {
+public class WrapperOOPIterable<FROM, TO> implements OOPIterable<TO> {
 
-    private Iterable<T> it;
+    private Iterable<FROM> it;
+    Function<FROM, TO> wrap;
 
-    private WrapperOOPIterable(Iterable<T> it) {
+    private WrapperOOPIterable(Iterable<FROM> it, Function<FROM, TO> wrap) {
         this.it = it;
+        this.wrap = wrap != null ? wrap : (FROM x) -> (TO) x;
     }
 
     @Override
-    public OOPIterator<T> OOPIterator() {
-        return WrapperOOPIterator.wrap(this.it.iterator());
+    public OOPIterator<TO> OOPIterator() {
+        return new WrapperOOPIterator(this.it.iterator(), this.wrap);
     }
 
     @Override
-    public Iterator<T> iterator() {
-        return this.it.iterator();
+    public Iterator<TO> iterator() {
+        return new WrapperOOPIterator(this.it.iterator(), this.wrap);
     }
 
-    public static <T> OOPIterable<T> wrap(Iterable<T> it) {
-        return new WrapperOOPIterable<T>(it);
+    public static <FROM, TO> OOPIterable<TO> wrap(Iterable<FROM> it, Function<FROM,TO> wrap) {
+        if (wrap == null && it instanceof WrapperOOPIterable) {
+            return (WrapperOOPIterable) it;
+        }
+        return new WrapperOOPIterable<>(it, wrap);
+    }
+
+    public static <TO, FROM> Iterable<FROM> unwrap(OOPIterable<TO> it, Function<TO,FROM> unwrap) {
+        if (unwrap == null) {
+            return (Iterable<FROM>) it;
+        }
+        return new WrapperOOPIterable<>(it, unwrap);
     }
 }
