@@ -55,6 +55,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static otterop.transpiler.util.CaseUtil.camelCaseToPascalCase;
+import static otterop.transpiler.util.CaseUtil.toFirstLowercase;
 
 public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
     private boolean memberStatic = false;
@@ -65,6 +66,8 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
     private boolean insideForControl = false;
     private String lastTypeWrapped = null;
     private boolean lastTypeArray = false;
+    private boolean lastTypeIterable = false;
+    private boolean anyTypeIterable = false;
     private JavaParser.TypeTypeContext currentType = null;
     private String className = null;
     private String classIdentifier = null;
@@ -92,6 +95,7 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
     private Set<String> staticMethods = new LinkedHashSet<>();
     private Map<String,String> mappedArguments = new LinkedHashMap<>();
     private Map<String,Boolean> mappedArgumentArray = new LinkedHashMap<>();
+    private Map<String,Boolean> mappedArgumentIterable = new LinkedHashMap<>();
     private Map<String,String> mappedArgumentClass = new LinkedHashMap<>();
     private Map<String, JavaParser.TypeTypeContext> variableType = new LinkedHashMap<>();
     private List<JavaParser.FieldDeclarationContext> fields = new LinkedList<>();
@@ -102,13 +106,16 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
     private Set<String> currentTypeParameters = new HashSet<>();
     private Set<String> currentMethodTypeParameters = new HashSet<>();
     private ClassReader classReader;
-    private Map<String,String> unwrappedClassName = new LinkedHashMap<>();
+    private Map<String,String> specialClassName = new LinkedHashMap<>();
+    private Map<String,String> wrapperClassName = new LinkedHashMap<>();
 
     public PureGoParserVisitor(ClassReader classReader, Map<String,String> importDomainMapping) {
         this.classReader = classReader;
         this.importDomainMapping = new HashMap<>(importDomainMapping);
-        this.unwrappedClassName.put("otteroplang.String", "string");
-        this.unwrappedClassName.put("otteroplang.Array", "[]");
+        this.specialClassName.put("otteroplang.String", "string");
+        this.specialClassName.put("otteroplang.Array", "[]");
+        this.wrapperClassName.put("otteroplang.String", "otteroplang.String");
+        this.wrapperClassName.put("otteroplang.OOPIterable", "otteroplang.WrapperOOPIterable");
     }
 
     private void detectMethods(JavaParser.ClassDeclarationContext ctx) {
@@ -300,7 +307,12 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print("\n\nfunc ");
         var name = ctx.identifier().getText();
         if (memberPublic) name = camelCaseToPascalCase(name);
-        out.print(name);
+
+        if(memberPublic) {
+            out.print(name);
+        } else {
+            out.print(toFirstLowercase(name));
+        }
         out.print("New");
         printTypeParameters(this.classTypeParametersContext, false, false);
         visitFormalParameters(ctx.formalParameters());
@@ -356,7 +368,7 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
 
         var classIdentifier = classIdentifiers.get(clazz);
         var otteropClassIdentifier = otteropClassIdentifiersPublic.get(clazz);
-        if (unwrappedClassName.containsKey(otteropClassIdentifier)) {
+        if (specialClassName.containsKey(otteropClassIdentifier)) {
             classIdentifier = otteropClassIdentifier;
         }
         unusedImports.remove(clazz);
@@ -365,7 +377,7 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
 
     private String mapArgument(String argName, String mappedClass) {
         var otteropClassIdentifier = otteropClassIdentifiersPublic.get(mappedClass);
-        if (unwrappedClassName.containsKey(otteropClassIdentifier)) {
+        if (specialClassName.containsKey(otteropClassIdentifier)) {
             return wrapArgName(mappedClass, argName);
         } else {
             return argName + ".Unwrap()";
@@ -373,7 +385,7 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
     }
 
     private String unmapArgument(String argName, String originalClass, String mappedClass) {
-        if (unwrappedClassName.containsKey(originalClass)) {
+        if (specialClassName.containsKey(originalClass)) {
             return argName + ".Unwrap()";
         } else {
             return wrapArgName(mappedClass, argName);
@@ -418,9 +430,32 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
                     unusedImports.remove("Array");
                     out.print(mappedArrayName);
                     out.print(");\n");
+                } else if (mappedArgumentIterable.getOrDefault(paramName, false)) {
+                    var otteropClass = otteropClassIdentifiersPublic.get(mappedClass);
+
+                    out.print("var ");
+                    out.print(mappedArguments.get(paramName));
+                    out.print(" = otteroplang.WrapperOOPIterableWrap");
+                    if (anyTypeIterable)
+                        out.print("Slice");
+                    out.print("(");
+                    out.print(entry.getKey());
+                    out.print(", ");
+                    if (!"any".equals(mappedClass)) {
+                        out.print("func(el *");
+                        out.print(mappedClass);
+                        out.print(") *");
+                        out.print(otteropClass);
+                        out.print(" { return ");
+                        out.print(mapArgument("el", mappedClass));
+                        out.print("}, nil");
+                    } else {
+                        out.print("nil, (any)(nil)");
+                    }
+                    out.print(");\n");
                 } else {
                     out.print("var ");
-                    out.print(paramName);
+                    out.print(mapperParamName);
                     out.print(" = ");
                     out.print(mapArgument(entry.getKey(), mappedClass));
                     out.print("\n");
@@ -441,13 +476,15 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
 
         var hasReturn = ctx.typeTypeOrVoid().VOID() == null;
         var returnTypeArray = false;
+        var returnTypeIterable = false;
         String returnTypePure = null;
         String returnTypeString = null;
         if (hasReturn) {
             var returnType = ctx.typeTypeOrVoid().typeType().classOrInterfaceType();
             if (returnType != null) {
                 returnTypeArray = returnType.identifier(0).getText().equals("Array");
-                if (!returnTypeArray) {
+                returnTypeIterable = returnType.identifier(0).getText().equals("OOPIterable");
+                if (!returnTypeArray && !returnTypeIterable) {
                     returnTypeString = returnType.identifier().stream().map(i -> i.getText())
                             .collect(Collectors.joining("."));
                 } else {
@@ -457,12 +494,14 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
             }
         }
         if (returnTypeString != null) {
-            returnTypeString = otteropClassIdentifiersPublic.get(returnTypeString);
+            returnTypeString = otteropClassIdentifiersPublic.getOrDefault(returnTypeString, returnTypeString);
         }
 
         mappedArguments.clear();
         mappedArgumentArray.clear();
+        mappedArgumentIterable.clear();
         mappedArgumentClass.clear();
+        anyTypeIterable = false;
         out.print(INDENT.repeat(indents));
         variableType.clear();
         out.print("\n\nfunc ");
@@ -470,10 +509,24 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
             out.print("(" + THIS + " *" + className);
             printTypeArguments(classTypeParametersContext);
             out.print(") ");
+        } else {
+            out.print(classIdentifier);
         }
         var name = ctx.identifier().getText();
         name = camelCaseToPascalCase(name);
-        out.print(name);
+
+        if (ctx.identifier().getText().equals("OOPString")) {
+            out.print("ToString");
+        } else {
+            out.print(name);
+            anyTypeIterable = false;
+            out.startCapture();
+            visitFormalParameters(ctx.formalParameters());
+            visitTypeTypeOrVoid(ctx.typeTypeOrVoid());
+            out.endCapture();
+            if (anyTypeIterable)
+                out.print("Slice");
+        }
         visitFormalParameters(ctx.formalParameters());
         out.print(" ");
         visitTypeTypeOrVoid(ctx.typeTypeOrVoid());
@@ -483,30 +536,36 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print(INDENT.repeat(indents));
         if (hasReturn)
             out.print("retOtterop := ");
-        out.print("this.otterop.");
+        if (!memberStatic)
+            out.print("this.otterop.");
+        else
+            out.print(otteropClassIdentifier);
+
         out.print(name);
         this.insideMethodCall = true;
         visitFormalParameters(ctx.formalParameters());
         this.insideMethodCall = false;
         out.print("\n");
         if (hasReturn) {
-            if (!returnTypeArray) {
-                if (returnTypePure == null) {
-                    out.print(INDENT.repeat(indents));
-                    out.print("ret := retOtterop\n");
+            if (returnTypeIterable) {
+                out.print(INDENT.repeat(indents));
+                out.print("ret := otteroplang.WrapperOOPIterableUnwrap");
+                if (anyTypeIterable)
+                    out.print("Slice");
+                out.print("(retOtterop, ");
+                if (!"Object".equals(returnTypeString)) {
+                    out.print("func (el ");
+                    out.print(returnTypeString);
+                    out.print(") ");
+                    out.print(returnTypeIterable);
+                    out.print(" { return ");
+                    out.print(unmapArgument("el", returnTypeString, returnTypePure));
+                    out.print("} , nil");
                 } else {
-                    if (returnTypePure.equals(className)) {
-                        out.print(INDENT.repeat(indents));
-                        out.print("if retOtterop == this.otterop { return this }\n");
-                    }
-                    out.print(INDENT.repeat(indents));
-                    out.print("ret := ");
-                    out.print(
-                            this.unmapArgument("retOtterop", returnTypeString, returnTypePure)
-                    );
-                    out.print(";\n");
+                    out.print("nil, (any)(nil)");
                 }
-            } else {
+                out.print(")\n");
+            } else if (returnTypeArray) {
                 out.print(INDENT.repeat(indents));
                 out.print("ret := make([]*");
                 out.print(returnTypePure);
@@ -516,7 +575,7 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
                 indents++;
                 out.print(INDENT.repeat(indents));
                 out.print("retI := retOtterop.Get(i)\n");
-                if (returnTypePure.equals(className)) {
+                if (returnTypePure.equals(className) && !memberStatic) {
                     out.print(INDENT.repeat(indents));
                     out.print("if retI == this.otterop {\n");
                     indents++;
@@ -535,6 +594,22 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
                 indents--;
                 out.print(INDENT.repeat(indents));
                 out.print("}\n");
+            } else {
+                if (returnTypePure == null) {
+                    out.print(INDENT.repeat(indents));
+                    out.print("ret := retOtterop\n");
+                } else {
+                    if (returnTypePure.equals(className) && !memberStatic) {
+                        out.print(INDENT.repeat(indents));
+                        out.print("if retOtterop == this.otterop { return this }\n");
+                    }
+                    out.print(INDENT.repeat(indents));
+                    out.print("ret := ");
+                    out.print(
+                            this.unmapArgument("retOtterop", returnTypeString, returnTypePure)
+                    );
+                    out.print(";\n");
+                }
             }
             out.print(INDENT.repeat(indents));
             out.print("return ret\n");
@@ -565,11 +640,14 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
         var parameterType = ctx.typeType();
         lastTypeWrapped = null;
         lastTypeArray = false;
+        lastTypeArray = false;
+        lastTypeIterable = false;
         this.out.startCapture();
         visitTypeType(ctx.typeType());
         if (lastTypeWrapped != null) {
             mappedArguments.put(parameterName, "_" + parameterName);
             mappedArgumentArray.put(parameterName, lastTypeArray);
+            mappedArgumentIterable.put(parameterName, lastTypeIterable);
             mappedArgumentClass.put(parameterName, lastTypeWrapped);
         }
         String type = this.out.endCapture();
@@ -704,20 +782,6 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitMethodCall(JavaParser.MethodCallContext ctx) {
-        var calledOn = ctx.getParent().getChild(0).getText();
-        var currentClass = calledOn.equals(className);
-        var isThis = calledOn.equals(THIS);
-        var isLocal = currentClass || isThis;
-        if (!isLocal && !variableType.containsKey(calledOn)) {
-            usedImport(calledOn.toLowerCase());
-        }
-        var methodName = ctx.identifier().getText();
-        var changeCase = !isLocal || publicMethods.contains(methodName);
-        if (changeCase) methodName = camelCaseToPascalCase(methodName);
-        out.print(methodName);
-        out.print("(");
-        visitExpressionList(ctx.expressionList());
-        out.print(")");
         return null;
     }
 
@@ -787,8 +851,8 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
             classIdentifierPublic = classIdentifier;
             otteropClassIdentifier = "otterop" + classIdentifier;
             otteropClassIdentifierPublic = "otterop" + classIdentifierPublic;
-            if (unwrappedClassName.containsKey(otteropClassIdentifier)) {
-                classIdentifier = unwrappedClassName.get(otteropClassIdentifier);
+            if (specialClassName.containsKey(otteropClassIdentifier)) {
+                classIdentifier = specialClassName.get(otteropClassIdentifier);
                 classIdentifierPublic = classIdentifier;
                 otteropClassIdentifiers.put(classIdentifier, otteropClassIdentifier);
                 otteropClassIdentifiersPublic.put(classIdentifier, otteropClassIdentifier);
@@ -840,8 +904,10 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
         if (isStatic)
             return null;
 
+        var otteropClassIdentifierPublic = otteropClassIdentifiersPublic.get(className);
         if (!this.javaFullPackageName.equals(javaFullPackageName) &&
-            !unwrappedClassName.containsKey(otteropClassIdentifiersPublic.get(className))) {
+            !specialClassName.containsKey(otteropClassIdentifierPublic) &&
+            !wrapperClassName.containsKey(otteropClassIdentifierPublic)) {
             pureImports.put(className, pureImportStatement);
         }
         fromImports.put(className, importStatement);
@@ -911,8 +977,18 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
     @Override
     public Void visitClassOrInterfaceType(JavaParser.ClassOrInterfaceTypeContext ctx) {
         var identifier = ctx.identifier(0).IDENTIFIER().getText();
+        var checkImport = true;
         if ("Object".equals(identifier)) {
             out.print("any");
+            checkImport = false;
+            if (lastTypeIterable) {
+                lastTypeWrapped = "any";
+            }
+        } else if ("OOPIterable".equals(identifier)) {
+            lastTypeIterable = true;
+            anyTypeIterable = true;
+            out.print("[]");
+            visitTypeType(ctx.typeArguments().get(0).typeArgument().get(0).typeType());
         } else if (currentTypeParameters.contains(identifier) ||
                    currentMethodTypeParameters.contains(identifier)) {
             out.print(identifier);
@@ -925,7 +1001,7 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
             lastTypeWrapped = "string";
         } else {
             var className = identifier;
-            checkCurrentPackageImports(className);
+
             var isInterface = classReader.getClass(javaFullClassNames.get(className))
                     .isInterface();
             if (!isInterface) out.print("*");
@@ -933,6 +1009,8 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
             printTypeArguments(ctx.typeArguments());
             lastTypeWrapped = className;
         }
+        if (checkImport)
+            checkCurrentPackageImports(identifier);
         return null;
     }
 

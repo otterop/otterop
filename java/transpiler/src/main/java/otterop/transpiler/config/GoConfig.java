@@ -1,6 +1,7 @@
 package otterop.transpiler.config;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class GoConfig {
@@ -16,8 +17,8 @@ public class GoConfig {
     }
 
     public void setPackageMapping(Map<String, String> packageMapping) {
-        this.packageMapping = new HashMap<>(DEFAULT_MAPPING);
-        this.packageMapping.putAll(packageMapping);
+        this.packageMapping = new LinkedHashMap<>(packageMapping);
+        this.packageMapping.putAll(DEFAULT_MAPPING);
     }
 
     public String outPath() {
