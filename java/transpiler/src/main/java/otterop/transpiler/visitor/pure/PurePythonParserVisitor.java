@@ -31,17 +31,24 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
     private boolean insideFormalParameters = false;
     private String lastTypeWrapped = null;
     private boolean lastTypeArray = false;
+    private boolean lastTypeIterable = false;
     private Map<String,String> mappedArguments = new LinkedHashMap<>();
     private Map<String,Boolean> mappedArgumentArray = new LinkedHashMap<>();
+    private Map<String,Boolean> mappedArgumentIterable = new LinkedHashMap<>();
     private Map<String,String> mappedArgumentClass = new LinkedHashMap<>();
     private Map<String,String> fullClassNames = new LinkedHashMap<>();
     private Map<String,String> pureClassNames = new LinkedHashMap<>();
-    private Map<String,String> unwrappedClassName = new LinkedHashMap<>();
-    private Set<String> imports = new LinkedHashSet<>();
+    private Map<String,String> specialClasses = new LinkedHashMap<>();
+    private Map<String,String> wrapperClassName = new LinkedHashMap<>();
+    private Map<String,String> fromImportsOOP = new LinkedHashMap<>();
+    private Map<String,String> fromImports = new LinkedHashMap<>();
+    private Set<String> usedImports = new LinkedHashSet<>();
 
     public PurePythonParserVisitor() {
-        this.unwrappedClassName.put("otterop.lang.string.String", "str");
-        this.unwrappedClassName.put("otterop.lang.array.Array", "list");
+        this.specialClasses.put("String", "str");
+        this.specialClasses.put("Array", "list");
+        this.wrapperClassName.put("_OOPString", "_OOPString");
+        this.wrapperClassName.put("_OOPOOPIterable", "_OOPWrapperOOPIterable");
     }
 
     @Override
@@ -73,16 +80,20 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
     }
 
     private String mapArgument(String argName, String mappedClass) {
-        if (unwrappedClassName.containsKey(mappedClass)) {
-            return mappedClass + ".wrap(" + argName + ")";
+        if ("object".equals(mappedClass)) {
+            return argName;
+        } else if (wrapperClassName.containsKey(mappedClass)) {
+            return wrapperClassName.get(mappedClass) + ".wrap(" + argName + ")";
         } else {
             return argName + ".unwrap()";
         }
     }
 
     private String unmapArgument(String argName, String mappedClass) {
-        if (unwrappedClassName.containsKey(mappedClass)) {
-            return argName + ".unwrap()";
+        if ("object".equals(mappedClass)) {
+            return argName;
+        } else if (wrapperClassName.containsKey(mappedClass)) {
+            return wrapperClassName.get(mappedClass) + ".unwrap(" + argName + ")";
         } else {
             return mappedClass + ".wrap(" + argName + ")";
         }
@@ -114,11 +125,25 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
                     indents--;
                     out.print(INDENT.repeat(indents));
                     out.print(entry.getValue());
-                    out.print(" = otterop.lang.array.Array.wrap(");
+                    out.print(" = _OOPArray.wrap(");
                     out.print(mappedArrayName);
                     out.print(")\n");
+                } else if (mappedArgumentIterable.getOrDefault(paramName, false)) {
+                    out.print(mappedArguments.get(paramName));
+                    fromImports.put("WrapperOOPIterable", "from otterop.lang.wrapper_oop_iterable import WrapperOOPIterable as _OOPWrapperOOPIterable");
+                    usedImports.add("WrapperOOPIterable");
+                    out.print(" = _OOPWrapperOOPIterable.wrap(");
+                    out.print(entry.getKey());
+                    out.print(", ");
+                    if (!"object".equals(mappedClass)) {
+                        out.print("lambda el: ");
+                        out.print(mapArgument("el", mappedClass));
+                    } else {
+                        out.print("None");
+                    }
+                    out.print(")\n");
                 } else {
-                    out.print(paramName);
+                    out.print(mapperParamName);
                     out.print(" = ");
                     out.print(mapArgument(entry.getKey(), mappedClass));
                     out.print("\n");
@@ -133,31 +158,46 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
 
         var hasReturn = ctx.typeTypeOrVoid().VOID() == null;
         var returnTypeArray = false;
+        var returnTypeIterable = false;
         String returnTypePure = null;
+        String returnTypeString = null;
         if (hasReturn) {
             var returnType = ctx.typeTypeOrVoid().typeType().classOrInterfaceType();
             if (returnType != null) {
-                var identifier = returnType.identifier().stream().map(i -> i.getText())
+                returnTypeString = returnType.identifier().stream().map(i -> i.getText())
                         .collect(Collectors.joining("."));
                 returnTypeArray = returnType.identifier(0).getText().equals("Array");
-                if (!returnTypeArray) {
-                    returnTypePure = pureClassNames.get(identifier);
+                returnTypeIterable = returnType.identifier(0).getText().equals("OOPIterable");
+                if (!returnTypeArray && !returnTypeIterable) {
+                    returnTypePure = pureClassNames.get(returnTypeString);
                 } else {
-                    var typeArgumentName = returnType.typeArguments().get(0).typeArgument(0).typeType().getText();
-                    returnTypePure = pureClassNames.get(typeArgumentName);
+                    returnTypeString = returnType.typeArguments().get(0).typeArgument(0).typeType().getText();
+                    returnTypePure = pureClassNames.get(returnTypeString);
                 }
             }
         }
 
+        if (returnTypeString != null) {
+            returnTypeString = fullClassNames.getOrDefault(returnTypeString, returnTypeString);
+        }
+
         mappedArguments.clear();
         mappedArgumentArray.clear();
+        mappedArgumentIterable.clear();
         mappedArgumentClass.clear();
         out.print("\n");
         out.print(INDENT.repeat(indents));
+        if (memberStatic) {
+            out.print("@staticmethod\n");
+            out.print(INDENT.repeat(indents));
+        }
         out.print("def ");
         var name = ctx.identifier().getText();
         name = camelCaseToSnakeCase(name);
-        out.print(name);
+        if (ctx.identifier().getText().equals("OOPString"))
+            out.print("__str__");
+        else
+            out.print(name);
         visitFormalParameters(ctx.formalParameters());
         out.print(":\n");
         indents++;
@@ -165,34 +205,29 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print(INDENT.repeat(indents));
         if (hasReturn)
             out.print("ret_otterop = ");
-        out.print("self.otterop.");
+        if (!memberStatic)
+            out.print("self.otterop.");
+        else {
+            out.print(fullClassNames.get(className));
+            out.print(".");
+        }
         out.print(name);
         insideMethodCall = true;
         visitFormalParameters(ctx.formalParameters());
         insideMethodCall = false;
         out.print("\n");
         if (hasReturn) {
-            if (!returnTypeArray) {
-                if (returnTypePure == null) {
-                    out.print(INDENT.repeat(indents));
-                    out.print("ret = ret_otterop\n");
+            if (returnTypeIterable) {
+                out.print(INDENT.repeat(indents));
+                out.print("ret = _OOPWrapperOOPIterable.unwrap(ret_otterop, ");
+                if (!"Object".equals(returnTypeString)) {
+                    out.print("lambda el: ");
+                    out.print(unmapArgument("el", returnTypeString));
                 } else {
-                    if (returnTypePure.equals(pureClassNames.get(className))) {
-                        out.print(INDENT.repeat(indents));
-                        out.print("if ret_otterop is self.otterop:\n");
-                        indents++;
-                        out.print(INDENT.repeat(indents));
-                        out.print("return self\n");
-                        indents--;
-                    }
-                    out.print(INDENT.repeat(indents));
-                    out.print("ret = ");
-                    out.print(
-                            this.unmapArgument("ret_otterop", returnTypePure)
-                    );
-                    out.print("\n");
+                    out.print("None");
                 }
-            } else {
+                out.print(")\n");
+            } else if (returnTypeArray) {
                 out.print(INDENT.repeat(indents));
                 out.print("ret = [None] * ret_otterop.size()\n");
                 out.print(INDENT.repeat(indents));
@@ -200,7 +235,7 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
                 indents++;
                 out.print(INDENT.repeat(indents));
                 out.print("ret_i = ret_otterop.get(i)\n");
-                if (returnTypePure.equals(pureClassNames.get(className))) {
+                if (!memberStatic && returnTypePure.equals(pureClassNames.get(className))) {
                     out.print(INDENT.repeat(indents));
                     out.print("if ret_i is self.otterop:\n");
                     indents++;
@@ -215,6 +250,26 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
                 out.print(this.unmapArgument("ret_i", returnTypePure));
                 out.print("\n");
                 indents--;
+            } else {
+                if (returnTypePure == null) {
+                    out.print(INDENT.repeat(indents));
+                    out.print("ret = ret_otterop\n");
+                } else {
+                    if (!memberStatic && returnTypePure.equals(pureClassNames.get(className))) {
+                        out.print(INDENT.repeat(indents));
+                        out.print("if ret_otterop is self.otterop:\n");
+                        indents++;
+                        out.print(INDENT.repeat(indents));
+                        out.print("return self\n");
+                        indents--;
+                    }
+                    out.print(INDENT.repeat(indents));
+                    out.print("ret = ");
+                    out.print(
+                            this.unmapArgument("ret_otterop", returnTypePure)
+                    );
+                    out.print("\n");
+                }
             }
             out.print(INDENT.repeat(indents));
             out.print("return ret\n");
@@ -297,7 +352,7 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
                         identifier -> identifier.getText())
                 .collect(Collectors.joining("."));
         var packageString = String.join(".",languageIdentifiers);
-        var classStr = packageString + "." + className;
+        var classStr = "_OOP" + className;
 
         if (this.excludeImports(javaClassStr))
             return null;
@@ -306,16 +361,16 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
         pureLanguageIdentifies.add(pureLanguageIdentifies.size() - 1, "pure");
 
         var purePackageStr = String.join(".", pureLanguageIdentifies);
-        var pureClassStr = purePackageStr + "." + className;
+        var pureClassStr = "_" + className;
 
         fullClassNames.put(className, classStr);
-        imports.add("import " + packageString);
+        fromImportsOOP.put(className, "from " + packageString + " import " + className + " as _OOP" + className);
 
-        if (unwrappedClassName.containsKey(classStr)) {
+        if (specialClasses.containsKey(className)) {
             pureClassNames.put(className, classStr);
         } else {
             pureClassNames.put(className, pureClassStr);
-            imports.add("import " + purePackageStr);
+            fromImports.put(className, "from " + purePackageStr + " import " + className + " as _" + className);
         }
 
         return null;
@@ -363,13 +418,10 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print(INDENT.repeat(indents));
         out.print("class ");
         className = ctx.identifier().getText();
-        var currentFullPackageName = module + "." + camelCaseToSnakeCase(className);
-        var currentPurePackageName = pureModule + "."+ camelCaseToSnakeCase(className);
-        var currentFullClassName = currentFullPackageName + "." + className;
-        var currentPureClassName = currentPurePackageName + "." + className;
+        var currentFullClassName = "_OOP" + className;
+        fromImportsOOP.put(className, "from " + module + "." + camelCaseToSnakeCase(className) + " import " + className + " as " + currentFullClassName);
         fullClassNames.put(className, currentFullClassName);
-        pureClassNames.put(className, currentPureClassName);
-        imports.add("import " + currentFullPackageName);
+        pureClassNames.put(className, className);
         this.visitIdentifier(ctx.identifier());
         out.print(":\n");
         indents++;
@@ -399,7 +451,18 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
     public Void visitClassOrInterfaceType(JavaParser.ClassOrInterfaceTypeContext ctx) {
         var identifier = ctx.identifier().stream().map(i -> i.getText())
                 .collect(Collectors.joining("."));
+        var checkImport = true;
+
         if ("Object".equals(identifier)) {
+            if (insideFormalParameters && lastTypeIterable) {
+                lastTypeWrapped = "object";
+            }
+        } else if ("OOPIterable".equals(identifier)) {
+            if (insideFormalParameters) {
+                lastTypeIterable = true;
+            }
+            checkImport = false;
+            visitTypeType(ctx.typeArguments().get(0).typeArgument().get(0).typeType());
         } else if ("Array".equals(identifier)) {
             visitTypeType(ctx.typeArguments().get(0).typeArgument().get(0).typeType());
             if (insideFormalParameters) {
@@ -407,7 +470,7 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
             }
         } else if ("String".equals(identifier)) {
             if (insideFormalParameters) {
-                lastTypeWrapped = "otterop.lang.string.String";
+                lastTypeWrapped = "_OOPString";
             }
         } else {
             var pureClass = pureClassNames.get(identifier);
@@ -416,16 +479,18 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
                 lastTypeWrapped = fullClassNames.get(identifier);
             }
         }
+        if (checkImport)
+            usedImports.add(identifier);
         return null;
     }
 
     @Override
     public Void visitFormalParameters(JavaParser.FormalParametersContext ctx) {
         if (ctx.formalParameterList() == null) {
-            if (insideMethodCall) out.print("()");
+            if (insideMethodCall || memberStatic) out.print("()");
             else out.print("(self)");
         } else {
-            if (insideMethodCall) out.print("(");
+            if (insideMethodCall || memberStatic) out.print("(");
             else out.print("(self, ");
             insideFormalParameters = true;
             visitFormalParameterList(ctx.formalParameterList());
@@ -440,6 +505,7 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
         boolean isLast = ctx.getParent().children.get(ctx.getParent().getChildCount()-1) == ctx;
         lastTypeWrapped = null;
         lastTypeArray = false;
+        lastTypeIterable = false;
         if (!insideMethodCall) {
             visitTypeType(ctx.typeType());
         }
@@ -448,6 +514,7 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
         if (lastTypeWrapped != null) {
             mappedArguments.put(parameterName, "_" + parameterName);
             mappedArgumentArray.put(parameterName, lastTypeArray);
+            mappedArgumentIterable.put(parameterName, lastTypeIterable);
             mappedArgumentClass.put(parameterName, lastTypeWrapped);
         }
         if (insideMethodCall && mappedArguments.containsKey(parameterName)) {
@@ -466,8 +533,13 @@ public class PurePythonParserVisitor extends JavaParserBaseVisitor<Void> {
 
 
     public void printTo(PrintStream ps) {
-        for (String importStatement : imports) {
-            ps.println(importStatement);
+        for (Map.Entry<String,String> importStatementEntry : fromImportsOOP.entrySet()) {
+            if (usedImports.contains(importStatementEntry.getKey()))
+                ps.println(importStatementEntry.getValue());
+        }
+        for (Map.Entry<String,String> importStatementEntry : fromImports.entrySet()) {
+            if (usedImports.contains(importStatementEntry.getKey()))
+                ps.println(importStatementEntry.getValue());
         }
         ps.println("");
         ps.print(outStream.toString());

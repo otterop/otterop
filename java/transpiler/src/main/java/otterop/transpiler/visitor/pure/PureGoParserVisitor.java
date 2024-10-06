@@ -106,14 +106,14 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
     private Set<String> currentTypeParameters = new HashSet<>();
     private Set<String> currentMethodTypeParameters = new HashSet<>();
     private ClassReader classReader;
-    private Map<String,String> specialClassName = new LinkedHashMap<>();
+    private Map<String,String> specialClasses = new LinkedHashMap<>();
     private Map<String,String> wrapperClassName = new LinkedHashMap<>();
 
     public PureGoParserVisitor(ClassReader classReader, Map<String,String> importDomainMapping) {
         this.classReader = classReader;
         this.importDomainMapping = new HashMap<>(importDomainMapping);
-        this.specialClassName.put("otteroplang.String", "string");
-        this.specialClassName.put("otteroplang.Array", "[]");
+        this.specialClasses.put("otteroplang.String", "string");
+        this.specialClasses.put("otteroplang.Array", "[]");
         this.wrapperClassName.put("otteroplang.String", "otteroplang.String");
         this.wrapperClassName.put("otteroplang.OOPIterable", "otteroplang.WrapperOOPIterable");
     }
@@ -368,7 +368,7 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
 
         var classIdentifier = classIdentifiers.get(clazz);
         var otteropClassIdentifier = otteropClassIdentifiersPublic.get(clazz);
-        if (specialClassName.containsKey(otteropClassIdentifier)) {
+        if (specialClasses.containsKey(otteropClassIdentifier)) {
             classIdentifier = otteropClassIdentifier;
         }
         unusedImports.remove(clazz);
@@ -377,7 +377,7 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
 
     private String mapArgument(String argName, String mappedClass) {
         var otteropClassIdentifier = otteropClassIdentifiersPublic.get(mappedClass);
-        if (specialClassName.containsKey(otteropClassIdentifier)) {
+        if (specialClasses.containsKey(otteropClassIdentifier)) {
             return wrapArgName(mappedClass, argName);
         } else {
             return argName + ".Unwrap()";
@@ -385,7 +385,7 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
     }
 
     private String unmapArgument(String argName, String originalClass, String mappedClass) {
-        if (specialClassName.containsKey(originalClass)) {
+        if (specialClasses.containsKey(originalClass)) {
             return argName + ".Unwrap()";
         } else {
             return wrapArgName(mappedClass, argName);
@@ -851,8 +851,8 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
             classIdentifierPublic = classIdentifier;
             otteropClassIdentifier = "otterop" + classIdentifier;
             otteropClassIdentifierPublic = "otterop" + classIdentifierPublic;
-            if (specialClassName.containsKey(otteropClassIdentifier)) {
-                classIdentifier = specialClassName.get(otteropClassIdentifier);
+            if (specialClasses.containsKey(otteropClassIdentifier)) {
+                classIdentifier = specialClasses.get(otteropClassIdentifier);
                 classIdentifierPublic = classIdentifier;
                 otteropClassIdentifiers.put(classIdentifier, otteropClassIdentifier);
                 otteropClassIdentifiersPublic.put(classIdentifier, otteropClassIdentifier);
@@ -906,7 +906,7 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
 
         var otteropClassIdentifierPublic = otteropClassIdentifiersPublic.get(className);
         if (!this.javaFullPackageName.equals(javaFullPackageName) &&
-            !specialClassName.containsKey(otteropClassIdentifierPublic) &&
+            !specialClasses.containsKey(otteropClassIdentifierPublic) &&
             !wrapperClassName.containsKey(otteropClassIdentifierPublic)) {
             pureImports.put(className, pureImportStatement);
         }

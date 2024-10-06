@@ -57,10 +57,14 @@ class String:
         return String(_wrapped)
 
     @staticmethod
+    def unwrap(_wrapped):
+        return _wrapped._wrapped
+
+    @staticmethod
     def concat(strings):
         it = strings.oop_iterator()
         sb = _StringIO()
         while it.has_next():
             s = it.next()
-            sb.write(s.unwrap())
+            sb.write(String.unwrap(s))
         return String.wrap(sb.getvalue())
