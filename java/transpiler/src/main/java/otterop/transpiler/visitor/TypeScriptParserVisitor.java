@@ -591,7 +591,7 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
             // this is a cast
             out.print("(");
             visitExpression(ctx.expression().get(0));
-            out.print(" as unknown as ");
+            out.print(" as ");
             visitTypeType(ctx.typeType(0));
             out.print(")");
         } else {
@@ -770,7 +770,7 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         var identifier = ctx.identifier().stream().map(i -> i.getText())
                 .collect(Collectors.joining("."));
         if ("Object".equals(identifier)) {
-            out.print("object");
+            out.print("unknown");
         } else if (Otterop.ITERABLE.equals(javaFullClassNames.get(identifier))) {
             out.print("Iterable<");
             visitTypeArguments(ctx.typeArguments(0));

@@ -32,26 +32,6 @@
 
 namespace Otterop.Lang;
 
-public class WrapperOOPIterator
-{
-    public static OOPIterable<OOP> Wrap<PURE, OOP>(IEnumerable<PURE> It, Func<PURE,OOP> Wrap) where OOP : class where PURE : class
-    {
-        if (Wrap == null && It is WrapperOOPIterable<PURE, OOP>)
-        {
-            return (WrapperOOPIterable<PURE, OOP>) It;
-        }
-        return new WrapperOOPIterable<PURE, OOP>(It, Wrap);
-    }
-
-    public static IEnumerable<PURE> Unwrap<OOP, PURE>(OOPIterable<OOP> It, Func<OOP, PURE> Unwrap) where OOP : class where PURE : class
-    {
-        if (Unwrap == null) {
-            return (IEnumerable<PURE>) It;
-        }
-        return new WrapperOOPIterable<OOP, PURE>(It, Unwrap);
-    }
-}
-
 public class WrapperOOPIterator<FROM, TO> : OOPIterator<TO>, IEnumerator<TO> where FROM : class where TO : class
 {
     IEnumerator<FROM> It;

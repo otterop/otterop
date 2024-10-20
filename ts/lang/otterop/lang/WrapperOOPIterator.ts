@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2023 The OtterOP Authors. All rights reserved.
+ * Copyright (c) 2024 The OtterOP Authors. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -29,51 +29,26 @@
  *
  */
 
-import { OOPIterable } from "./OOPIterable";
+import { OOPIterator } from "./OOPIterator";
 
 
-export class String {
+export class WrapperOOPIterator<FROM, TO> implements OOPIterator<TO> {
 
-    private wrapped : string;
+    private it : Iterator<FROM>;
+    private wrap : (el : FROM) => TO;
 
-    private constructor(wrapped: string) {
-        this.wrapped = wrapped;
+    constructor(it : Iterator<FROM>, wrap: (el: FROM) => TO) {
+        this.it = it;
+        this.wrap = wrap ?? ((el1 : FROM) : TO => {
+            return el1 as unknown as TO;
+        });
     }
 
-    public static concat(strings: OOPIterable<String>) : String {
-        let sb = [];
-        let it = strings.OOPIterator();
-        while (it.hasNext()) {
-            let s = it.next();
-            sb.push(s.unwrap());
-        }
-        return String.wrap(sb.join(""));
+    hasNext(): boolean {
+        throw new Error("Method not implemented.");
     }
 
-    public static wrap(wrapped: string) : String {
-        return new String(wrapped);
-    }
-
-    public static unwrap(wrapper: String) : string {
-        return wrapper.wrapped;
-    }
-
-    public compareTo(other: String) : number {
-        if (!other) return -1;
-        if (this.wrapped < other.wrapped) return -1;
-        else if (this.wrapped > other.wrapped) return 1;
-        else return 0;
-    }
-
-    public length() : number {
-        return this.wrapped.length;
-    }
-
-    public unwrap() : string {
-        return this.wrapped;
-    }
-
-    toString() : string {
-        return this.wrapped;
+    next(): TO {
+        throw new Error("Method not implemented.");
     }
 }

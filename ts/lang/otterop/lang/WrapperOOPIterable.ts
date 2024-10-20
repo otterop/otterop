@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2023 The OtterOP Authors. All rights reserved.
+ * Copyright (c) 2024 The OtterOP Authors. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -29,51 +29,39 @@
  *
  */
 
-import { OOPIterable } from "./OOPIterable";
+import { OOPIterable } from "./OOPIterable"
+import { OOPIterator } from "./OOPIterator";
+import { WrapperOOPIterator } from "./WrapperOOPIterator"
+import { WrapperIterator } from "./WrapperIterator"
 
+export class WrapperOOPIterable<FROM,TO> implements OOPIterable<TO> {
 
-export class String {
+    private iterable : Iterable<FROM>
+    private wrap : (el: FROM) => TO
 
-    private wrapped : string;
-
-    private constructor(wrapped: string) {
-        this.wrapped = wrapped;
+    constructor(iterable : Iterable<FROM>, wrap: (el: FROM) => TO = (x) => x as unknown as TO) {
+        this.iterable = iterable;
+        this.wrap = wrap;
     }
 
-    public static concat(strings: OOPIterable<String>) : String {
-        let sb = [];
-        let it = strings.OOPIterator();
-        while (it.hasNext()) {
-            let s = it.next();
-            sb.push(s.unwrap());
-        }
-        return String.wrap(sb.join(""));
+    OOPIterator() : OOPIterator<TO> {
+        return new WrapperOOPIterator(this.iterable[Symbol.iterator](), this.wrap);
     }
 
-    public static wrap(wrapped: string) : String {
-        return new String(wrapped);
+    [Symbol.iterator](): Iterator<TO, TO, TO> {
+        return new WrapperIterator(this.iterable[Symbol.iterator](), this.wrap);
     }
 
-    public static unwrap(wrapper: String) : string {
-        return wrapper.wrapped;
+    static wrap<OOP, PURE>(iterable : Iterable<PURE>, wrap : (el: PURE) => OOP) : WrapperOOPIterable<PURE, OOP> {
+        if (!wrap && iterable instanceof WrapperOOPIterable)
+            return iterable;
+        return new WrapperOOPIterable(iterable, wrap);
     }
 
-    public compareTo(other: String) : number {
-        if (!other) return -1;
-        if (this.wrapped < other.wrapped) return -1;
-        else if (this.wrapped > other.wrapped) return 1;
-        else return 0;
-    }
-
-    public length() : number {
-        return this.wrapped.length;
-    }
-
-    public unwrap() : string {
-        return this.wrapped;
-    }
-
-    toString() : string {
-        return this.wrapped;
+    static unwrap<OOP, PURE>(oopIterable : OOPIterable<OOP>, unwrap : (el: OOP) => PURE) : Iterable<PURE> {
+        if (!unwrap && oopIterable instanceof WrapperOOPIterable)
+            return oopIterable;
+        return new WrapperOOPIterable(oopIterable, unwrap);
     }
 }
+

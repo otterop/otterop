@@ -981,7 +981,7 @@ public class PureGoParserVisitor extends JavaParserBaseVisitor<Void> {
         if ("Object".equals(identifier)) {
             out.print("any");
             checkImport = false;
-            if (lastTypeIterable) {
+            if (lastTypeArray || lastTypeIterable) {
                 lastTypeWrapped = "any";
             }
         } else if ("OOPIterable".equals(identifier)) {
