@@ -1,8 +1,6 @@
 #include <otterop/datastructure/int/list_iterator.h>
 #include <gc.h>
 
-typedef struct otterop_datastructure_ListIterator_s otterop_datastructure_ListIterator_t;
-
 typedef struct otterop_datastructure_ListIterator_s {
     otterop_datastructure_List_t *list;
     int index;

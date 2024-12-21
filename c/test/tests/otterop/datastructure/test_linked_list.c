@@ -4,9 +4,6 @@
 #include <otterop/datastructure/int/linked_list.h>
 #include <gc.h>
 
-typedef struct otterop_datastructure_TestLinkedList_s otterop_datastructure_TestLinkedList_t;
-typedef struct otterop_datastructure_LinkedList_s otterop_datastructure_LinkedList_t;
-
 typedef struct otterop_datastructure_TestLinkedList_s {
     otterop_test_TestBase_t *_super;
 } otterop_datastructure_TestLinkedList_t;

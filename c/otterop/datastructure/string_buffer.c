@@ -2,9 +2,6 @@
 #include <otterop/datastructure/int/string_buffer.h>
 #include <gc.h>
 
-typedef struct otterop_datastructure_LinkedList_s otterop_datastructure_LinkedList_t;
-typedef struct otterop_datastructure_StringBuffer_s otterop_datastructure_StringBuffer_t;
-
 typedef struct otterop_datastructure_StringBuffer_s {
     otterop_datastructure_LinkedList_t *strings;
 } otterop_datastructure_StringBuffer_t;

@@ -1,8 +1,6 @@
 #include <otterop/lang/int/array_iterator.h>
 #include <gc.h>
 
-typedef struct otterop_lang_ArrayIterator_s otterop_lang_ArrayIterator_t;
-
 typedef struct otterop_lang_ArrayIterator_s {
     otterop_lang_Array_t *array;
     int i;

@@ -2,8 +2,6 @@
 #include <gc.h>
 #include <stdlib.h>
 
-typedef struct otterop_datastructure_LinkedListNode_s otterop_datastructure_LinkedListNode_t;
-
 typedef struct otterop_datastructure_LinkedListNode_s {
     otterop_datastructure_LinkedList_t *list;
     otterop_datastructure_LinkedListNode_t *prev;

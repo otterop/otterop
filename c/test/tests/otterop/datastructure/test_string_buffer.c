@@ -4,9 +4,6 @@
 #include <otterop/datastructure/int/string_buffer.h>
 #include <gc.h>
 
-typedef struct otterop_datastructure_TestStringBuffer_s otterop_datastructure_TestStringBuffer_t;
-typedef struct otterop_datastructure_StringBuffer_s otterop_datastructure_StringBuffer_t;
-
 typedef struct otterop_datastructure_TestStringBuffer_s {
     otterop_test_TestBase_t *_super;
 } otterop_datastructure_TestStringBuffer_t;

@@ -3,9 +3,6 @@
 #include <gc.h>
 #include <stdlib.h>
 
-typedef struct otterop_datastructure_LinkedListNode_s otterop_datastructure_LinkedListNode_t;
-typedef struct otterop_datastructure_LinkedListIterator_s otterop_datastructure_LinkedListIterator_t;
-
 typedef struct otterop_datastructure_LinkedListIterator_s {
     otterop_datastructure_LinkedListNode_t *current;
 } otterop_datastructure_LinkedListIterator_t;

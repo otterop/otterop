@@ -1,8 +1,6 @@
 #include <otterop/lang/int/error.h>
 #include <gc.h>
 
-typedef struct otterop_lang_Error_s otterop_lang_Error_t;
-
 typedef struct otterop_lang_Error_s {
     int code;
     otterop_lang_String_t *message;

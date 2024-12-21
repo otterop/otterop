@@ -1,8 +1,6 @@
 #include <gc.h>
 #include <otterop/lang/int/oop_iterable.h>
 
-typedef struct otterop_lang_OOPIterable_s otterop_lang_OOPIterable_t;
-
 typedef struct otterop_lang_OOPIterable_s {
     void *implementation;
     otterop_lang_OOPIterator_t *(*oop_iterator)(void *);

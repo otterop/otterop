@@ -1185,7 +1185,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
 
         if (add) {
             includes.add(includeStatement);
-            if (header && isThisClass)
+            if (header)
                 predeclarations.add("typedef struct " + fullClassName + "_s " + fullClassName + "_t;");
         }
         fullClassNames.put(className, fullClassName);

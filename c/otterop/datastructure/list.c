@@ -2,9 +2,6 @@
 #include <gc.h>
 #include <otterop/datastructure/int/list_iterator.h>
 
-typedef struct otterop_datastructure_List_s otterop_datastructure_List_t;
-typedef struct otterop_datastructure_ListIterator_s otterop_datastructure_ListIterator_t;
-
 typedef struct otterop_datastructure_List_s {
     otterop_lang_Array_t *array;
     int capacity;

@@ -2,8 +2,6 @@
 #include <stdlib.h>
 #include <gc.h>
 
-typedef struct otterop_lang_Generic_s otterop_lang_Generic_t;
-
 typedef struct otterop_lang_Generic_s {
 } otterop_lang_Generic_t;
 

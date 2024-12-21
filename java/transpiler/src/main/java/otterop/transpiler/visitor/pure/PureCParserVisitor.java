@@ -1413,7 +1413,7 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
             if (isPure && !header) {
                 classIncludesOtterop.put(className, includeStatementOtterop);
             }
-            if (header && isThisClass)
+            if (header)
                 predeclarations.put(className, "typedef struct " + fullClassName + "_s " + fullClassName + "_t;");
             unusedImports.put(className, includeStatement);
         }
