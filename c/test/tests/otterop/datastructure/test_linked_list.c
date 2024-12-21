@@ -11,7 +11,7 @@ typedef struct otterop_datastructure_TestLinkedList_s {
 
 
 
-void otterop_datastructure_TestLinkedList_add(otterop_datastructure_TestLinkedList_t *this) {
+void otterop_datastructure_TestLinkedList_add(otterop_datastructure_TestLinkedList_t *self) {
     otterop_lang_String_t *a = otterop_lang_String_wrap("a");
     otterop_lang_String_t *b = otterop_lang_String_wrap("b");
     otterop_lang_String_t *c = otterop_lang_String_wrap("c");
@@ -35,24 +35,24 @@ void otterop_datastructure_TestLinkedList_add(otterop_datastructure_TestLinkedLi
     otterop_datastructure_LinkedList_add_last(l, c);
     otterop_datastructure_LinkedList_add_first(l, d);
     otterop_datastructure_LinkedList_add_first(l, e);
-    otterop_datastructure_TestLinkedList_assert_true(this, otterop_datastructure_LinkedList_size(l) == 5, otterop_lang_String_wrap("Size should be 5"));
+    otterop_datastructure_TestLinkedList_assert_true(self, otterop_datastructure_LinkedList_size(l) == 5, otterop_lang_String_wrap("Size should be 5"));
     int i = 0;
     otterop_lang_OOPIterator_t *__it_l = otterop_datastructure_LinkedList_oop_iterator(l);
     for (; otterop_lang_OOPIterator_has_next(__it_l);) {
         otterop_lang_String_t *s = otterop_lang_OOPIterator_next(__it_l);
-        otterop_datastructure_TestLinkedList_assert_true(this, otterop_lang_String_compare_to(s, otterop_lang_Array_get(expected, i)) == 0, otterop_lang_String_wrap("Element mismatch"));
+        otterop_datastructure_TestLinkedList_assert_true(self, otterop_lang_String_compare_to(s, otterop_lang_Array_get(expected, i)) == 0, otterop_lang_String_wrap("Element mismatch"));
         i++;
     }
 }
 
-void otterop_datastructure_TestLinkedList_assert_true(otterop_datastructure_TestLinkedList_t *this, int arg0, otterop_lang_String_t *arg1) {
-    return  otterop_test_TestBase_assert_true(this->_super, arg0, arg1);
+void otterop_datastructure_TestLinkedList_assert_true(otterop_datastructure_TestLinkedList_t *self, int arg0, otterop_lang_String_t *arg1) {
+    return  otterop_test_TestBase_assert_true(self->_super, arg0, arg1);
 }
 
 otterop_datastructure_TestLinkedList_t* otterop_datastructure_TestLinkedList_new() {
-    otterop_datastructure_TestLinkedList_t *this = GC_malloc(sizeof(*this));
-    this->_super = otterop_test_TestBase_new();
-    return this;
+    otterop_datastructure_TestLinkedList_t *self = GC_malloc(sizeof(*self));
+    self->_super = otterop_test_TestBase_new();
+    return self;
 }
 
 TEST_GROUP(otterop_datastructure_TestLinkedList);

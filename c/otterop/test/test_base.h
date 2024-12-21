@@ -9,6 +9,6 @@ typedef struct otterop_test_TestBase_s otterop_test_TestBase_t;
 
 otterop_test_TestBase_t *otterop_test_TestBase_new();
 
-void otterop_test_TestBase_assert_true(otterop_test_TestBase_t *this, int value, otterop_lang_String_t *message);
+void otterop_test_TestBase_assert_true(otterop_test_TestBase_t *self, int value, otterop_lang_String_t *message);
 
 #endif

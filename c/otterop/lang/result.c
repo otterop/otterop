@@ -10,18 +10,18 @@ typedef struct otterop_lang_Result_s {
 
 
 otterop_lang_Result_t *otterop_lang_Result_new(void *res, void *err) {
-    otterop_lang_Result_t *this = GC_malloc(sizeof(otterop_lang_Result_t));
-    this->res = res;
-    this->err = err;
-    return this;
+    otterop_lang_Result_t *self = GC_malloc(sizeof(otterop_lang_Result_t));
+    self->res = res;
+    self->err = err;
+    return self;
 }
 
-void *otterop_lang_Result_err(otterop_lang_Result_t *this) {
-    return this->err;
+void *otterop_lang_Result_err(otterop_lang_Result_t *self) {
+    return self->err;
 }
 
-void *otterop_lang_Result_unwrap(otterop_lang_Result_t *this) {
-    return this->res;
+void *otterop_lang_Result_unwrap(otterop_lang_Result_t *self) {
+    return self->res;
 }
 
 otterop_lang_Result_t *otterop_lang_Result_of(void *res, void *err) {

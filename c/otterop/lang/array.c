@@ -75,34 +75,34 @@ otterop_lang_Array_t *otterop_lang_Array_wrap_string(char **wrapped, int wrapped
     return otterop_lang_Array_new(ret, 0, wrapped_cnt);
 }
 
-void *otterop_lang_Array_get(otterop_lang_Array_t *this, int i) {
-    return this->wrapped[this->start + i];
+void *otterop_lang_Array_get(otterop_lang_Array_t *self, int i) {
+    return self->wrapped[self->start + i];
 }
 
-void otterop_lang_Array_set(otterop_lang_Array_t *this, int i, void* value) {
-    this->wrapped[this->start + i] = value;
+void otterop_lang_Array_set(otterop_lang_Array_t *self, int i, void* value) {
+    self->wrapped[self->start + i] = value;
 }
 
-otterop_lang_Array_t *otterop_lang_Array_slice(otterop_lang_Array_t *this, int start, int end) {
-    int newStart = this->start + start;
-    int newEnd = this->start + end;
-    if (newStart < this->start || newStart > this->end || newEnd < newStart ||
-            newEnd > this->end) {
+otterop_lang_Array_t *otterop_lang_Array_slice(otterop_lang_Array_t *self, int start, int end) {
+    int newStart = self->start + start;
+    int newEnd = self->start + end;
+    if (newStart < self->start || newStart > self->end || newEnd < newStart ||
+            newEnd > self->end) {
         *(int*)0 = 0; // SEGFAULT
     }
-    return otterop_lang_Array_new(this->wrapped, newStart, newEnd);
+    return otterop_lang_Array_new(self->wrapped, newStart, newEnd);
 }
 
-int otterop_lang_Array_size(otterop_lang_Array_t *this) {
-    return this->end - this->start;
+int otterop_lang_Array_size(otterop_lang_Array_t *self) {
+    return self->end - self->start;
 }
 
-otterop_lang_OOPIterator_t *otterop_lang_Array_oop_iterator(otterop_lang_Array_t *this) {
-    return otterop_lang_ArrayIterator__to_otterop_lang_OOPIterator(otterop_lang_ArrayIterator_new(this));
+otterop_lang_OOPIterator_t *otterop_lang_Array_oop_iterator(otterop_lang_Array_t *self) {
+    return otterop_lang_ArrayIterator__to_otterop_lang_OOPIterator(otterop_lang_ArrayIterator_new(self));
 }
 
 otterop_lang_OOPIterable_t
-*otterop_lang_Array__to_otterop_lang_OOPIterable(otterop_lang_Array_t *this) {
-    return otterop_lang_OOPIterable_new(this,
+*otterop_lang_Array__to_otterop_lang_OOPIterable(otterop_lang_Array_t *self) {
+    return otterop_lang_OOPIterable_new(self,
         (otterop_lang_OOPIterator_t * (*)(void *)) otterop_lang_Array_oop_iterator);
 }

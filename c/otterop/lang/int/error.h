@@ -11,9 +11,9 @@ typedef struct otterop_lang_Error_s otterop_lang_Error_t;
 
 otterop_lang_Error_t *otterop_lang_Error_new(int code, otterop_lang_String_t *message);
 
-int otterop_lang_Error_code(otterop_lang_Error_t *this);
+int otterop_lang_Error_code(otterop_lang_Error_t *self);
 
 
-otterop_lang_String_t *otterop_lang_Error_message(otterop_lang_Error_t *this);
+otterop_lang_String_t *otterop_lang_Error_message(otterop_lang_Error_t *self);
 
 #endif

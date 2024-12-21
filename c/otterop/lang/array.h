@@ -49,17 +49,17 @@ otterop_lang_Array_t *otterop_lang_Array_wrap_string(char **wrapped, int wrapped
 void otterop_lang_Array_copy(otterop_lang_Array_t *src, int src_pos,
                              otterop_lang_Array_t *dst, int dst_pos, int size);
 
-void *otterop_lang_Array_get(otterop_lang_Array_t *this, int i);
+void *otterop_lang_Array_get(otterop_lang_Array_t *self, int i);
 
-void otterop_lang_Array_set(otterop_lang_Array_t *this, int i, void* value);
+void otterop_lang_Array_set(otterop_lang_Array_t *self, int i, void* value);
 
-otterop_lang_Array_t *otterop_lang_Array_slice(otterop_lang_Array_t *this, int start, int end);
+otterop_lang_Array_t *otterop_lang_Array_slice(otterop_lang_Array_t *self, int start, int end);
 
-int otterop_lang_Array_size(otterop_lang_Array_t *this);
+int otterop_lang_Array_size(otterop_lang_Array_t *self);
 
-otterop_lang_OOPIterator_t *otterop_lang_Array_oop_iterator(otterop_lang_Array_t *this);
+otterop_lang_OOPIterator_t *otterop_lang_Array_oop_iterator(otterop_lang_Array_t *self);
 
 otterop_lang_OOPIterable_t
-*otterop_lang_Array__to_otterop_lang_OOPIterable(otterop_lang_Array_t *this);
+*otterop_lang_Array__to_otterop_lang_OOPIterable(otterop_lang_Array_t *self);
 
 #endif

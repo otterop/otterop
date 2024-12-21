@@ -11,30 +11,30 @@ typedef struct otterop_datastructure_TestStringBuffer_s {
 
 
 
-void otterop_datastructure_TestStringBuffer_empty(otterop_datastructure_TestStringBuffer_t *this) {
+void otterop_datastructure_TestStringBuffer_empty(otterop_datastructure_TestStringBuffer_t *self) {
     otterop_datastructure_StringBuffer_t *sb = otterop_datastructure_StringBuffer_new();
     otterop_lang_String_t *s = otterop_datastructure_StringBuffer_oop_string(sb);
-    otterop_datastructure_TestStringBuffer_assert_true(this, otterop_lang_String_compare_to(s, otterop_lang_String_wrap("")) == 0, otterop_lang_String_wrap("Should be an empty string"));
+    otterop_datastructure_TestStringBuffer_assert_true(self, otterop_lang_String_compare_to(s, otterop_lang_String_wrap("")) == 0, otterop_lang_String_wrap("Should be an empty string"));
 }
 
-void otterop_datastructure_TestStringBuffer_add_more_strings(otterop_datastructure_TestStringBuffer_t *this) {
+void otterop_datastructure_TestStringBuffer_add_more_strings(otterop_datastructure_TestStringBuffer_t *self) {
     otterop_datastructure_StringBuffer_t *sb = otterop_datastructure_StringBuffer_new();
     otterop_datastructure_StringBuffer_add(sb, otterop_lang_String_wrap("a"));
     otterop_lang_String_t *s = otterop_datastructure_StringBuffer_oop_string(sb);
-    otterop_datastructure_TestStringBuffer_assert_true(this, otterop_lang_String_compare_to(s, otterop_lang_String_wrap("a")) == 0, otterop_lang_String_wrap("Should be equals to 'a'"));
+    otterop_datastructure_TestStringBuffer_assert_true(self, otterop_lang_String_compare_to(s, otterop_lang_String_wrap("a")) == 0, otterop_lang_String_wrap("Should be equals to 'a'"));
     otterop_datastructure_StringBuffer_add(sb, otterop_lang_String_wrap(",b"));
     s = otterop_datastructure_StringBuffer_oop_string(sb);
-    otterop_datastructure_TestStringBuffer_assert_true(this, otterop_lang_String_compare_to(s, otterop_lang_String_wrap("a,b")) == 0, otterop_lang_String_wrap("Should be equals to 'a,b'"));
+    otterop_datastructure_TestStringBuffer_assert_true(self, otterop_lang_String_compare_to(s, otterop_lang_String_wrap("a,b")) == 0, otterop_lang_String_wrap("Should be equals to 'a,b'"));
 }
 
-void otterop_datastructure_TestStringBuffer_assert_true(otterop_datastructure_TestStringBuffer_t *this, int arg0, otterop_lang_String_t *arg1) {
-    return  otterop_test_TestBase_assert_true(this->_super, arg0, arg1);
+void otterop_datastructure_TestStringBuffer_assert_true(otterop_datastructure_TestStringBuffer_t *self, int arg0, otterop_lang_String_t *arg1) {
+    return  otterop_test_TestBase_assert_true(self->_super, arg0, arg1);
 }
 
 otterop_datastructure_TestStringBuffer_t* otterop_datastructure_TestStringBuffer_new() {
-    otterop_datastructure_TestStringBuffer_t *this = GC_malloc(sizeof(*this));
-    this->_super = otterop_test_TestBase_new();
-    return this;
+    otterop_datastructure_TestStringBuffer_t *self = GC_malloc(sizeof(*self));
+    self->_super = otterop_test_TestBase_new();
+    return self;
 }
 
 TEST_GROUP(otterop_datastructure_TestStringBuffer);

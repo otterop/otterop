@@ -15,19 +15,19 @@ typedef struct otterop_datastructure_TestList_s otterop_datastructure_TestList_t
 
 
 
-void otterop_datastructure_TestList_add(otterop_datastructure_TestList_t *this);
+void otterop_datastructure_TestList_add(otterop_datastructure_TestList_t *self);
 
 
-void otterop_datastructure_TestList_add_range(otterop_datastructure_TestList_t *this);
+void otterop_datastructure_TestList_add_range(otterop_datastructure_TestList_t *self);
 
 
-void otterop_datastructure_TestList_remove_index(otterop_datastructure_TestList_t *this);
+void otterop_datastructure_TestList_remove_index(otterop_datastructure_TestList_t *self);
 
 
-void otterop_datastructure_TestList_remove_range(otterop_datastructure_TestList_t *this);
+void otterop_datastructure_TestList_remove_range(otterop_datastructure_TestList_t *self);
 
 
-void otterop_datastructure_TestList_assert_true(otterop_datastructure_TestList_t *this, int arg0, otterop_lang_String_t *arg1);
+void otterop_datastructure_TestList_assert_true(otterop_datastructure_TestList_t *self, int arg0, otterop_lang_String_t *arg1);
 
 otterop_datastructure_TestList_t* otterop_datastructure_TestList_new();
 #endif

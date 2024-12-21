@@ -86,7 +86,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
     private int indents = 0;
     private int skipNewlines = 0;
     private static final String INDENT = "    ";
-    private static final String THIS = "this";
+    private static final String THIS = "self";
     private static final String SUPER = "super";
     private static final String MALLOC = "GC_malloc";
     private String packagePrefix = null;
@@ -422,7 +422,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
                 String variableDeclaratorText = variableDeclaratorId.getText();
                 String typeName = typeName(field.typeType());
                 this.fieldVariableType.put(variableDeclaratorText, typeName);
-                this.fieldVariableType.put(THIS + "." + variableDeclaratorText, typeName);
+                this.fieldVariableType.put("this." + variableDeclaratorText, typeName);
                 out.print(" ");
                 visitVariableDeclaratorId(variableDeclaratorId);
                 out.print(";\n");
@@ -552,10 +552,10 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         indents++;
         printMalloc(THIS, fullClassNameType);
         out.print(INDENT.repeat(indents));
-        out.print("this->implementation = implementation;\n");
+        out.print(THIS + "->implementation = implementation;\n");
         for (var method: interfaceMethods) {
             out.print(INDENT.repeat(indents));
-            out.print("this->");
+            out.print(THIS + "->");
             var name = method.identifier().getText();
             name = camelCaseToSnakeCase(name);
             out.print(name);
@@ -564,7 +564,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
             out.print(";\n");
         }
         out.print(INDENT.repeat(indents));
-        out.print("return this;\n");
+        out.print("return " + THIS + ";\n");
         indents--;
         out.print("}\n");
     }
@@ -577,9 +577,9 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         if (ctx.typeTypeOrVoid().VOID() == null) {
             out.print("return ");
         }
-        out.print("this->");
+        out.print(THIS + "->");
         out.print(methodName);
-        out.print("(this->implementation");
+        out.print("(" + THIS + "->implementation");
         if (ctx.formalParameters().formalParameterList() != null) {
             for (var arg : ctx.formalParameters().formalParameterList().formalParameter()) {
                 out.print(", ");
@@ -836,7 +836,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         super.visitBlock(ctx);
         if (insideConstructorFirst) {
             out.print(INDENT.repeat(indents));
-            out.print("return this;\n");
+            out.print("return " + THIS + ";\n");
         }
         variableType.endContext();
         indents--;
@@ -1006,7 +1006,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
 
         String methodName;
         if (ctx.SUPER() != null)
-            methodName = "this->_super = " + fullSuperClassName + "_new";
+            methodName = THIS + "->_super = " + fullSuperClassName + "_new";
         else {
             methodName = ctx.identifier().getText();
             if (first && methodNameFull.containsKey(methodName))
@@ -1085,8 +1085,8 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
             if (ctx.methodCall() != null && ctx.expression(0) != null) {
                 var name = ctx.expression(0).getText();
                 methodCall = true;
-                if (THIS.equals(name) || className.equals(name)) {
-                    if (THIS.equals(name)) {
+                if ("this".equals(name) || className.equals(name)) {
+                    if ("this".equals(name)) {
                         currentInstanceName = THIS;
                     }
                     out.print(fullClassName + "_");
@@ -1095,7 +1095,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
                     out.print(fullSuperClassName + "_");
                 } else if (variableType.containsKey(name)) {
                     changeCurrentTypeName(variableType.get(name));
-                    currentInstanceName = camelCaseToSnakeCase(name.replace(".", "->"));
+                    currentInstanceName = camelCaseToSnakeCase(name.replace("this.", "self->"));
                     out.print(currentTypeFullClassName + "_");
                 } else if (fullClassNames.containsKey(name)) {
                     var fullClassName = fullClassNames.get(name);
@@ -1298,7 +1298,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitPrimary(JavaParser.PrimaryContext ctx) {
-        if (ctx.THIS() != null)  out.print("this");
+        if (ctx.THIS() != null)  out.print(THIS);
         if (ctx.LPAREN() != null) out.print('(');
         super.visitPrimary(ctx);
         if (ctx.RPAREN() != null) out.print(')');
@@ -1449,17 +1449,17 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         indents++;
         ps.print(INDENT.repeat(indents));
         ps.print(fullClassNameType);
-        ps.print(" *this = ");
+        ps.print(" *" + THIS + " = ");
         ps.print(MALLOC);
-        ps.print("(sizeof(*this));\n");
+        ps.print("(sizeof(*" + THIS + "));\n");
         if (this.superClassName != null) {
             ps.print(INDENT.repeat(indents));
-            ps.print("this->_super = ");
+            ps.print(THIS + "->_super = ");
             ps.print(fullSuperClassName);
             ps.print("_new();\n");
         }
         ps.print(INDENT.repeat(indents));
-        ps.print("return this;\n");
+        ps.print("return " + THIS + ";\n");
         indents--;
         ps.print("}\n");
     }

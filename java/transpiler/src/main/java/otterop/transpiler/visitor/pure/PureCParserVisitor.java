@@ -77,7 +77,7 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
     private int indents = 0;
     private int skipNewlines = 0;
     private static final String INDENT = "    ";
-    private static final String THIS = "this";
+    private static final String THIS = "self";
     private static final String MALLOC = "GC_malloc";
     private String packagePrefix = null;
     private String purePackagePrefix = null;
@@ -358,9 +358,9 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
         indents++;
         printMalloc(THIS, pureFullClassNameType);
         out.print(INDENT.repeat(indents));
-        out.print("this->_otterop = wrapped;\n");
+        out.print(THIS + "->_otterop = wrapped;\n");
         out.print(INDENT.repeat(indents));
-        out.print("return this;\n");
+        out.print("return " + THIS + ";\n");
         indents--;
         out.print(INDENT.repeat(indents));
         out.print("}\n");
@@ -374,7 +374,7 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print(pureFullClassName);
         out.print("_unwrap(");
         out.print(pureFullClassNameType);
-        out.print(" *this)");
+        out.print(" *" + THIS + ")");
         if (header) {
             out.print(";\n");
             return;
@@ -382,7 +382,7 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
         out.print(" {\n");
         indents++;
         out.print(INDENT.repeat(indents));
-        out.print("return this->_otterop;\n");
+        out.print("return " + THIS + "->_otterop;\n");
         indents--;
         out.print(INDENT.repeat(indents));
         out.print("}\n");
@@ -499,7 +499,7 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
             mapArguments();
             printMalloc(THIS, pureFullClassNameType);
             out.print(INDENT.repeat(indents));
-            out.print("this->_otterop = ");
+            out.print(THIS + "->_otterop = ");
             out.print(fullClassName);
             out.print("_new");
             insideMethodCall = true;
@@ -507,7 +507,7 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
             insideMethodCall = false;
             out.print(";\n");
             out.print(INDENT.repeat(indents));
-            out.print("return this;\n");
+            out.print("return " + THIS + ";\n");
             indents--;
             out.print(INDENT.repeat(indents));
             out.print("}\n\n");
@@ -548,10 +548,10 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
         indents++;
         printMalloc(THIS, pureFullClassNameType);
         out.print(INDENT.repeat(indents));
-        out.print("this->implementation = implementation;\n");
+        out.print(THIS + "->implementation = implementation;\n");
         for (var method: interfaceMethods) {
             out.print(INDENT.repeat(indents));
-            out.print("this->");
+            out.print(THIS + "->");
             var name = method.identifier().getText();
             name = camelCaseToSnakeCase(name);
             out.print(name);
@@ -560,7 +560,7 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
             out.print(";\n");
         }
         out.print(INDENT.repeat(indents));
-        out.print("return this;\n");
+        out.print("return " + THIS + ";\n");
         indents--;
         out.print("}\n");
     }
@@ -573,9 +573,9 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
         if (ctx.typeTypeOrVoid().VOID() == null) {
             out.print("return ");
         }
-        out.print("this->");
+        out.print(THIS + "->");
         out.print(methodName);
-        out.print("(this->implementation");
+        out.print("(" + THIS + "->implementation");
         for(var arg: ctx.formalParameters().formalParameterList().formalParameter()) {
             out.print(", ");
             visitVariableDeclaratorId(arg.variableDeclaratorId());
@@ -909,7 +909,7 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
             out.print("_");
             out.print(name);
             insideMethodCall = true;
-            calledOn = "this->_otterop";
+            calledOn = THIS + "->_otterop";
             visitFormalParameters(ctx.formalParameters());
             insideMethodCall = false;
             out.print(";\n");
@@ -936,10 +936,10 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
                     out.print("_t *ret_i = otterop_lang_Array_get(ret_otterop, _ret_i);\n");
                     if (returnTypePure.equals(pureClassNames.get(className)) && !memberStatic) {
                         out.print(INDENT.repeat(indents));
-                        out.print("if (ret_i == this->_otterop) {\n");
+                        out.print("if (ret_i == " + THIS + "->_otterop) {\n");
                         indents++;
                         out.print(INDENT.repeat(indents));
-                        out.print("ret[_ret_i] = this;\n");
+                        out.print("ret[_ret_i] = " + THIS + ";\n");
                         out.print(INDENT.repeat(indents));
                         out.print("continue;\n");
                         indents--;
@@ -979,7 +979,7 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
                     } else {
                         if (returnTypePure.equals(pureClassNames.get(className)) && !memberStatic) {
                             out.print(INDENT.repeat(indents));
-                            out.print("if (ret_otterop == this->_otterop) return this;\n");
+                            out.print("if (ret_otterop == " + THIS + "->_otterop) return " + THIS + ";\n");
                         }
                         out.print(INDENT.repeat(indents));
                         if (specialClasses.containsKey(returnTypeString))
@@ -1170,7 +1170,7 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
         super.visitBlock(ctx);
         if (insideConstructorFirst) {
             out.print(INDENT.repeat(indents));
-            out.print("return this;\n");
+            out.print("return " + THIS + ";\n");
         }
         indents--;
         out.print(INDENT.repeat(indents));
@@ -1319,8 +1319,8 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
             if (ctx.methodCall() != null && ctx.expression(0) != null) {
                 var name = ctx.expression(0).getText();
                 methodCall = true;
-                if (THIS.equals(name) || className.equals(name)) {
-                    if (THIS.equals(name)) {
+                if ("this".equals(name) || className.equals(name)) {
+                    if ("this".equals(name)) {
                         currentInstanceName = THIS;
                     }
                     out.print(pureFullClassName + "_");
@@ -1530,7 +1530,7 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitPrimary(JavaParser.PrimaryContext ctx) {
-        if (ctx.THIS() != null)  out.print("this");
+        if (ctx.THIS() != null)  out.print(THIS);
         if (ctx.LPAREN() != null) out.print('(');
         super.visitPrimary(ctx);
         if (ctx.RPAREN() != null) out.print(')');

@@ -8,7 +8,7 @@ typedef struct otterop_lang_Generic_s {
 
 
 
-void *otterop_lang_Generic_zero(otterop_lang_Generic_t *this) {
+void *otterop_lang_Generic_zero(otterop_lang_Generic_t *self) {
     return NULL;
 }
 
@@ -17,6 +17,6 @@ int otterop_lang_Generic_is_zero(void *arg) {
 }
 
 otterop_lang_Generic_t* otterop_lang_Generic_new() {
-    otterop_lang_Generic_t *this = GC_malloc(sizeof(*this));
-    return this;
+    otterop_lang_Generic_t *self = GC_malloc(sizeof(*self));
+    return self;
 }

@@ -12,39 +12,39 @@ typedef struct otterop_datastructure_LinkedList_s {
 
 
 
-void otterop_datastructure_LinkedList_node_of_different_list(otterop_datastructure_LinkedList_t *this);
+void otterop_datastructure_LinkedList_node_of_different_list(otterop_datastructure_LinkedList_t *self);
 
 
-void otterop_datastructure_LinkedList_remove_on_empty_list(otterop_datastructure_LinkedList_t *this);
+void otterop_datastructure_LinkedList_remove_on_empty_list(otterop_datastructure_LinkedList_t *self);
 
 
 otterop_datastructure_LinkedList_t *otterop_datastructure_LinkedList_new() {
-    otterop_datastructure_LinkedList_t *this = GC_malloc(sizeof(otterop_datastructure_LinkedList_t));
-    this->head = NULL;
-    this->tail = NULL;
-    this->size = 0;
-    return this;
+    otterop_datastructure_LinkedList_t *self = GC_malloc(sizeof(otterop_datastructure_LinkedList_t));
+    self->head = NULL;
+    self->tail = NULL;
+    self->size = 0;
+    return self;
 }
 
-otterop_datastructure_LinkedListNode_t *otterop_datastructure_LinkedList_add_before(otterop_datastructure_LinkedList_t *this, otterop_datastructure_LinkedListNode_t *node, void *value) {
+otterop_datastructure_LinkedListNode_t *otterop_datastructure_LinkedList_add_before(otterop_datastructure_LinkedList_t *self, otterop_datastructure_LinkedListNode_t *node, void *value) {
     otterop_datastructure_LinkedListNode_t *new_node = otterop_datastructure_LinkedListNode_new(value);
-    otterop_datastructure_LinkedListNode_set_list(new_node, this);
-    otterop_datastructure_LinkedList_add_node_before(this, node, new_node);
+    otterop_datastructure_LinkedListNode_set_list(new_node, self);
+    otterop_datastructure_LinkedList_add_node_before(self, node, new_node);
     return new_node;
 }
 
-void otterop_datastructure_LinkedList_node_of_different_list(otterop_datastructure_LinkedList_t *this) {
+void otterop_datastructure_LinkedList_node_of_different_list(otterop_datastructure_LinkedList_t *self) {
     otterop_lang_Panic_invalid_operation(otterop_lang_String_wrap("node of different list"));
 }
 
-void otterop_datastructure_LinkedList_remove_on_empty_list(otterop_datastructure_LinkedList_t *this) {
+void otterop_datastructure_LinkedList_remove_on_empty_list(otterop_datastructure_LinkedList_t *self) {
     otterop_lang_Panic_invalid_operation(otterop_lang_String_wrap("remove called on empty list"));
 }
 
-void otterop_datastructure_LinkedList_add_node_before(otterop_datastructure_LinkedList_t *this, otterop_datastructure_LinkedListNode_t *node, otterop_datastructure_LinkedListNode_t *new_node) {
+void otterop_datastructure_LinkedList_add_node_before(otterop_datastructure_LinkedList_t *self, otterop_datastructure_LinkedListNode_t *node, otterop_datastructure_LinkedListNode_t *new_node) {
     
-    if (otterop_datastructure_LinkedListNode_list(node) != otterop_datastructure_LinkedListNode_list(new_node) || otterop_datastructure_LinkedListNode_list(node) != this) {
-        otterop_datastructure_LinkedList_node_of_different_list(this);
+    if (otterop_datastructure_LinkedListNode_list(node) != otterop_datastructure_LinkedListNode_list(new_node) || otterop_datastructure_LinkedListNode_list(node) != self) {
+        otterop_datastructure_LinkedList_node_of_different_list(self);
     }
     
     otterop_datastructure_LinkedListNode_t *prev_node = otterop_datastructure_LinkedListNode_prev(node);
@@ -59,20 +59,20 @@ void otterop_datastructure_LinkedList_add_node_before(otterop_datastructure_Link
     otterop_datastructure_LinkedListNode_set_prev(new_node, prev_node);
     otterop_datastructure_LinkedListNode_set_next(new_node, node);
     otterop_datastructure_LinkedListNode_set_prev(node, new_node);
-    this->size++;
+    self->size++;
 }
 
-otterop_datastructure_LinkedListNode_t *otterop_datastructure_LinkedList_add_after(otterop_datastructure_LinkedList_t *this, otterop_datastructure_LinkedListNode_t *node, void *value) {
+otterop_datastructure_LinkedListNode_t *otterop_datastructure_LinkedList_add_after(otterop_datastructure_LinkedList_t *self, otterop_datastructure_LinkedListNode_t *node, void *value) {
     otterop_datastructure_LinkedListNode_t *new_node = otterop_datastructure_LinkedListNode_new(value);
-    otterop_datastructure_LinkedListNode_set_list(new_node, this);
-    otterop_datastructure_LinkedList_add_node_after(this, node, new_node);
+    otterop_datastructure_LinkedListNode_set_list(new_node, self);
+    otterop_datastructure_LinkedList_add_node_after(self, node, new_node);
     return new_node;
 }
 
-void otterop_datastructure_LinkedList_add_node_after(otterop_datastructure_LinkedList_t *this, otterop_datastructure_LinkedListNode_t *node, otterop_datastructure_LinkedListNode_t *new_node) {
+void otterop_datastructure_LinkedList_add_node_after(otterop_datastructure_LinkedList_t *self, otterop_datastructure_LinkedListNode_t *node, otterop_datastructure_LinkedListNode_t *new_node) {
     
-    if (otterop_datastructure_LinkedListNode_list(node) != otterop_datastructure_LinkedListNode_list(new_node) || otterop_datastructure_LinkedListNode_list(node) != this) {
-        otterop_datastructure_LinkedList_node_of_different_list(this);
+    if (otterop_datastructure_LinkedListNode_list(node) != otterop_datastructure_LinkedListNode_list(new_node) || otterop_datastructure_LinkedListNode_list(node) != self) {
+        otterop_datastructure_LinkedList_node_of_different_list(self);
     }
     
     otterop_datastructure_LinkedListNode_t *next_node = otterop_datastructure_LinkedListNode_next(node);
@@ -87,86 +87,86 @@ void otterop_datastructure_LinkedList_add_node_after(otterop_datastructure_Linke
     otterop_datastructure_LinkedListNode_set_next(new_node, next_node);
     otterop_datastructure_LinkedListNode_set_prev(new_node, node);
     otterop_datastructure_LinkedListNode_set_next(node, new_node);
-    this->size++;
+    self->size++;
 }
 
-otterop_datastructure_LinkedListNode_t *otterop_datastructure_LinkedList_add_first(otterop_datastructure_LinkedList_t *this, void *value) {
+otterop_datastructure_LinkedListNode_t *otterop_datastructure_LinkedList_add_first(otterop_datastructure_LinkedList_t *self, void *value) {
     otterop_datastructure_LinkedListNode_t *new_node = otterop_datastructure_LinkedListNode_new(value);
-    otterop_datastructure_LinkedListNode_set_list(new_node, this);
-    otterop_datastructure_LinkedList_add_node_first(this, new_node);
+    otterop_datastructure_LinkedListNode_set_list(new_node, self);
+    otterop_datastructure_LinkedList_add_node_first(self, new_node);
     return new_node;
 }
 
-void otterop_datastructure_LinkedList_add_node_first(otterop_datastructure_LinkedList_t *this, otterop_datastructure_LinkedListNode_t *new_node) {
+void otterop_datastructure_LinkedList_add_node_first(otterop_datastructure_LinkedList_t *self, otterop_datastructure_LinkedListNode_t *new_node) {
     
-    if (this->head == NULL) {
+    if (self->head == NULL) {
         
-        if (otterop_datastructure_LinkedListNode_list(new_node) != this) {
-            otterop_datastructure_LinkedList_node_of_different_list(this);
+        if (otterop_datastructure_LinkedListNode_list(new_node) != self) {
+            otterop_datastructure_LinkedList_node_of_different_list(self);
         }
         
-        this->head = new_node;
-        this->tail = new_node;
-        this->size++;
+        self->head = new_node;
+        self->tail = new_node;
+        self->size++;
     } else {
-        otterop_datastructure_LinkedList_add_node_before(this, this->head, new_node);
+        otterop_datastructure_LinkedList_add_node_before(self, self->head, new_node);
     }
 }
 
-otterop_datastructure_LinkedListNode_t *otterop_datastructure_LinkedList_add_last(otterop_datastructure_LinkedList_t *this, void *value) {
+otterop_datastructure_LinkedListNode_t *otterop_datastructure_LinkedList_add_last(otterop_datastructure_LinkedList_t *self, void *value) {
     otterop_datastructure_LinkedListNode_t *new_node = otterop_datastructure_LinkedListNode_new(value);
-    otterop_datastructure_LinkedListNode_set_list(new_node, this);
-    otterop_datastructure_LinkedList_add_node_last(this, new_node);
+    otterop_datastructure_LinkedListNode_set_list(new_node, self);
+    otterop_datastructure_LinkedList_add_node_last(self, new_node);
     return new_node;
 }
 
-void otterop_datastructure_LinkedList_add_node_last(otterop_datastructure_LinkedList_t *this, otterop_datastructure_LinkedListNode_t *new_node) {
+void otterop_datastructure_LinkedList_add_node_last(otterop_datastructure_LinkedList_t *self, otterop_datastructure_LinkedListNode_t *new_node) {
     
-    if (this->tail == NULL) {
+    if (self->tail == NULL) {
         
-        if (otterop_datastructure_LinkedListNode_list(new_node) != this) {
-            otterop_datastructure_LinkedList_node_of_different_list(this);
+        if (otterop_datastructure_LinkedListNode_list(new_node) != self) {
+            otterop_datastructure_LinkedList_node_of_different_list(self);
         }
         
-        this->head = new_node;
-        this->tail = new_node;
-        this->size++;
+        self->head = new_node;
+        self->tail = new_node;
+        self->size++;
     } else {
-        otterop_datastructure_LinkedList_add_node_after(this, this->tail, new_node);
+        otterop_datastructure_LinkedList_add_node_after(self, self->tail, new_node);
     }
 }
 
-void otterop_datastructure_LinkedList_clear(otterop_datastructure_LinkedList_t *this) {
-    this->head = NULL;
-    this->tail = NULL;
-    this->size = 0;
+void otterop_datastructure_LinkedList_clear(otterop_datastructure_LinkedList_t *self) {
+    self->head = NULL;
+    self->tail = NULL;
+    self->size = 0;
 }
 
-void otterop_datastructure_LinkedList_remove_first(otterop_datastructure_LinkedList_t *this) {
+void otterop_datastructure_LinkedList_remove_first(otterop_datastructure_LinkedList_t *self) {
     
-    if (this->head != NULL) {
-        otterop_datastructure_LinkedList_remove_node(this, this->head);
+    if (self->head != NULL) {
+        otterop_datastructure_LinkedList_remove_node(self, self->head);
     } else {
-        otterop_datastructure_LinkedList_remove_on_empty_list(this);
+        otterop_datastructure_LinkedList_remove_on_empty_list(self);
     }
 }
 
-void otterop_datastructure_LinkedList_remove_last(otterop_datastructure_LinkedList_t *this) {
+void otterop_datastructure_LinkedList_remove_last(otterop_datastructure_LinkedList_t *self) {
     
-    if (this->tail != NULL) {
-        otterop_datastructure_LinkedList_remove_node(this, this->tail);
+    if (self->tail != NULL) {
+        otterop_datastructure_LinkedList_remove_node(self, self->tail);
     } else {
-        otterop_datastructure_LinkedList_remove_on_empty_list(this);
+        otterop_datastructure_LinkedList_remove_on_empty_list(self);
     }
 }
 
-int otterop_datastructure_LinkedList_remove(otterop_datastructure_LinkedList_t *this, void *value) {
-    otterop_datastructure_LinkedListNode_t *curr = this->head;
+int otterop_datastructure_LinkedList_remove(otterop_datastructure_LinkedList_t *self, void *value) {
+    otterop_datastructure_LinkedListNode_t *curr = self->head;
     
     while (curr != NULL) {
         
         if (otterop_lang_OOPObject_is(otterop_datastructure_LinkedListNode_value(curr), value)) {
-            otterop_datastructure_LinkedList_remove_node(this, curr);
+            otterop_datastructure_LinkedList_remove_node(self, curr);
             return 1;
         }
         curr = otterop_datastructure_LinkedListNode_next(curr);
@@ -174,9 +174,9 @@ int otterop_datastructure_LinkedList_remove(otterop_datastructure_LinkedList_t *
     return 0;
 }
 
-void otterop_datastructure_LinkedList_remove_node(otterop_datastructure_LinkedList_t *this, otterop_datastructure_LinkedListNode_t *node) {
+void otterop_datastructure_LinkedList_remove_node(otterop_datastructure_LinkedList_t *self, otterop_datastructure_LinkedListNode_t *node) {
     
-    if (otterop_datastructure_LinkedListNode_list(node) != this) {
+    if (otterop_datastructure_LinkedListNode_list(node) != self) {
         otterop_lang_Panic_invalid_operation(otterop_lang_String_wrap("node of different list"));
     }
     
@@ -196,28 +196,28 @@ void otterop_datastructure_LinkedList_remove_node(otterop_datastructure_LinkedLi
     }
     otterop_datastructure_LinkedListNode_set_prev(node, NULL);
     otterop_datastructure_LinkedListNode_set_next(node, NULL);
-    this->size--;
+    self->size--;
 }
 
-int otterop_datastructure_LinkedList_size(otterop_datastructure_LinkedList_t *this) {
-    return this->size;
+int otterop_datastructure_LinkedList_size(otterop_datastructure_LinkedList_t *self) {
+    return self->size;
 }
 
-otterop_datastructure_LinkedListNode_t *otterop_datastructure_LinkedList_first(otterop_datastructure_LinkedList_t *this) {
-    return this->head;
+otterop_datastructure_LinkedListNode_t *otterop_datastructure_LinkedList_first(otterop_datastructure_LinkedList_t *self) {
+    return self->head;
 }
 
-otterop_datastructure_LinkedListNode_t *otterop_datastructure_LinkedList_last(otterop_datastructure_LinkedList_t *this) {
-    return this->tail;
+otterop_datastructure_LinkedListNode_t *otterop_datastructure_LinkedList_last(otterop_datastructure_LinkedList_t *self) {
+    return self->tail;
 }
 
-otterop_lang_OOPIterator_t *otterop_datastructure_LinkedList_oop_iterator(otterop_datastructure_LinkedList_t *this) {
-    return otterop_datastructure_LinkedListIterator__to_otterop_lang_OOPIterator(otterop_datastructure_LinkedListIterator_new(this));
+otterop_lang_OOPIterator_t *otterop_datastructure_LinkedList_oop_iterator(otterop_datastructure_LinkedList_t *self) {
+    return otterop_datastructure_LinkedListIterator__to_otterop_lang_OOPIterator(otterop_datastructure_LinkedListIterator_new(self));
 }
 
 otterop_lang_OOPIterable_t
-*otterop_datastructure_LinkedList__to_otterop_lang_OOPIterable(otterop_datastructure_LinkedList_t *this) {
-    return otterop_lang_OOPIterable_new(this,
+*otterop_datastructure_LinkedList__to_otterop_lang_OOPIterable(otterop_datastructure_LinkedList_t *self) {
+    return otterop_lang_OOPIterable_new(self,
         (otterop_lang_OOPIterator_t * (*)(void *)) otterop_datastructure_LinkedList_oop_iterator);
 }
 

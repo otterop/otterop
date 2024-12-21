@@ -10,16 +10,16 @@ typedef struct otterop_datastructure_StringBuffer_s {
 
 
 otterop_datastructure_StringBuffer_t *otterop_datastructure_StringBuffer_new() {
-    otterop_datastructure_StringBuffer_t *this = GC_malloc(sizeof(otterop_datastructure_StringBuffer_t));
-    this->strings = otterop_datastructure_LinkedList_new();
-    return this;
+    otterop_datastructure_StringBuffer_t *self = GC_malloc(sizeof(otterop_datastructure_StringBuffer_t));
+    self->strings = otterop_datastructure_LinkedList_new();
+    return self;
 }
 
-void otterop_datastructure_StringBuffer_add(otterop_datastructure_StringBuffer_t *this, otterop_lang_String_t *s) {
-    otterop_datastructure_LinkedList_add_last(this->strings, s);
+void otterop_datastructure_StringBuffer_add(otterop_datastructure_StringBuffer_t *self, otterop_lang_String_t *s) {
+    otterop_datastructure_LinkedList_add_last(self->strings, s);
 }
 
-otterop_lang_String_t *otterop_datastructure_StringBuffer_oop_string(otterop_datastructure_StringBuffer_t *this) {
-    otterop_lang_OOPIterable_t *strings = otterop_datastructure_LinkedList__to_otterop_lang_OOPIterable(this->strings);
+otterop_lang_String_t *otterop_datastructure_StringBuffer_oop_string(otterop_datastructure_StringBuffer_t *self) {
+    otterop_lang_OOPIterable_t *strings = otterop_datastructure_LinkedList__to_otterop_lang_OOPIterable(self->strings);
     return otterop_lang_String_concat(strings);
 }

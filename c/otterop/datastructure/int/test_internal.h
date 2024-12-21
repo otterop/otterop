@@ -6,7 +6,7 @@ typedef struct otterop_datastructure_TestInternal_s otterop_datastructure_TestIn
 
 
 
-void otterop_datastructure_TestInternal_test_method(otterop_datastructure_TestInternal_t *this);
+void otterop_datastructure_TestInternal_test_method(otterop_datastructure_TestInternal_t *self);
 
 
 void otterop_datastructure_TestInternal_test_method2();

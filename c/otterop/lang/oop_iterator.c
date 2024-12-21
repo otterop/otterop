@@ -9,24 +9,24 @@ typedef struct otterop_lang_OOPIterator_s {
 
 
 otterop_lang_OOPIterator_t *otterop_lang_OOPIterator_new(void *implementation, int (*has_next)(void *), void *(*next)(void *)) {
-    otterop_lang_OOPIterator_t *this = GC_malloc(sizeof(otterop_lang_OOPIterator_t));
-    this->implementation = implementation;
-    this->has_next = has_next;
-    this->next = next;
-    return this;
+    otterop_lang_OOPIterator_t *self = GC_malloc(sizeof(otterop_lang_OOPIterator_t));
+    self->implementation = implementation;
+    self->has_next = has_next;
+    self->next = next;
+    return self;
 }
 
 
-int otterop_lang_OOPIterator_has_next(otterop_lang_OOPIterator_t *this);
+int otterop_lang_OOPIterator_has_next(otterop_lang_OOPIterator_t *self);
 
 
-void *otterop_lang_OOPIterator_next(otterop_lang_OOPIterator_t *this);
+void *otterop_lang_OOPIterator_next(otterop_lang_OOPIterator_t *self);
 
 
-int otterop_lang_OOPIterator_has_next(otterop_lang_OOPIterator_t *this) {
-    return this->has_next(this->implementation);
+int otterop_lang_OOPIterator_has_next(otterop_lang_OOPIterator_t *self) {
+    return self->has_next(self->implementation);
 }
 
-void *otterop_lang_OOPIterator_next(otterop_lang_OOPIterator_t *this) {
-    return this->next(this->implementation);
+void *otterop_lang_OOPIterator_next(otterop_lang_OOPIterator_t *self) {
+    return self->next(self->implementation);
 }
