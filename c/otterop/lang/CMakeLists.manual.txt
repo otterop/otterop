@@ -4,4 +4,6 @@ target_sources(otterop_lang
   otterop/lang/string.c
   otterop/lang/array.c
   otterop/lang/panic.c
+  otterop/lang/wrapper_oop_iterable.c
+  otterop/lang/wrapper_oop_iterator.c
 )

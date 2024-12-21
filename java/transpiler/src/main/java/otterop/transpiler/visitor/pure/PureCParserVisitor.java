@@ -86,10 +86,13 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
     private JavaParser.TypeTypeContext currentType = null;
     private boolean currentTypePointer = false;
     private boolean currentReturnTypeArray = false;
+    private boolean currentReturnTypeIterable = false;
     private String currentVariablePrefix = null;
     private String currentInstanceName;
     private Set<String> includes = new LinkedHashSet<>();
-    private Set<String> predeclarations = new LinkedHashSet<>();
+    private Map<String,String> classIncludes = new LinkedHashMap<>();
+    private Map<String,String> classIncludesOtterop = new LinkedHashMap<>();
+    private Map<String, String> predeclarations = new LinkedHashMap<>();
     private OutputStream outStream = new ByteArrayOutputStream();
     private Set<String> publicMethods = new LinkedHashSet<>();
     private Set<String> staticMethods = new LinkedHashSet<>();
@@ -106,6 +109,9 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
     private String lastTypeWrapped = null;
     private String pureLastTypeWrapped = null;
     private boolean lastTypeArray = false;
+    private boolean lastTypeIterable = false;
+    private boolean anyTypeIterable = false;
+    private boolean insideIterableAsArray = false;
     private JavaParser.ConstructorDeclarationContext constructor;
     private Map<String,String> fullClassNames = new LinkedHashMap<>();
     private Map<String,String> pureClassNames = new LinkedHashMap<>();
@@ -119,11 +125,14 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
     private boolean header = false;
     private Set<String> currentTypeParameters = new HashSet<>();
     private Set<String> currentMethodTypeParameters = new HashSet<>();
-    private Map<String,String> unwrappedClassName = new LinkedHashMap<>();
+    private Map<String,String> specialClasses = new LinkedHashMap<>();
+    private Map<String,String> wrapperClassName = new LinkedHashMap<>();
     private JavaParser.TypeParametersContext methodTypeParametersContext;
     private ClassReader classReader;
+    private Map<String,String> unusedImports = new LinkedHashMap<>();
     private Map<String,String> mappedArguments = new LinkedHashMap<>();
     private Map<String,Boolean> mappedArgumentArray = new LinkedHashMap<>();
+    private Map<String,Boolean> mappedArgumentIterable = new LinkedHashMap<>();
     private Map<String,String> mappedArgumentClass = new LinkedHashMap<>();
     private Map<String,String> pureMappedArgumentClass = new LinkedHashMap<>();
     private String calledOn = null;
@@ -137,7 +146,9 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
         if (headerVisitor != null) {
             headerFullClassNames = headerVisitor.getFullClassNames();
         }
-        this.unwrappedClassName.put("otterop_lang_String", "char");
+        this.specialClasses.put("otterop_lang_String", "char");
+        this.wrapperClassName.put("otterop_lang_String", "otterop_lang_String");
+        this.wrapperClassName.put("otterop_lang_OOPIterable", "otterop_lang_WrapperOOPIterable");
         this.importDomainMapping = new HashMap<>(importDomainMapping);
     }
 
@@ -399,11 +410,6 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
             addToIncludes(pureFullClassName, true);
         }
 
-        out.print("typedef struct ");
-        out.print(pureFullClassName);
-        out.print("_s ");
-        out.print(pureFullClassName);
-        out.print("_t;\n");
         out.print(INDENT.repeat(indents));
         out.print("typedef struct ");
         out.print(pureFullClassName);
@@ -508,7 +514,9 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
         }
         insideConstructor = false;
         currentReturnTypeArray = false;
+        currentReturnTypeIterable = false;
         lastTypeArray = false;
+        lastTypeIterable = false;
         return null;
     }
 
@@ -577,7 +585,7 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
                 out.print("_cnt");
             }
         }
-        if (currentReturnTypeArray) {
+        if (currentReturnTypeArray || currentReturnTypeIterable && insideIterableAsArray) {
             out.print(", _ret_cnt");
         }
         out.print(");\n");
@@ -595,6 +603,11 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
             this.currentReturnTypeArray = true;
             this.lastTypeArray = false;
         }
+        if (lastTypeIterable && insideIterableAsArray) {
+            out.print("*");
+            this.currentReturnTypeIterable = true;
+            this.lastTypeIterable = false;
+        }
         if (currentTypePointer) {
             out.print("*");
             currentTypePointer = false;
@@ -610,11 +623,13 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
         this.printParameterNames = true;
         this.interfaceImplementationThis = false;
         this.currentReturnTypeArray = false;
+        this.currentReturnTypeIterable = false;
     }
 
     private void visitImplementationMethodType(JavaParser.MethodDeclarationContext ctx) {
         currentTypePointer = false;
         currentReturnTypeArray = false;
+        currentReturnTypeIterable = false;
         if (ctx.typeTypeOrVoid().VOID() != null) out.print("void");
         else visitTypeTypeOrVoid(ctx.typeTypeOrVoid());
         out.print(" ");
@@ -622,6 +637,11 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
             out.print("*");
             lastTypeArray = false;
             currentReturnTypeArray = true;
+        }
+        if (lastTypeIterable && insideIterableAsArray) {
+            out.print("*");
+            this.currentReturnTypeIterable = true;
+            this.lastTypeIterable = false;
         }
         if (currentTypePointer) {
             out.print("*");
@@ -637,10 +657,11 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
         this.interfaceImplementationThis = false;
         currentTypePointer = false;
         currentReturnTypeArray = false;
+        currentReturnTypeIterable = false;
     }
 
     private String mapArgument(String argName, String originalClass, String mappedClass) {
-        if (unwrappedClassName.containsKey(mappedClass)) {
+        if (wrapperClassName.containsKey(mappedClass)) {
             return mappedClass + "_wrap(" + argName + ")";
         } else {
             return originalClass + "_unwrap(" + argName + ")";
@@ -648,7 +669,7 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
     }
 
     private String unmapArgument(String argName, String originalClass, String mappedClass) {
-        if (unwrappedClassName.containsKey(originalClass)) {
+        if (wrapperClassName.containsKey(originalClass)) {
             return originalClass + "_unwrap(" + argName + ")";
         } else {
             return mappedClass + "_wrap(" + argName + ")";
@@ -669,7 +690,7 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
                 if (mappedArgumentArray.getOrDefault(paramName, false)) {
                     if (!firstArray) {
                         firstArray = true;
-                        out.print("size_t i;\n");
+                        out.print("int i;\n");
                         out.print(INDENT.repeat(indents));
                     }
                     var mappedArrayName = mapperParamName + "_array";
@@ -705,10 +726,38 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
                     out.print(", ");
                     out.print(paramName);
                     out.print("_cnt);\n");
+                } else if (mappedArgumentIterable.getOrDefault(paramName, false)) {
+                    addToIncludes("otterop_lang_WrapperOOPIterable", false);
+                    unusedImports.remove("WrapperOOPIterable");
+                    out.print("otterop_lang_OOPIterable_t *");
+                    out.print(mapperParamName);
+                    out.print(" = otterop_lang_WrapperOOPIterable_wrap");
+                    if (insideIterableAsArray)
+                        out.print("_array");
+                    out.print("(");
+                    if (insideIterableAsArray)
+                        out.print("(void **) ");
+                    out.print(paramName);
+                    if (!insideIterableAsArray)
+                        out.print("_it_self");
+                    out.print(", ");
+                    out.print(paramName);
+                    if (insideIterableAsArray)
+                        out.print("_cnt, ");
+                    else
+                        out.print("_it, ");
+                    if (!"void".equals(mappedClass)) {
+                        out.print("(void *(*)(void *)) ");
+                        out.print(mappedClass);
+                        out.print("_wrap");
+                    } else {
+                        out.print("NULL");
+                    }
+                    out.print(");\n");
                 } else {
                     out.print(mappedClassType);
                     out.print(" *");
-                    out.print(paramName);
+                    out.print(mapperParamName);
                     out.print(" = ");
                     out.print(mapArgument(paramName, pureMappedClass, mappedClass));
                     out.print(";\n");
@@ -732,6 +781,11 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
             lastTypeArray = false;
             this.currentReturnTypeArray = true;
         }
+        if (lastTypeIterable && insideIterableAsArray) {
+            out.print("*");
+            this.currentReturnTypeIterable = true;
+            this.lastTypeIterable = false;
+        }
         if (currentTypePointer) {
             out.print("*");
             currentTypePointer = false;
@@ -745,6 +799,7 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
         arrayArgs.clear();
         variableType.clear();
         this.currentReturnTypeArray = false;
+        this.currentReturnTypeIterable = false;
         return null;
     }
 
@@ -757,9 +812,10 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
     @Override
     public Void visitMethodDeclaration(JavaParser.MethodDeclarationContext ctx) {
         if (!memberPublic) return null;
-
+        anyTypeIterable = false;
         var hasReturn = ctx.typeTypeOrVoid().VOID() == null;
         var returnTypeArray = false;
+        var returnTypeIterable = false;
         var returnTypePointer = true;
         var returnTypePrimitive = false;
         String returnTypePure = null;
@@ -772,12 +828,13 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
                 returnTypeString = returnType.identifier().stream().map(i -> i.getText())
                         .collect(Collectors.joining("."));
                 returnTypeArray = returnType.identifier(0).getText().equals("Array");
-                if (!returnTypeArray) {
+                returnTypeIterable = returnType.identifier(0).getText().equals("OOPIterable");
+                if (!returnTypeArray && !returnTypeIterable) {
                     returnTypePure = pureClassNames.get(returnTypeString);
                 } else {
                     returnTypeArrayArgument =
                             returnType.typeArguments().get(0).typeArgument(0).typeType().getText();
-                    if (unwrappedClassName.containsKey(
+                    if (specialClasses.containsKey(
                             fullClassNames.get(returnTypeArrayArgument)))
                         returnTypePrimitive = true;
                     returnTypePure = pureClassNames.get(returnTypeArrayArgument);
@@ -796,10 +853,12 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
 
         mappedArguments.clear();
         mappedArgumentArray.clear();
+        mappedArgumentIterable.clear();
         mappedArgumentClass.clear();
         pureMappedArgumentClass.clear();
 
         currentReturnTypeArray = false;
+        currentReturnTypeIterable = false;
         visitTypeParameters(methodTypeParametersContext, false, true);
         currentTypePointer = false;
         variableType.clear();
@@ -813,6 +872,12 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
             currentReturnTypeArray = true;
             lastTypeArray = false;
         }
+        if (lastTypeIterable) {
+            if (insideIterableAsArray)
+                out.print("*");
+            this.currentReturnTypeIterable = true;
+            this.lastTypeIterable = false;
+        }
         if (currentTypePointer) {
             out.print("*");
             currentTypePointer = false;
@@ -821,7 +886,12 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
         isMain = name.equals("main");
         if (isMain) hasMain = true;
         if (!isMain) name = camelCaseToSnakeCase(name);
-        out.print(pureFullClassName + "_" + name);
+        var declaration_name = name;
+        if ("oop_string".equals(declaration_name))
+            declaration_name = "string";
+        out.print(pureFullClassName + "_" + declaration_name);
+        if (insideIterableAsArray)
+            out.print("_array");
         visitFormalParameters(ctx.formalParameters());
         if (insideMemberDeclaration) out.print(";\n");
         else {
@@ -844,27 +914,7 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
             insideMethodCall = false;
             out.print(";\n");
             if (hasReturn) {
-                if (!returnTypeArray) {
-                    if (returnTypePure == null) {
-                        out.print(INDENT.repeat(indents));
-                        out.print(returnTypeString);
-                        if (returnTypePointer)
-                            out.print("_t *");
-                        out.print(" ret = ret_otterop;\n");
-                    } else {
-                        if (returnTypePure.equals(pureClassNames.get(className))) {
-                            out.print(INDENT.repeat(indents));
-                            out.print("if (ret_otterop == this->_otterop) return this;\n");
-                        }
-                        out.print(INDENT.repeat(indents));
-                        out.print(returnTypePure);
-                        out.print("_t *ret = ");
-                        out.print(
-                                this.unmapArgument("ret_otterop", returnTypeString, returnTypePure)
-                        );
-                        out.print(";\n");
-                    }
-                } else {
+                if (returnTypeArray) {
                     out.print(INDENT.repeat(indents));
                     out.print("int _ret_size = otterop_lang_Array_size(ret_otterop), _ret_i;\n");
                     out.print(INDENT.repeat(indents));
@@ -884,7 +934,7 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
                     out.print(INDENT.repeat(indents));
                     out.print(returnTypeArrayArgument);
                     out.print("_t *ret_i = otterop_lang_Array_get(ret_otterop, _ret_i);\n");
-                    if (returnTypePure.equals(pureClassNames.get(className))) {
+                    if (returnTypePure.equals(pureClassNames.get(className)) && !memberStatic) {
                         out.print(INDENT.repeat(indents));
                         out.print("if (ret_i == this->_otterop) {\n");
                         indents++;
@@ -903,6 +953,47 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
                     indents--;
                     out.print(INDENT.repeat(indents));
                     out.print("}\n");
+                } else if (returnTypeIterable) {
+                    addToIncludes("otterop_lang_WrapperOOPIterable", false);
+                    unusedImports.remove("WrapperOOPIterable");
+                    out.print(INDENT.repeat(indents));
+                    out.print("void *");
+                    if (insideIterableAsArray)
+                        out.print("*");
+                    out.print("ret = otterop_lang_WrapperOOPIterable_unwrap");
+                    if (insideIterableAsArray)
+                        out.print("_array");
+                    out.print("(ret_otterop, NULL, ");
+                    if (insideIterableAsArray)
+                        out.print("_ret_cnt");
+                    else
+                        out.print("_ret_it");
+                    out.print(");\n");
+                } else {
+                    if (returnTypePure == null) {
+                        out.print(INDENT.repeat(indents));
+                        out.print(returnTypeString);
+                        if (returnTypePointer)
+                            out.print("_t *");
+                        out.print(" ret = ret_otterop;\n");
+                    } else {
+                        if (returnTypePure.equals(pureClassNames.get(className)) && !memberStatic) {
+                            out.print(INDENT.repeat(indents));
+                            out.print("if (ret_otterop == this->_otterop) return this;\n");
+                        }
+                        out.print(INDENT.repeat(indents));
+                        if (specialClasses.containsKey(returnTypeString))
+                            out.print(specialClasses.get(returnTypeString));
+                        else {
+                            out.print(returnTypePure);
+                            out.print("_t");
+                        }
+                        out.print(" *ret = ");
+                        out.print(
+                                this.unmapArgument("ret_otterop", returnTypeString, returnTypePure)
+                        );
+                        out.print(";\n");
+                    }
                 }
                 out.print(INDENT.repeat(indents));
                 out.print("return ret;\n");
@@ -914,7 +1005,14 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
         arrayArgs.clear();
         variableType.clear();
         currentReturnTypeArray = false;
+        currentReturnTypeIterable = false;
         lastTypeArray = false;
+        lastTypeIterable = false;
+        if (anyTypeIterable && !insideIterableAsArray) {
+            insideIterableAsArray = true;
+            visitMethodDeclaration(ctx);
+            insideIterableAsArray = false;
+        }
         return null;
     }
 
@@ -943,11 +1041,19 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
             visitFormalParameterList(ctx.formalParameterList());
             hasComma = true;
         }
-        if (currentReturnTypeArray && !insideMethodCall) {
-            if (hasComma) out.print(", ");
-            out.print("size_t *");
-            if (printParameterNames) {
-                out.print("_ret_cnt");
+        if (!insideMethodCall) {
+            if (currentReturnTypeArray || currentReturnTypeIterable && insideIterableAsArray) {
+                if (hasComma) out.print(", ");
+                out.print("int *");
+                if (printParameterNames) {
+                    out.print("_ret_cnt");
+                }
+            } else if (currentReturnTypeIterable) {
+                if (hasComma) out.print(", ");
+                out.print("int (**_");
+                if (printParameterNames)
+                    out.print("ret_it");
+                out.print(")(void *, void **)");
             }
         }
         out.print(")");
@@ -962,6 +1068,7 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
         lastTypeWrapped = null;
         pureLastTypeWrapped = null;
         lastTypeArray = false;
+        lastTypeIterable = false;
         currentVariablePrefix = null;
 
         variableType.put(parameterName, parameterType);
@@ -970,6 +1077,7 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
         if (lastTypeWrapped != null) {
             mappedArguments.put(parameterName, "_" + parameterName);
             mappedArgumentArray.put(parameterName, lastTypeArray);
+            mappedArgumentIterable.put(parameterName, lastTypeIterable);
             mappedArgumentClass.put(parameterName, lastTypeWrapped);
             pureMappedArgumentClass.put(parameterName, pureLastTypeWrapped);
             if (insideMethodCall)
@@ -981,29 +1089,46 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
                 out.print(" ");
                 if (lastTypeArray)
                     out.print("*");
+               if (lastTypeIterable && insideIterableAsArray)
+                    out.print("*");
             }
             visitVariableDeclaratorId(declaratorId);
+            if (!insideMethodCall && lastTypeIterable && !insideIterableAsArray)
+                out.print("_it_self");
         } else if (currentTypePointer && !insideMethodCall)
             out.print(" *");
         currentTypePointer = false;
         var isTypeArray = lastTypeArray;
-        if (!insideMethodCall && (parameterType.LBRACK().size() > 0 || lastTypeArray)) {
-            lastTypeArray = false;
-            if (!printParameterNames)
-                out.print("*");
-            out.print(", ");
-            arrayArgs.add(parameterName);
-            if (!insideMethodCall) {
-                out.print("size_t");
-            }
-            if (printParameterNames) {
-                if (!insideMethodCall)
+        var isTypeIterable = lastTypeIterable;
+        if (!insideMethodCall) {
+            if (parameterType.LBRACK().size() > 0 ||
+                lastTypeArray ||
+                (insideIterableAsArray && lastTypeIterable)) {
+                lastTypeArray = false;
+                lastTypeIterable = false;
+                if (!printParameterNames)
+                    out.print("*");
+                out.print(", ");
+                arrayArgs.add(parameterName);
+                out.print("int");
+                if (printParameterNames) {
                     out.print(" ");
-                this.currentVariablePrefix = null;
-                visitVariableDeclaratorId(declaratorId);
-                out.print("_cnt");
+                    this.currentVariablePrefix = null;
+                    visitVariableDeclaratorId(declaratorId);
+                    out.print("_cnt");
+                }
+                lastTypeArray = isTypeArray;
+                lastTypeIterable = isTypeIterable;
+            } else if (lastTypeIterable) {
+                lastTypeIterable = false;
+                out.print(", int (*");
+                if (printParameterNames) {
+                    this.currentVariablePrefix = null;
+                    visitVariableDeclaratorId(declaratorId);
+                }
+                out.print("_it)(void *self, void **next)");
+                lastTypeIterable = isTypeIterable;
             }
-            lastTypeArray = isTypeArray;
         }
         if (!isLast) out.print(", ");
         this.currentVariablePrefix = null;
@@ -1137,17 +1262,6 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
 
     @Override
     public Void visitFieldDeclaration(JavaParser.FieldDeclarationContext ctx) {
-        out.print(INDENT.repeat(indents));
-        if (memberStatic) {
-            insideStaticField = true;
-            if (ctx.typeType().classOrInterfaceType() != null)
-                throw new RuntimeException("only primitive static fields allowed");
-            visitTypeType(ctx.typeType());
-            out.print(" ");
-            visitVariableDeclarators(ctx.variableDeclarators());
-            insideStaticField = false;
-        }
-        out.print(";\n");
         return null;
     }
 
@@ -1255,31 +1369,53 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
         return Otterop.WRAPPED_CLASS.equals(javaFullClassName);
     }
 
-    private void addToIncludes(List<String> identifiers, boolean isPure) {
-        identifiers = replaceBasePackageIdentifiers(identifiers);
-
+    private String javaFullClassNameToC(List<String> identifiers) {
         String className = identifiers.get(identifiers.size() - 1);
         var prefixIdentifiers = identifiers.subList(0, identifiers.size() - 1);
+        return prefixIdentifiers.stream()
+                .map(identifier -> camelCaseToSnakeCase(identifier))
+                .collect(Collectors.joining("_"))
+                + "_" + className;
+    }
+
+    private void addToIncludes(List<String> identifiers, boolean isPure) {
+        var otteropIdentifiers = new ArrayList<>(identifiers);
+        if (isPure && otteropIdentifiers.get(otteropIdentifiers.size() - 2).equals("pure")) {
+            otteropIdentifiers.remove(otteropIdentifiers.size() - 2);
+        }
+        String className = identifiers.get(identifiers.size() - 1);
+        var isThisClass = this.className != null && this.className.equals(className);
+        var prefixIdentifiers = identifiers.subList(0, identifiers.size() - 1);
+        var prefixIdentifiersOtterop = otteropIdentifiers.subList(0, otteropIdentifiers.size() - 1);
+        var includeIdentifiers = replaceBasePackageIdentifiers(prefixIdentifiers);
+        var includeIdentifiersOtterop = replaceBasePackageIdentifiers(prefixIdentifiersOtterop);
         var fileName = camelCaseToSnakeCase(className);
-        var includeStr = String.join("/", prefixIdentifiers);
-        var fullClassName =
-                prefixIdentifiers.stream()
-                        .map(identifier -> camelCaseToSnakeCase(identifier))
-                        .collect(Collectors.joining("_"))
-                        + "_" + className;
+        var includeStr = String.join("/", includeIdentifiers);
+        var includeStrOtterop = String.join("/", includeIdentifiersOtterop);
+        var fullClassName = javaFullClassNameToC(identifiers);
         var javaFullClassName = identifiers.stream()
                 .collect(Collectors.joining("."));
+
         var includeStatement = "#include <" + includeStr + "/" + fileName + ".h>";
+        var includeStatementOtterop = "#include <" + includeStrOtterop + "/" + fileName + ".h>";
+
         var add = false;
-        if ((header || !headerFullClassNames.containsKey(className))
-                && !excludeImports(javaFullClassName))
-            add = true;
-        if (!header && this.className != null && this.className.equals(className))
-            add = true;
+        if (!excludeImports(javaFullClassName)) {
+            if (header) {
+                add = isPure || isThisClass;
+            } else {
+                add = !isPure || isThisClass || !headerFullClassNames.containsKey(className);
+            }
+        }
 
         if (add) {
-            includes.add(includeStatement);
-            predeclarations.add("typedef struct " + fullClassName + "_s " + fullClassName + "_t;");
+            classIncludes.put(className, includeStatement);
+            if (isPure && !header) {
+                classIncludesOtterop.put(className, includeStatementOtterop);
+            }
+            if (header && isThisClass)
+                predeclarations.put(className, "typedef struct " + fullClassName + "_s " + fullClassName + "_t;");
+            unusedImports.put(className, includeStatement);
         }
         if (isPure)
             return;
@@ -1347,8 +1483,8 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
         }
         var fullClassName = fullClassNames.get(className);
         var pureFullClassName = javaPureFullClassNames.get(className);
-        if (unwrappedClassName.containsKey(fullClassName)) {
-            pureClassNames.put(className, unwrappedClassName.get(fullClassName));
+        if (specialClasses.containsKey(fullClassName)) {
+            pureClassNames.put(className, specialClasses.get(fullClassName));
         } else {
             pureClassNames.put(className, pureFullClassName);
         }
@@ -1463,7 +1599,8 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
     public Void visitClassOrInterfaceType(JavaParser.ClassOrInterfaceTypeContext ctx) {
         var className = ctx.identifier().stream().map(i -> i.getText())
                     .collect(Collectors.joining("."));
-
+        if (!header)
+            unusedImports.remove(className);
         if ("Array".equals(className)) {
             var typeArgument = ctx.typeArguments().get(0).typeArgument().get(0).typeType();
             var typeArgumentString = typeArgument.classOrInterfaceType().getText();
@@ -1474,6 +1611,25 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
             currentTypePointer = true;
             lastTypeWrapped = fullClassNames.get(typeArgumentString);
             pureLastTypeWrapped = pureClassNames.get(typeArgumentString);
+        } else if ("OOPIterable".equals(className)) {
+            var typeArgument = ctx.typeArguments().get(0).typeArgument().get(0).typeType();
+            var typeArgumentString = typeArgument.classOrInterfaceType().getText();
+            if (!insideMethodCall) {
+                if (insideIterableAsArray)
+                    visitTypeType(typeArgument);
+                else
+                    out.print("void");
+            }
+            lastTypeIterable = true;
+            anyTypeIterable = true;
+            currentTypePointer = true;
+            if (!"Object".equals(typeArgumentString)) {
+                lastTypeWrapped = fullClassNames.get(typeArgumentString);
+                pureLastTypeWrapped = pureClassNames.get(typeArgumentString);
+            } else {
+                lastTypeWrapped = "void";
+                pureLastTypeWrapped = lastTypeWrapped;
+            }
         } else if ("String".equals(className) || "java.lang.String".equals(className)) {
             if (!insideMethodCall) {
                 out.print("char");
@@ -1485,14 +1641,17 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
             out.print("int");
         } else if ("Object".equals(className)) {
             currentTypePointer = true;
-            out.print("void");
+            if (!insideMethodCall)
+                out.print("void");
         } else if ("Boolean".equals(className)) {
             out.print("int");
         } else if (currentTypeParameters.contains(className) ||
                 currentMethodTypeParameters.contains(className)) {
             currentTypePointer = true;
-            out.print("void");
+            if (!insideMethodCall)
+                out.print("void");
         } else {
+            unusedImports.remove(className);
             currentTypePointer = true;
             checkCurrentPackageImports(className);
             if (!insideMethodCall) {
@@ -1501,9 +1660,9 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
                 checkCurrentPackageImports(pureClass);
                 out.print(pureClass);
                 out.print("_t");
-                lastTypeWrapped = fullClassNames.get(className);
-                pureLastTypeWrapped = pureClassNames.get(className);
             }
+            lastTypeWrapped = fullClassNames.get(className);
+            pureLastTypeWrapped = pureClassNames.get(className);
         }
         return null;
     }
@@ -1527,7 +1686,6 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
                 identifier ->
                         identifier.getText()
         ).collect(Collectors.toList());
-        stringIdentifiers = replaceBasePackageIdentifiers(stringIdentifiers);
 
         packagePrefix = stringIdentifiers.stream().map(
                 identifier ->
@@ -1546,13 +1704,24 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
             ps.println("#ifndef __" + pureFullClassName);
             ps.println("#define __" + pureFullClassName);
         }
+        for (String className : unusedImports.keySet()) {
+            classIncludes.remove(className);
+            classIncludesOtterop.remove(className);
+            predeclarations.remove(className);
+        }
         for (String includeStatement : includes) {
+            ps.println(INDENT.repeat(indents) + includeStatement);
+        }
+        for (String includeStatement : classIncludesOtterop.values()) {
+            ps.println(INDENT.repeat(indents) + includeStatement);
+        }
+        for (String includeStatement : classIncludes.values()) {
             ps.println(INDENT.repeat(indents) + includeStatement);
         }
 
         if (!predeclarations.isEmpty())
             ps.println();
-        for (String predeclaration : predeclarations) {
+        for (String predeclaration : predeclarations.values()) {
             ps.println(predeclaration);
         }
 

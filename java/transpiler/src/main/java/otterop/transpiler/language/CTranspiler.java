@@ -57,6 +57,7 @@ public class CTranspiler extends AbstractTranspiler {
     private String mainClass;
     private String basePackage;
     private String testMainClass;
+    private String testMainClassManual;
     private List<String> sources = Collections.synchronizedList(new LinkedList<>());
     private List<String> testSources = Collections.synchronizedList(new LinkedList<>());
     private List<String> testClasses = Collections.synchronizedList(new LinkedList<>());
@@ -81,6 +82,8 @@ public class CTranspiler extends AbstractTranspiler {
         packageParts = config.basePackage().split("\\.");
         this.targetType = config.targetType();
         this.ignoreFile().addPattern("CMakeLists.manual.txt");
+        this.ignoreFile().addPattern("CMakeLists.manual.tests.txt");
+        this.ignoreFile().addPattern("__tests_main_manual.c");
         this.importDomainMapping = config.c().packageMapping();
     }
 
@@ -183,16 +186,19 @@ public class CTranspiler extends AbstractTranspiler {
             return;
 
         testMainClass = "__tests_main.c";
+        testMainClassManual = "__tests_main_manual.c";
 
         Collections.sort(this.testClasses);
         withPrintStream(getPath(testMainClass, true), (ps) -> {
             ps.print("#include \"unity_fixture.h\"\n\n");
+            ps.print("#include \"" + testMainClassManual + "\"\n\n");
             ps.print("static void __run_all_tests(void) {\n");
             for (var testClass : this.testClasses) {
                 ps.print("    RUN_TEST_GROUP(");
                 ps.print(testClass);
                 ps.print(");\n");
             }
+            ps.print("    __run_all_tests_manual();\n");
             ps.print("}\n");
             ps.print("\nint main(int argc, const char *argv[]) {\n");
             ps.print("    return UnityMain(argc, argv, __run_all_tests);\n");

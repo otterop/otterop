@@ -781,7 +781,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         if (isJavaArray) {
             out.print(", ");
             arrayArgs.add(parameterName);
-            out.print("size_t ");
+            out.print("int ");
             if (printParameterNames) {
                 visitVariableDeclaratorId(declaratorId);
                 out.print("_cnt");
@@ -862,14 +862,22 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
 
     private void checkSingleLineStatement(JavaParser.StatementContext ctx) {
         if (ctx.SEMI() != null) {
-            out.println();
+            out.println(" {");
             indents++;
             out.print(INDENT.repeat(indents));
+            if (enhancedForControlVariable != null) {
+                out.print(enhancedForControlVariable);
+                out.println(";");
+                out.print(INDENT.repeat(indents));
+                this.enhancedForControlVariable = null;
+            }
         }
         visitStatement(ctx);
         if (ctx.SEMI() != null) {
             out.println();
             indents--;
+            out.print(INDENT.repeat(indents));
+            out.println("}");
             out.print(INDENT.repeat(indents));
         }
     }
@@ -1152,6 +1160,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
 
     public void addToIncludes(List<String> identifiers) {
         String className = identifiers.get(identifiers.size() - 1);
+        var isThisClass = this.className != null && this.className.equals(className);
         var prefixIdentifiers = identifiers.subList(0, identifiers.size() - 1);
         var includeIdentifiers = replaceBasePackageIdentifiers(prefixIdentifiers);
         var fileName = camelCaseToSnakeCase(className);
@@ -1166,14 +1175,18 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
             includeStatement = "#include <" + includeStr + "/int/" + fileName;
         includeStatement += ".h>";
         var add = false;
-        if ((header || !headerFullClassNames.containsKey(className))
-                && !excludeImports(javaFullClassName))
-            add = true;
-        if (!header && this.className != null && this.className.equals(className))
-            add = true;
+        if (!excludeImports(javaFullClassName)) {
+            if (header) {
+                add = true;
+            } else {
+                add = isThisClass || !headerFullClassNames.containsKey(className);
+            }
+        }
+
         if (add) {
             includes.add(includeStatement);
-            predeclarations.add("typedef struct " + fullClassName + "_s " + fullClassName + "_t;");
+            if (header && isThisClass)
+                predeclarations.add("typedef struct " + fullClassName + "_s " + fullClassName + "_t;");
         }
         fullClassNames.put(className, fullClassName);
         javaFullClassNames.put(className, javaFullClassName);
