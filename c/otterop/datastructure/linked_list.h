@@ -6,7 +6,7 @@
 #include <otterop/lang/pure_iterator.h>
 #include <otterop/lang/string.h>
 #include <otterop/lang/oop_object.h>
-#include <otterop/datastructure/int/linked_list_node.h>
+#include <otterop/datastructure/linked_list_node.h>
 #include <stdint.h>
 
 typedef struct otterop_lang_OOPIterable_s otterop_lang_OOPIterable_t;

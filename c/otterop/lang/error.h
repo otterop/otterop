@@ -1,6 +1,6 @@
 #ifndef __otterop_lang_Error
 #define __otterop_lang_Error
-#include <otterop/lang/int/string.h>
+#include <otterop/lang/string.h>
 #include <stdint.h>
 
 typedef struct otterop_lang_String_s otterop_lang_String_t;

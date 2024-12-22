@@ -1,6 +1,6 @@
 #ifndef __otterop_datastructure_LinkedListNode
 #define __otterop_datastructure_LinkedListNode
-#include <otterop/datastructure/int/linked_list.h>
+#include <otterop/datastructure/linked_list.h>
 
 typedef struct otterop_datastructure_LinkedList_s otterop_datastructure_LinkedList_t;
 

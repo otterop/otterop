@@ -1172,7 +1172,7 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         var samePackage = javaFullClassName.startsWith(basePackage + ".");
 
         var includeStatement = "#include <" + includeStr + "/" + fileName;
-        if (samePackage && (!isTestClass || !className.equals(this.className)))
+        if (samePackage && !(isThisClass && isTestClass) && (!header || internalHeader))
             includeStatement = "#include <" + includeStr + "/int/" + fileName;
         includeStatement += ".h>";
         var add = false;

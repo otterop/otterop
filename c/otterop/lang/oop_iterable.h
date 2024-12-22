@@ -1,6 +1,6 @@
 #ifndef __otterop_lang_OOPIterable
 #define __otterop_lang_OOPIterable
-#include <otterop/lang/int/oop_iterator.h>
+#include <otterop/lang/oop_iterator.h>
 
 typedef struct otterop_lang_OOPIterator_s otterop_lang_OOPIterator_t;
 

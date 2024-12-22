@@ -36,8 +36,8 @@
 #include <gc.h>
 
 #include <otterop/lang/string.h>
-#include <otterop/lang/int/oop_iterable.h>
-#include <otterop/lang/int/oop_iterator.h>
+#include <otterop/lang/oop_iterable.h>
+#include <otterop/lang/oop_iterator.h>
 #include <stdint.h>
 
 typedef struct otterop_lang_Array_s otterop_lang_Array_t;
