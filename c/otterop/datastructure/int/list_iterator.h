@@ -13,7 +13,7 @@ typedef struct otterop_datastructure_ListIterator_s otterop_datastructure_ListIt
 
 otterop_datastructure_ListIterator_t *otterop_datastructure_ListIterator_new(otterop_datastructure_List_t *list);
 
-int otterop_datastructure_ListIterator_has_next(otterop_datastructure_ListIterator_t *self);
+unsigned char otterop_datastructure_ListIterator_has_next(otterop_datastructure_ListIterator_t *self);
 
 
 void *otterop_datastructure_ListIterator_next(otterop_datastructure_ListIterator_t *self);

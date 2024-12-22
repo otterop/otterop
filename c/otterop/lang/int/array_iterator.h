@@ -13,7 +13,7 @@ typedef struct otterop_lang_ArrayIterator_s otterop_lang_ArrayIterator_t;
 
 otterop_lang_ArrayIterator_t *otterop_lang_ArrayIterator_new(otterop_lang_Array_t *array);
 
-int otterop_lang_ArrayIterator_has_next(otterop_lang_ArrayIterator_t *self);
+unsigned char otterop_lang_ArrayIterator_has_next(otterop_lang_ArrayIterator_t *self);
 
 
 void *otterop_lang_ArrayIterator_next(otterop_lang_ArrayIterator_t *self);

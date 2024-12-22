@@ -11,10 +11,10 @@ typedef struct otterop_lang_WrapperOOPIteratorArray_s {
 
 typedef struct otterop_lang_WrapperOOPIterator_s {
     void *it_self;
-    int (*it)(void *self, void **next);
+    unsigned char (*it)(void *self, void **next);
     void *next;
-    int has_next;
-    int next_loaded;
+    unsigned char has_next;
+    unsigned char next_loaded;
     void *(*wrap)(void *);
 } otterop_lang_WrapperOOPIterator_t;
 
@@ -23,7 +23,7 @@ typedef struct otterop_lang_UnwrappedOOPIterator_s {
     void *(*unwrap)(void *);
 } otterop_lang_UnwrappedOOPIterator_t;
 
-static int otterop_lang_WrapperOOPIteratorArray_has_next(void *self_void) {
+static unsigned char otterop_lang_WrapperOOPIteratorArray_has_next(void *self_void) {
     otterop_lang_WrapperOOPIteratorArray_t *self = self_void;
     return self->i < self->array_cnt;
 }
@@ -37,7 +37,7 @@ static void *otterop_lang_WrapperOOPIteratorArray_next(void *self_void) {
     return self->array[self->i++];
 }
 
-static int otterop_lang_WrapperOOPIterator_has_next(void *self_void) {
+static unsigned char otterop_lang_WrapperOOPIterator_has_next(void *self_void) {
     otterop_lang_WrapperOOPIterator_t *self = self_void;
     if (self->next_loaded)
         return self->has_next;
@@ -58,7 +58,7 @@ static void *otterop_lang_WrapperOOPIterator_next(void *self_void) {
     return self->next;
 }
 
-static int otterop_lang_UnwrappedOOPIterator_next(void *it_self, void **next) {
+static unsigned char otterop_lang_UnwrappedOOPIterator_next(void *it_self, void **next) {
     otterop_lang_UnwrappedOOPIterator_t *unwrapped = it_self;
     int ret = otterop_lang_OOPIterator_has_next(unwrapped->it);
     if (!ret)
@@ -72,7 +72,7 @@ static int otterop_lang_UnwrappedOOPIterator_next(void *it_self, void **next) {
 }
 
 otterop_lang_OOPIterator_t*
-otterop_lang_WrapperOOPIterator_wrap_array(void **array, int array_cnt, void *(*wrap)(void *)) {
+otterop_lang_WrapperOOPIterator_wrap_array(void **array, int32_t array_cnt, void *(*wrap)(void *)) {
     otterop_lang_WrapperOOPIteratorArray_t *self = GC_malloc(sizeof(otterop_lang_WrapperOOPIteratorArray_t));
     self->array = array;
     self->array_cnt = array_cnt;
@@ -105,7 +105,7 @@ otterop_lang_WrapperOOPIterator_unwrap_array(otterop_lang_OOPIterator_t *it, voi
 }
 
 otterop_lang_OOPIterator_t*
-otterop_lang_WrapperOOPIterator_wrap(void *it_self, int (*it)(void *self, void **next), void *(*wrap)(void *)) {
+otterop_lang_WrapperOOPIterator_wrap(void *it_self, unsigned char (*it)(void *self, void **next), void *(*wrap)(void *)) {
     otterop_lang_WrapperOOPIterator_t *self = GC_malloc(sizeof(otterop_lang_WrapperOOPIterator_t));
     self->it_self = it_self;
     self->it = it;
@@ -115,7 +115,7 @@ otterop_lang_WrapperOOPIterator_wrap(void *it_self, int (*it)(void *self, void *
         otterop_lang_WrapperOOPIterator_next);
 }
 
-void *otterop_lang_WrapperOOPIterator_unwrap(otterop_lang_OOPIterator_t *self, void *(*unwrap)(void *), int (**_ret_it)(void *self, void **next)) {
+void *otterop_lang_WrapperOOPIterator_unwrap(otterop_lang_OOPIterator_t *self, void *(*unwrap)(void *), unsigned char (**_ret_it)(void *self, void **next)) {
     if (!_ret_it)
         return NULL;
     otterop_lang_UnwrappedOOPIterator_t *unwrapped = GC_malloc(sizeof(otterop_lang_UnwrappedOOPIterator_t));

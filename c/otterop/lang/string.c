@@ -34,12 +34,12 @@
 
 typedef struct otterop_lang_String_s {
     char *wrapped;
-    size_t ascii_length;
-    size_t unicode_length;
+    int32_t ascii_length;
+    int32_t unicode_length;
 } otterop_lang_String_t;
 
-static char *otterop_lang_String_substring(char *s, int unicode_idx) {
-    int i = 0, j = -1;
+static char *otterop_lang_String_substring(char *s, int32_t unicode_idx) {
+    int32_t i = 0, j = -1;
     while (s[i]) {
         if ((s[i] & 0xC0) != 0x80)
             j++;
@@ -50,8 +50,8 @@ static char *otterop_lang_String_substring(char *s, int unicode_idx) {
     return "";
 }
 
-static void otterop_lang_String_lengths(char *s, int *ascii_length, int *unicode_length) {
-    int i = 0, j = -1;
+static void otterop_lang_String_lengths(char *s, int32_t *ascii_length, int32_t *unicode_length) {
+    int32_t i = 0, j = -1;
     while (s[i]) {
         if ((s[i] & 0xC0) != 0x80)
             j++;
@@ -61,7 +61,7 @@ static void otterop_lang_String_lengths(char *s, int *ascii_length, int *unicode
     *unicode_length = j + 1;
 }
 
-static otterop_lang_String_t *otterop_lang_String_new(char *wrapped, int ascii_length, int unicode_length) {
+static otterop_lang_String_t *otterop_lang_String_new(char *wrapped, int32_t ascii_length, int32_t unicode_length) {
     otterop_lang_String_t *ret = GC_malloc(sizeof(otterop_lang_String_t));
     ret->wrapped = wrapped;
     ret->ascii_length = ascii_length;
@@ -70,7 +70,7 @@ static otterop_lang_String_t *otterop_lang_String_new(char *wrapped, int ascii_l
 }
 
 otterop_lang_String_t *otterop_lang_String_wrap(char *wrapped) {
-    int ascii_length, unicode_length;
+    int32_t ascii_length, unicode_length;
     if (wrapped == NULL) return NULL;
     otterop_lang_String_t *ret = GC_malloc(sizeof(otterop_lang_String_t));
 
@@ -86,9 +86,9 @@ otterop_lang_String_t *otterop_lang_String_wrap(char *wrapped) {
 }
 
 otterop_lang_String_t *otterop_lang_String_concat(otterop_lang_OOPIterable_t *strings) {
-    int ascii_length = 0;
-    int unicode_length = 0;
-    int pos = 0;
+    int32_t ascii_length = 0;
+    int32_t unicode_length = 0;
+    int32_t pos = 0;
 
     otterop_lang_OOPIterator_t *it = otterop_lang_OOPIterable_oop_iterator(strings);
     while (otterop_lang_OOPIterator_has_next(it)) {
@@ -108,7 +108,7 @@ otterop_lang_String_t *otterop_lang_String_concat(otterop_lang_OOPIterable_t *st
     return otterop_lang_String_new(ret, ascii_length, unicode_length);
 }
 
-static int otterop_lang_String_length(otterop_lang_String_t *s) {
+static int32_t otterop_lang_String_length(otterop_lang_String_t *s) {
     return s->unicode_length;
 }
 
@@ -116,7 +116,7 @@ char *otterop_lang_String_unwrap(otterop_lang_String_t *a) {
     return a->wrapped;
 }
 
-int otterop_lang_String_compare_to(otterop_lang_String_t *a, otterop_lang_String_t *b) {
+int32_t otterop_lang_String_compare_to(otterop_lang_String_t *a, otterop_lang_String_t *b) {
     if (a == NULL) return b == NULL ? 0 : -1;
     return strcmp(a->wrapped,b->wrapped);
 }

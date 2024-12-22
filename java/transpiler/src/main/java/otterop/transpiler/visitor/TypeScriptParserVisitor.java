@@ -85,6 +85,7 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
 
     private static final Set<String> NUMERIC_TYPES = new LinkedHashSet<String>() {{
         add("int");
+        add("short");
         add("float");
         add("double");
     }};
@@ -792,6 +793,8 @@ public class TypeScriptParserVisitor extends JavaParserBaseVisitor<Void> {
         String primitiveType = ctx.getText();
         if(NUMERIC_TYPES.contains(primitiveType)) {
             out.print("number");
+        } else if ("long".equals(primitiveType)) {
+            out.print("BigInt");
         } else {
             out.print(primitiveType);
         }

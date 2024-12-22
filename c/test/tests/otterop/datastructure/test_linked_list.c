@@ -2,6 +2,7 @@
 #include "unity_fixture.h"
 #include <otterop/datastructure/test_linked_list.h>
 #include <otterop/datastructure/int/linked_list.h>
+#include <stdint.h>
 #include <gc.h>
 
 typedef struct otterop_datastructure_TestLinkedList_s {
@@ -36,7 +37,7 @@ void otterop_datastructure_TestLinkedList_add(otterop_datastructure_TestLinkedLi
     otterop_datastructure_LinkedList_add_first(l, d);
     otterop_datastructure_LinkedList_add_first(l, e);
     otterop_datastructure_TestLinkedList_assert_true(self, otterop_datastructure_LinkedList_size(l) == 5, otterop_lang_String_wrap("Size should be 5"));
-    int i = 0;
+    int32_t i = 0;
     otterop_lang_OOPIterator_t *__it_l = otterop_datastructure_LinkedList_oop_iterator(l);
     for (; otterop_lang_OOPIterator_has_next(__it_l);) {
         otterop_lang_String_t *s = otterop_lang_OOPIterator_next(__it_l);
@@ -45,7 +46,7 @@ void otterop_datastructure_TestLinkedList_add(otterop_datastructure_TestLinkedLi
     }
 }
 
-void otterop_datastructure_TestLinkedList_assert_true(otterop_datastructure_TestLinkedList_t *self, int arg0, otterop_lang_String_t *arg1) {
+void otterop_datastructure_TestLinkedList_assert_true(otterop_datastructure_TestLinkedList_t *self, unsigned char arg0, otterop_lang_String_t *arg1) {
     return  otterop_test_TestBase_assert_true(self->_super, arg0, arg1);
 }
 

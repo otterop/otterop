@@ -1,18 +1,19 @@
+#include <stdint.h>
 #include <otterop/datastructure/int/list.h>
 #include <gc.h>
 #include <otterop/datastructure/int/list_iterator.h>
 
 typedef struct otterop_datastructure_List_s {
     otterop_lang_Array_t *array;
-    int capacity;
-    int size;
+    int32_t capacity;
+    int32_t size;
     void *t_zero;
 } otterop_datastructure_List_t;
 
 
 
 
-void otterop_datastructure_List_check_index_out_of_bounds(otterop_datastructure_List_t *self, int index);
+void otterop_datastructure_List_check_index_out_of_bounds(otterop_datastructure_List_t *self, int32_t index);
 
 
 otterop_datastructure_List_t *otterop_datastructure_List_new() {
@@ -25,7 +26,7 @@ otterop_datastructure_List_t *otterop_datastructure_List_new() {
     return self;
 }
 
-void otterop_datastructure_List_ensure_capacity(otterop_datastructure_List_t *self, int capacity) {
+void otterop_datastructure_List_ensure_capacity(otterop_datastructure_List_t *self, int32_t capacity) {
     
     if (self->capacity < capacity) {
         self->capacity = self->capacity * 2;
@@ -51,14 +52,14 @@ void otterop_datastructure_List_add_list(otterop_datastructure_List_t *self, ott
     otterop_datastructure_List_add_array(self, src->array);
 }
 
-void otterop_datastructure_List_check_index_out_of_bounds(otterop_datastructure_List_t *self, int index) {
+void otterop_datastructure_List_check_index_out_of_bounds(otterop_datastructure_List_t *self, int32_t index) {
     
     if (index < 0 || index > self->size) {
         otterop_lang_Panic_index_out_of_bounds(otterop_lang_String_wrap("index is outside list bounds"));
     }
 }
 
-void otterop_datastructure_List_insert(otterop_datastructure_List_t *self, int index, void *element) {
+void otterop_datastructure_List_insert(otterop_datastructure_List_t *self, int32_t index, void *element) {
     otterop_datastructure_List_check_index_out_of_bounds(self, index);
     otterop_datastructure_List_ensure_capacity(self, self->size + 1);
     
@@ -69,7 +70,7 @@ void otterop_datastructure_List_insert(otterop_datastructure_List_t *self, int i
     self->size++;
 }
 
-void otterop_datastructure_List_insert_array(otterop_datastructure_List_t *self, int index, otterop_lang_Array_t *src) {
+void otterop_datastructure_List_insert_array(otterop_datastructure_List_t *self, int32_t index, otterop_lang_Array_t *src) {
     otterop_datastructure_List_check_index_out_of_bounds(self, index);
     otterop_datastructure_List_ensure_capacity(self, self->size + otterop_lang_Array_size(src));
     
@@ -80,16 +81,16 @@ void otterop_datastructure_List_insert_array(otterop_datastructure_List_t *self,
     self->size += otterop_lang_Array_size(src);
 }
 
-void otterop_datastructure_List_insert_list(otterop_datastructure_List_t *self, int index, otterop_datastructure_List_t *src) {
+void otterop_datastructure_List_insert_list(otterop_datastructure_List_t *self, int32_t index, otterop_datastructure_List_t *src) {
     otterop_datastructure_List_insert_array(self, index, src->array);
 }
 
-void *otterop_datastructure_List_get(otterop_datastructure_List_t *self, int index) {
+void *otterop_datastructure_List_get(otterop_datastructure_List_t *self, int32_t index) {
     otterop_datastructure_List_check_index_out_of_bounds(self, index);
     return otterop_lang_Array_get(self->array, index);
 }
 
-void *otterop_datastructure_List_remove_index(otterop_datastructure_List_t *self, int index) {
+void *otterop_datastructure_List_remove_index(otterop_datastructure_List_t *self, int32_t index) {
     otterop_datastructure_List_check_index_out_of_bounds(self, index);
     void *ret = otterop_lang_Array_get(self->array, index);
     
@@ -100,7 +101,7 @@ void *otterop_datastructure_List_remove_index(otterop_datastructure_List_t *self
     return ret;
 }
 
-otterop_datastructure_List_t *otterop_datastructure_List_remove_range(otterop_datastructure_List_t *self, int index, int count) {
+otterop_datastructure_List_t *otterop_datastructure_List_remove_range(otterop_datastructure_List_t *self, int32_t index, int32_t count) {
     otterop_datastructure_List_check_index_out_of_bounds(self, index);
     
     if (index + count > self->size) {
@@ -118,7 +119,7 @@ otterop_datastructure_List_t *otterop_datastructure_List_remove_range(otterop_da
     return ret;
 }
 
-int otterop_datastructure_List_size(otterop_datastructure_List_t *self) {
+int32_t otterop_datastructure_List_size(otterop_datastructure_List_t *self) {
     return self->size;
 }
 

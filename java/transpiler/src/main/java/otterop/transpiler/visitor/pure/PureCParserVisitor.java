@@ -690,7 +690,8 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
                 if (mappedArgumentArray.getOrDefault(paramName, false)) {
                     if (!firstArray) {
                         firstArray = true;
-                        out.print("int i;\n");
+                        usesStdint();
+                        out.print("int32_t i;\n");
                         out.print(INDENT.repeat(indents));
                     }
                     var mappedArrayName = mapperParamName + "_array";
@@ -916,7 +917,8 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
             if (hasReturn) {
                 if (returnTypeArray) {
                     out.print(INDENT.repeat(indents));
-                    out.print("int _ret_size = otterop_lang_Array_size(ret_otterop), _ret_i;\n");
+                    usesStdint();
+                    out.print("int32_t _ret_size = otterop_lang_Array_size(ret_otterop), _ret_i;\n");
                     out.print(INDENT.repeat(indents));
                     out.print("*_ret_cnt = _ret_size;\n");
                     out.print(INDENT.repeat(indents));
@@ -1044,13 +1046,14 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
         if (!insideMethodCall) {
             if (currentReturnTypeArray || currentReturnTypeIterable && insideIterableAsArray) {
                 if (hasComma) out.print(", ");
-                out.print("int *");
+                usesStdint();
+                out.print("int32_t *");
                 if (printParameterNames) {
                     out.print("_ret_cnt");
                 }
             } else if (currentReturnTypeIterable) {
                 if (hasComma) out.print(", ");
-                out.print("int (**_");
+                out.print("unsigned char (**_");
                 if (printParameterNames)
                     out.print("ret_it");
                 out.print(")(void *, void **)");
@@ -1121,7 +1124,7 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
                 lastTypeIterable = isTypeIterable;
             } else if (lastTypeIterable) {
                 lastTypeIterable = false;
-                out.print(", int (*");
+                out.print(", unsigned char (*");
                 if (printParameterNames) {
                     this.currentVariablePrefix = null;
                     visitVariableDeclaratorId(declaratorId);
@@ -1667,13 +1670,37 @@ public class PureCParserVisitor extends JavaParserBaseVisitor<Void> {
         return null;
     }
 
+    private void usesStdint() {
+        includes.add("#include <stdint.h>");
+    }
+
     @Override
     public Void visitPrimitiveType(JavaParser.PrimitiveTypeContext ctx) {
         if (!insideMethodCall) {
-            if ("boolean".equals(ctx.getText()))
-                out.print("int");
-            else
-                out.print(ctx.getText());
+            var name = ctx.getText();
+            switch (name) {
+                case "boolean":
+                    out.print("unsigned char");
+                    break;
+                case "byte":
+                    out.print("unsigned char");
+                    break;
+                case "short":
+                    usesStdint();
+                    out.print("int16_t");
+                    break;
+                case "int":
+                    usesStdint();
+                    out.print("int32_t");
+                    break;
+                case "long":
+                    usesStdint();
+                    out.print("int64_t");
+                    break;
+                default:
+                    out.print(name);
+                    break;
+            }
         }
         currentTypePointer = false;
         return null;

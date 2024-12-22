@@ -781,7 +781,8 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         if (isJavaArray) {
             out.print(", ");
             arrayArgs.add(parameterName);
-            out.print("int ");
+            usesStdint();
+            out.print("int32_t ");
             if (printParameterNames) {
                 visitVariableDeclaratorId(declaratorId);
                 out.print("_cnt");
@@ -1399,11 +1400,34 @@ public class CParserVisitor extends JavaParserBaseVisitor<Void> {
         return null;
     }
 
+    private void usesStdint() {
+        includes.add("#include <stdint.h>");
+    }
+
     public void visitPrimitiveType(String name) {
-        if ("boolean".equals(name))
-            out.print("int");
-        else
-            out.print(name);
+        switch (name) {
+            case "boolean":
+                out.print("unsigned char");
+                break;
+            case "byte":
+                out.print("unsigned char");
+                break;
+            case "short":
+                usesStdint();
+                out.print("int16_t");
+                break;
+            case "int":
+                usesStdint();
+                out.print("int32_t");
+                break;
+            case "long":
+                usesStdint();
+                out.print("int64_t");
+                break;
+            default:
+                out.print(name);
+                break;
+        }
         currentTypePointer = false;
     }
 

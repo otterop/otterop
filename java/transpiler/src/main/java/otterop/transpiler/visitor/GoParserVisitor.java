@@ -951,10 +951,26 @@ public class GoParserVisitor extends JavaParserBaseVisitor<Void> {
     @Override
     public Void visitPrimitiveType(JavaParser.PrimitiveTypeContext ctx) {
         String name = ctx.getText();
-        if ("double".equals(name)) out.print("float64");
-        else if ("float".equals(name)) out.print("float32");
-        else if ("boolean".equals(name)) out.print("bool");
-        else out.print(name);
+        switch (name) {
+            case "double":
+                out.print("float64");
+                break;
+            case "float":
+                out.print("float32");
+                break;
+            case "boolean":
+                out.print("bool");
+                break;
+            case "short":
+                out.print("int16");
+                break;
+            case "long":
+                out.print("int64");
+                break;
+            default:
+                out.print(name);
+                break;
+        }
         return null;
     }
 

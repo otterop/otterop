@@ -16,7 +16,7 @@ otterop_datastructure_LinkedListIterator_t *otterop_datastructure_LinkedListIter
     return self;
 }
 
-int otterop_datastructure_LinkedListIterator_has_next(otterop_datastructure_LinkedListIterator_t *self) {
+unsigned char otterop_datastructure_LinkedListIterator_has_next(otterop_datastructure_LinkedListIterator_t *self) {
     return self->current != NULL;
 }
 
@@ -29,7 +29,7 @@ void *otterop_datastructure_LinkedListIterator_next(otterop_datastructure_Linked
 otterop_lang_OOPIterator_t
 *otterop_datastructure_LinkedListIterator__to_otterop_lang_OOPIterator(otterop_datastructure_LinkedListIterator_t *self) {
     return otterop_lang_OOPIterator_new(self,
-        (int (*)(void *)) otterop_datastructure_LinkedListIterator_has_next,
+        (unsigned char (*)(void *)) otterop_datastructure_LinkedListIterator_has_next,
         (void * (*)(void *)) otterop_datastructure_LinkedListIterator_next);
 }
 

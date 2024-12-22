@@ -3,6 +3,6 @@
 
 typedef struct otterop_lang_OOPObject_s otterop_lang_OOPObject_t;
 
-int otterop_lang_OOPObject_is(void *a, void *b);
+unsigned char otterop_lang_OOPObject_is(void *a, void *b);
 
 #endif

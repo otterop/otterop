@@ -7,6 +7,7 @@
 #include <otterop/lang/string.h>
 #include <otterop/lang/oop_object.h>
 #include <otterop/datastructure/int/linked_list_node.h>
+#include <stdint.h>
 
 typedef struct otterop_lang_OOPIterable_s otterop_lang_OOPIterable_t;
 typedef struct otterop_lang_OOPIterator_s otterop_lang_OOPIterator_t;
@@ -56,13 +57,13 @@ void otterop_datastructure_LinkedList_remove_first(otterop_datastructure_LinkedL
 void otterop_datastructure_LinkedList_remove_last(otterop_datastructure_LinkedList_t *self);
 
 
-int otterop_datastructure_LinkedList_remove(otterop_datastructure_LinkedList_t *self, void *value);
+unsigned char otterop_datastructure_LinkedList_remove(otterop_datastructure_LinkedList_t *self, void *value);
 
 
 void otterop_datastructure_LinkedList_remove_node(otterop_datastructure_LinkedList_t *self, otterop_datastructure_LinkedListNode_t *node);
 
 
-int otterop_datastructure_LinkedList_size(otterop_datastructure_LinkedList_t *self);
+int32_t otterop_datastructure_LinkedList_size(otterop_datastructure_LinkedList_t *self);
 
 
 otterop_datastructure_LinkedListNode_t *otterop_datastructure_LinkedList_first(otterop_datastructure_LinkedList_t *self);

@@ -36,6 +36,7 @@
 #include <stdlib.h>
 #include <gc.h>
 #include <stdio.h>
+#include <stdint.h>
 #include "otterop/lang/oop_iterable.h"
 
 typedef struct otterop_lang_String_s otterop_lang_String_t;
@@ -46,7 +47,7 @@ char *otterop_lang_String_string(otterop_lang_String_t *a);
 
 char *otterop_lang_String_unwrap(otterop_lang_String_t *a);
 
-int otterop_lang_String_compare_to(otterop_lang_String_t *a, otterop_lang_String_t *b);
+int32_t otterop_lang_String_compare_to(otterop_lang_String_t *a, otterop_lang_String_t *b);
 
 otterop_lang_String_t *otterop_lang_String_concat(otterop_lang_OOPIterable_t *strings);
 #endif

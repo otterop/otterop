@@ -72,7 +72,7 @@ void otterop_datastructure_TestList_remove_range(otterop_datastructure_TestList_
     otterop_datastructure_TestList_assert_true(self, otterop_lang_String_compare_to(val, otterop_lang_String_wrap("c")) == 0, otterop_lang_String_wrap("Third element should be c"));
 }
 
-void otterop_datastructure_TestList_assert_true(otterop_datastructure_TestList_t *self, int arg0, otterop_lang_String_t *arg1) {
+void otterop_datastructure_TestList_assert_true(otterop_datastructure_TestList_t *self, unsigned char arg0, otterop_lang_String_t *arg1) {
     return  otterop_test_TestBase_assert_true(self->_super, arg0, arg1);
 }
 

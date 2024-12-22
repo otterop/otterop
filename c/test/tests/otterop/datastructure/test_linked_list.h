@@ -16,7 +16,7 @@ typedef struct otterop_datastructure_TestLinkedList_s otterop_datastructure_Test
 void otterop_datastructure_TestLinkedList_add(otterop_datastructure_TestLinkedList_t *self);
 
 
-void otterop_datastructure_TestLinkedList_assert_true(otterop_datastructure_TestLinkedList_t *self, int arg0, otterop_lang_String_t *arg1);
+void otterop_datastructure_TestLinkedList_assert_true(otterop_datastructure_TestLinkedList_t *self, unsigned char arg0, otterop_lang_String_t *arg1);
 
 otterop_datastructure_TestLinkedList_t* otterop_datastructure_TestLinkedList_new();
 #endif

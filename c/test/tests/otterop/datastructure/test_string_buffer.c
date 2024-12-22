@@ -27,7 +27,7 @@ void otterop_datastructure_TestStringBuffer_add_more_strings(otterop_datastructu
     otterop_datastructure_TestStringBuffer_assert_true(self, otterop_lang_String_compare_to(s, otterop_lang_String_wrap("a,b")) == 0, otterop_lang_String_wrap("Should be equals to 'a,b'"));
 }
 
-void otterop_datastructure_TestStringBuffer_assert_true(otterop_datastructure_TestStringBuffer_t *self, int arg0, otterop_lang_String_t *arg1) {
+void otterop_datastructure_TestStringBuffer_assert_true(otterop_datastructure_TestStringBuffer_t *self, unsigned char arg0, otterop_lang_String_t *arg1) {
     return  otterop_test_TestBase_assert_true(self->_super, arg0, arg1);
 }
 

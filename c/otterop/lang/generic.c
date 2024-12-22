@@ -12,7 +12,7 @@ void *otterop_lang_Generic_zero(otterop_lang_Generic_t *self) {
     return NULL;
 }
 
-int otterop_lang_Generic_is_zero(void *arg) {
+unsigned char otterop_lang_Generic_is_zero(void *arg) {
     return arg == NULL;
 }
 

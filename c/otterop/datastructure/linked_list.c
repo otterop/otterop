@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <otterop/datastructure/int/linked_list.h>
 #include <gc.h>
 #include <stdlib.h>
@@ -6,7 +7,7 @@
 typedef struct otterop_datastructure_LinkedList_s {
     otterop_datastructure_LinkedListNode_t *head;
     otterop_datastructure_LinkedListNode_t *tail;
-    int size;
+    int32_t size;
 } otterop_datastructure_LinkedList_t;
 
 
@@ -160,7 +161,7 @@ void otterop_datastructure_LinkedList_remove_last(otterop_datastructure_LinkedLi
     }
 }
 
-int otterop_datastructure_LinkedList_remove(otterop_datastructure_LinkedList_t *self, void *value) {
+unsigned char otterop_datastructure_LinkedList_remove(otterop_datastructure_LinkedList_t *self, void *value) {
     otterop_datastructure_LinkedListNode_t *curr = self->head;
     
     while (curr != NULL) {
@@ -199,7 +200,7 @@ void otterop_datastructure_LinkedList_remove_node(otterop_datastructure_LinkedLi
     self->size--;
 }
 
-int otterop_datastructure_LinkedList_size(otterop_datastructure_LinkedList_t *self) {
+int32_t otterop_datastructure_LinkedList_size(otterop_datastructure_LinkedList_t *self) {
     return self->size;
 }
 

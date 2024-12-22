@@ -13,7 +13,7 @@ typedef struct otterop_datastructure_LinkedListIterator_s otterop_datastructure_
 
 otterop_datastructure_LinkedListIterator_t *otterop_datastructure_LinkedListIterator_new(otterop_datastructure_LinkedList_t *linked_list);
 
-int otterop_datastructure_LinkedListIterator_has_next(otterop_datastructure_LinkedListIterator_t *self);
+unsigned char otterop_datastructure_LinkedListIterator_has_next(otterop_datastructure_LinkedListIterator_t *self);
 
 
 void *otterop_datastructure_LinkedListIterator_next(otterop_datastructure_LinkedListIterator_t *self);

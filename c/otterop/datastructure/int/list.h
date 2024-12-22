@@ -7,6 +7,7 @@
 #include <otterop/lang/panic.h>
 #include <otterop/lang/pure_iterator.h>
 #include <otterop/lang/string.h>
+#include <stdint.h>
 
 typedef struct otterop_lang_Array_s otterop_lang_Array_t;
 typedef struct otterop_lang_Generic_s otterop_lang_Generic_t;
@@ -23,7 +24,7 @@ typedef struct otterop_datastructure_List_s otterop_datastructure_List_t;
 
 otterop_datastructure_List_t *otterop_datastructure_List_new();
 
-void otterop_datastructure_List_ensure_capacity(otterop_datastructure_List_t *self, int capacity);
+void otterop_datastructure_List_ensure_capacity(otterop_datastructure_List_t *self, int32_t capacity);
 
 
 void otterop_datastructure_List_add(otterop_datastructure_List_t *self, void *element);
@@ -35,25 +36,25 @@ void otterop_datastructure_List_add_array(otterop_datastructure_List_t *self, ot
 void otterop_datastructure_List_add_list(otterop_datastructure_List_t *self, otterop_datastructure_List_t *src);
 
 
-void otterop_datastructure_List_insert(otterop_datastructure_List_t *self, int index, void *element);
+void otterop_datastructure_List_insert(otterop_datastructure_List_t *self, int32_t index, void *element);
 
 
-void otterop_datastructure_List_insert_array(otterop_datastructure_List_t *self, int index, otterop_lang_Array_t *src);
+void otterop_datastructure_List_insert_array(otterop_datastructure_List_t *self, int32_t index, otterop_lang_Array_t *src);
 
 
-void otterop_datastructure_List_insert_list(otterop_datastructure_List_t *self, int index, otterop_datastructure_List_t *src);
+void otterop_datastructure_List_insert_list(otterop_datastructure_List_t *self, int32_t index, otterop_datastructure_List_t *src);
 
 
-void *otterop_datastructure_List_get(otterop_datastructure_List_t *self, int index);
+void *otterop_datastructure_List_get(otterop_datastructure_List_t *self, int32_t index);
 
 
-void *otterop_datastructure_List_remove_index(otterop_datastructure_List_t *self, int index);
+void *otterop_datastructure_List_remove_index(otterop_datastructure_List_t *self, int32_t index);
 
 
-otterop_datastructure_List_t *otterop_datastructure_List_remove_range(otterop_datastructure_List_t *self, int index, int count);
+otterop_datastructure_List_t *otterop_datastructure_List_remove_range(otterop_datastructure_List_t *self, int32_t index, int32_t count);
 
 
-int otterop_datastructure_List_size(otterop_datastructure_List_t *self);
+int32_t otterop_datastructure_List_size(otterop_datastructure_List_t *self);
 
 
 otterop_lang_OOPIterator_t *otterop_datastructure_List_oop_iterator(otterop_datastructure_List_t *self);

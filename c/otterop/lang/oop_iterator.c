@@ -3,12 +3,12 @@
 
 typedef struct otterop_lang_OOPIterator_s {
     void *implementation;
-    int (*has_next)(void *);
+    unsigned char (*has_next)(void *);
     void *(*next)(void *);
 } otterop_lang_OOPIterator_t;
 
 
-otterop_lang_OOPIterator_t *otterop_lang_OOPIterator_new(void *implementation, int (*has_next)(void *), void *(*next)(void *)) {
+otterop_lang_OOPIterator_t *otterop_lang_OOPIterator_new(void *implementation, unsigned char (*has_next)(void *), void *(*next)(void *)) {
     otterop_lang_OOPIterator_t *self = GC_malloc(sizeof(otterop_lang_OOPIterator_t));
     self->implementation = implementation;
     self->has_next = has_next;
@@ -17,13 +17,13 @@ otterop_lang_OOPIterator_t *otterop_lang_OOPIterator_new(void *implementation, i
 }
 
 
-int otterop_lang_OOPIterator_has_next(otterop_lang_OOPIterator_t *self);
+unsigned char otterop_lang_OOPIterator_has_next(otterop_lang_OOPIterator_t *self);
 
 
 void *otterop_lang_OOPIterator_next(otterop_lang_OOPIterator_t *self);
 
 
-int otterop_lang_OOPIterator_has_next(otterop_lang_OOPIterator_t *self) {
+unsigned char otterop_lang_OOPIterator_has_next(otterop_lang_OOPIterator_t *self) {
     return self->has_next(self->implementation);
 }
 

@@ -1,9 +1,10 @@
+#include <stdint.h>
 #include <otterop/datastructure/int/list_iterator.h>
 #include <gc.h>
 
 typedef struct otterop_datastructure_ListIterator_s {
     otterop_datastructure_List_t *list;
-    int index;
+    int32_t index;
 } otterop_datastructure_ListIterator_t;
 
 
@@ -16,7 +17,7 @@ otterop_datastructure_ListIterator_t *otterop_datastructure_ListIterator_new(ott
     return self;
 }
 
-int otterop_datastructure_ListIterator_has_next(otterop_datastructure_ListIterator_t *self) {
+unsigned char otterop_datastructure_ListIterator_has_next(otterop_datastructure_ListIterator_t *self) {
     return self->index < otterop_datastructure_List_size(self->list);
 }
 
@@ -29,7 +30,7 @@ void *otterop_datastructure_ListIterator_next(otterop_datastructure_ListIterator
 otterop_lang_OOPIterator_t
 *otterop_datastructure_ListIterator__to_otterop_lang_OOPIterator(otterop_datastructure_ListIterator_t *self) {
     return otterop_lang_OOPIterator_new(self,
-        (int (*)(void *)) otterop_datastructure_ListIterator_has_next,
+        (unsigned char (*)(void *)) otterop_datastructure_ListIterator_has_next,
         (void * (*)(void *)) otterop_datastructure_ListIterator_next);
 }
 

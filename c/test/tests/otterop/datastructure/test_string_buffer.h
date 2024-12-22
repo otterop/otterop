@@ -17,7 +17,7 @@ void otterop_datastructure_TestStringBuffer_empty(otterop_datastructure_TestStri
 void otterop_datastructure_TestStringBuffer_add_more_strings(otterop_datastructure_TestStringBuffer_t *self);
 
 
-void otterop_datastructure_TestStringBuffer_assert_true(otterop_datastructure_TestStringBuffer_t *self, int arg0, otterop_lang_String_t *arg1);
+void otterop_datastructure_TestStringBuffer_assert_true(otterop_datastructure_TestStringBuffer_t *self, unsigned char arg0, otterop_lang_String_t *arg1);
 
 otterop_datastructure_TestStringBuffer_t* otterop_datastructure_TestStringBuffer_new();
 #endif

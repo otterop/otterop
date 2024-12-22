@@ -1,9 +1,10 @@
+#include <stdint.h>
 #include <otterop/lang/int/array_iterator.h>
 #include <gc.h>
 
 typedef struct otterop_lang_ArrayIterator_s {
     otterop_lang_Array_t *array;
-    int i;
+    int32_t i;
 } otterop_lang_ArrayIterator_t;
 
 
@@ -16,7 +17,7 @@ otterop_lang_ArrayIterator_t *otterop_lang_ArrayIterator_new(otterop_lang_Array_
     return self;
 }
 
-int otterop_lang_ArrayIterator_has_next(otterop_lang_ArrayIterator_t *self) {
+unsigned char otterop_lang_ArrayIterator_has_next(otterop_lang_ArrayIterator_t *self) {
     return self->i < otterop_lang_Array_size(self->array);
 }
 
@@ -29,7 +30,7 @@ void *otterop_lang_ArrayIterator_next(otterop_lang_ArrayIterator_t *self) {
 otterop_lang_OOPIterator_t
 *otterop_lang_ArrayIterator__to_otterop_lang_OOPIterator(otterop_lang_ArrayIterator_t *self) {
     return otterop_lang_OOPIterator_new(self,
-        (int (*)(void *)) otterop_lang_ArrayIterator_has_next,
+        (unsigned char (*)(void *)) otterop_lang_ArrayIterator_has_next,
         (void * (*)(void *)) otterop_lang_ArrayIterator_next);
 }
 
